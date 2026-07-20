@@ -842,18 +842,23 @@ security.personal_data_scan:
 security.legacy_credential_guard:
 	@python3 scripts/ci/secret_scan.py --legacy-only
 
-.PHONY: verify.branch.governance.consistency
+.PHONY: verify.branch.governance.consistency verify.github_actions.security
 verify.branch.governance.consistency:
 	@python3 -m py_compile scripts/verify/branch_governance_consistency_guard.py scripts/verify/test_branch_governance_consistency_guard.py
 	@python3 scripts/verify/test_branch_governance_consistency_guard.py
 	@python3 scripts/verify/branch_governance_consistency_guard.py
 
-verify.repository.clean_history: guard.prod.forbid security.secrets.scan security.personal_data_scan verify.tenant.product_payload_boundary verify.branch.governance.consistency
+verify.github_actions.security:
+	@python3 -m py_compile scripts/verify/github_actions_security_guard.py scripts/verify/test_github_actions_security_guard.py
+	@python3 scripts/verify/test_github_actions_security_guard.py
+	@python3 scripts/verify/github_actions_security_guard.py
+
+verify.repository.clean_history: guard.prod.forbid security.secrets.scan security.personal_data_scan verify.tenant.product_payload_boundary verify.branch.governance.consistency verify.github_actions.security verify.gitee.webhook.ci
 	@python3 -m py_compile scripts/verify/repository_clean_history_guard.py scripts/verify/test_repository_clean_history_guard.py
 	@python3 scripts/verify/test_repository_clean_history_guard.py
 	@python3 scripts/verify/repository_clean_history_guard.py
 
-.PHONY: verify.repository.local_hygiene verify.repository.public_old_sha
+.PHONY: verify.repository.local_hygiene verify.repository.release_hygiene verify.repository.public_old_sha
 .PHONY: verify.clean_product_tree
 verify.clean_product_tree:
 	@test -n "$(CLEAN_PRODUCT_SCAN_REPORT)" || (echo "CLEAN_PRODUCT_SCAN_REPORT is required"; exit 2)
@@ -861,6 +866,13 @@ verify.clean_product_tree:
 	@python3 scripts/verify/clean_product_tree_guard.py --report "$(CLEAN_PRODUCT_SCAN_REPORT)"
 
 verify.repository.local_hygiene:
+	@python3 scripts/verify/repository_clean_history_guard.py --local-hygiene
+
+# Deliberately excluded from ci.local.quick: harmless dangling objects are a
+# release-workspace concern, not a normal development failure.
+verify.repository.release_hygiene: guard.prod.forbid
+	@python3 -m py_compile scripts/verify/repository_clean_history_guard.py scripts/verify/test_repository_clean_history_guard.py
+	@python3 scripts/verify/test_repository_clean_history_guard.py
 	@python3 scripts/verify/repository_clean_history_guard.py --local-hygiene
 
 verify.repository.public_old_sha:

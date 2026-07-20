@@ -108,3 +108,19 @@ customer delivery evidence belongs in private customer or payload repositories.
 - Why Not Elsewhere / Blast Radius: P0 does not own payment semantics and P2 must not repair standard navigation. The change is limited to payment quick links, financial relationship links, and acceptance target resolution; released-navigation, page-identity, finance, My Work, boundary, build, and role-journey gates contain it.
 - Q11 role-semantics correction: J12 contract editing now uses an acceptance-only contract operator carrying the existing P1 `group_sc_role_operation_user`; PM remains contract-read-only as required by the authoritative role matrix. No ACL, record rule, production seed, or customer role changes.
 - Q11 low-code acceptance closure: two acceptance-only users carry the existing P1 business-configuration administrator role so change-set preview, atomic publish, isolation, rollback, and ordinary-user denial are exercised without legacy accounts or fixed production credentials. Runtime targets are the current canonical contract action/menu resolved from product XML-IDs.
+
+## 2026-07-20 — CLEAN-REPO-01G Gitee WebHook CI
+
+- Branch: `fix/clean-repository-ci-governance`
+- Starting product commit: `f01710c926188c4f7b482068bc491880c57a628d`
+- Formal Product Layer: P4 operations delivery tool
+- Layer Target: Gitee WebHook authentication, normalized CI queue, exact-SHA checkout, and server service isolation
+- Module: `scripts/ci`, `scripts/verify`, `deploy/gitee-ci`, and Make governance entry points
+- Reason: run repository guards on the existing Huawei CI node without GitHub billing or Gitee Go build minutes
+- Standard vs User-Specific: product-neutral repository governance; no customer code, payload, credential, or business semantic is introduced
+- Why Here: repository CI owns event admission, source identity, immutable checkout, cleanup, and evidence retention
+- Why Not Elsewhere: Gitee must not execute builds, product modules must not own delivery orchestration, and production hosts must not accept ordinary Push events
+- Blast Radius: one loopback service on `1.95.2.123` exposed only through an exact-path Nginx HTTPS proxy, a dedicated unprivileged account/deploy key, SQLite idempotency state, lightweight clean-history gates, and no RC/attachment/production entry point
+- System-bound verification: 11 signed WebHook positive/negative tests covering header and query transport, server systemd activation, loopback and trusted public HTTPS health probes, unsigned public request denial, fixed repository/sender allowlist, replay denial, fork denial, SHA injection denial, secret environment isolation, and pre-write Gitee scope validation
+- External state: Nginx 1.24 and Certbot 5.7 are active; Let's Encrypt issued the short-lived IP certificate and the renewal timer is enabled. Gitee Deploy Key `5932346`, signed WebHook `2106026`, protected `main`, and governance PR `#1` are configured. The built-in Gitee test payload is intentionally denied by the repository allowlist; a real same-repository Push is the authoritative end-to-end probe.
+- End-to-end result: the real PR event for `736a310ab4f5a0844797d8178a34e3b92cc3320a` passed with exact-SHA checkout, release scan 12/12, exit code 0, workspace cleanup, and zero credential markers in retained CI logs.
