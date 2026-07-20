@@ -1,0 +1,12 @@
+[Unit]
+Description=Poll verified Gitee main handoff for GitHub mirroring
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+RandomizedDelaySec=15s
+Persistent=true
+Unit=gitee-to-github-mirror.service
+
+[Install]
+WantedBy=timers.target

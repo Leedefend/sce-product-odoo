@@ -24,6 +24,7 @@ fi
 readonly repo_url="git@gitee.com:leegege/sce-product-odoo.git"
 readonly workspace_root="${GITEE_CI_WORKSPACE_ROOT:-/var/lib/gitee-ci/workspaces}"
 readonly artifact_root="${GITEE_CI_ARTIFACT_ROOT:-/var/lib/gitee-ci/artifacts}"
+readonly mirror_source_repo="${GITEE_MIRROR_SOURCE_REPO:-}"
 mkdir -p "${workspace_root}" "${artifact_root}/${sha}"
 workdir="$(mktemp -d "${workspace_root}/job-${sha:0:12}-XXXXXX")"
 
@@ -78,4 +79,18 @@ printf '%s\n' \
   "PROFESSIONAL_QUALITY_GATE=${professional_result}" \
   "RESULT=PASS" \
   > "${artifact_root}/${sha}/result.txt"
+
+# Publish only a verified Gitee main commit to the credential-free local handoff.
+# The separate mirror service owns the GitHub write key and is the only process
+# able to push this object to GitHub.
+if [ "${hook_name}" = "push_hooks" ] && [ -n "${mirror_source_repo}" ]; then
+  remote_main_sha="$(git ls-remote origin refs/heads/main | awk 'NR == 1 {print $1}')"
+  if [ "${remote_main_sha}" = "${sha}" ]; then
+    git push "${mirror_source_repo}" \
+      "${sha}:refs/heads/main"
+    echo "[gitee_ci] mirror handoff PASS sha=${sha}"
+  else
+    echo "[gitee_ci] mirror handoff SKIPPED reason=not_gitee_main"
+  fi
+fi
 echo "[gitee_ci] PASS sha=${sha}"

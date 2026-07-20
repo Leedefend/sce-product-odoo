@@ -4,13 +4,13 @@ Generated from `test_inventory.csv`.
 
 ## Totals
 
-- Total assets: `984`
+- Total assets: `985`
 - Review queue: `4`
 - Unknown runtime: `3`
 - Long-running assets: `112`
 - Manual gate review: `4`
 - Aggregate-covered assets: `227`
-- PR dedupe candidates: `645`
+- PR dedupe candidates: `646`
 
 ## By Layer
 
@@ -18,7 +18,7 @@ Generated from `test_inventory.csv`.
 | --- | ---: |
 | governance | 381 |
 | contract | 310 |
-| unit | 154 |
+| unit | 155 |
 | odoo_integration | 56 |
 | e2e | 33 |
 | frontend_acceptance | 23 |
@@ -30,7 +30,7 @@ Generated from `test_inventory.csv`.
 
 | Decision Gate | Count |
 | --- | ---: |
-| pr_candidate | 866 |
+| pr_candidate | 867 |
 | integration_candidate | 78 |
 | release_candidate | 31 |
 | manual_review | 4 |
@@ -43,7 +43,7 @@ Generated from `test_inventory.csv`.
 
 | Disposition | Count |
 | --- | ---: |
-| deduplicate_before_required | 645 |
+| deduplicate_before_required | 646 |
 | covered_by_aggregate | 222 |
 | keep_integration_or_release_only | 77 |
 | keep_release_only | 31 |
@@ -143,7 +143,7 @@ Generated from `test_inventory.csv`.
 
 | Runtime | Count |
 | --- | ---: |
-| <5m | 868 |
+| <5m | 869 |
 | 10-30m | 79 |
 | 30-60m | 33 |
 | unknown | 3 |
@@ -155,7 +155,7 @@ Generated from `test_inventory.csv`.
 | --- | ---: |
 | architecture owner | 381 |
 | platform owner | 310 |
-| test owner | 155 |
+| test owner | 156 |
 | backend owner | 56 |
 | qa owner | 33 |
 | frontend owner | 24 |
@@ -166,7 +166,7 @@ Generated from `test_inventory.csv`.
 
 | Directory | Count |
 | --- | ---: |
-| scripts/verify | 890 |
+| scripts/verify | 891 |
 | scripts/ops | 36 |
 | frontend/apps/web/scripts | 28 |
 | scripts/ci | 10 |
@@ -277,7 +277,7 @@ Generated from `test_inventory.csv`.
 | T-ASSET-159 | governance | `scripts/verify/complexity_guard.py` | architecture owner |
 | T-ASSET-160 | contract | `scripts/verify/construction_contract_history_value_gap_probe.py` | platform owner |
 | T-ASSET-161 | security | `scripts/verify/construction_core_extension_actor_roles_split_guard.py` | security owner |
-| ... | ... | 565 more | ... |
+| ... | ... | 566 more | ... |
 
 ## Dedupe Hotspots
 

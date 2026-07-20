@@ -6,18 +6,40 @@ CODEX_ALLOWED_WRITE_BRANCH_PREFIXES := feature/* fix/* refactor/* audit/* releas
 
 .PHONY: codex.fast codex.gate codex.print codex.pr codex.cleanup codex.sync-main codex.cli
 .PHONY: verify.gitee.webhook.ci gitee.ci.server.install gitee.ci.server.status
+.PHONY: gitee.github.mirror.install gitee.github.mirror.seed gitee.github.mirror.run
+.PHONY: github.mirror.ruleset.configure github.mirror.non_mirror_push.test
 .PHONY: gitee.ci.https.install gitee.ci.https.status gitee.ci.repository.configure
 
 verify.gitee.webhook.ci: guard.prod.forbid
-	@python3 -m py_compile scripts/ci/gitee_webhook_ci.py scripts/verify/test_gitee_webhook_ci.py scripts/ops/configure_gitee_ci_repository.py
+	@python3 -m py_compile scripts/ci/gitee_webhook_ci.py scripts/verify/test_gitee_webhook_ci.py scripts/verify/test_gitee_to_github_mirror.py scripts/ops/configure_gitee_ci_repository.py
 	@python3 scripts/verify/test_gitee_webhook_ci.py
-	@bash -n scripts/ci/gitee_ci_run.sh scripts/ops/install_gitee_webhook_ci.sh scripts/ops/install_gitee_ci_https.sh deploy/gitee-ci/install.sh deploy/gitee-ci/install_https.sh
+	@python3 scripts/verify/test_gitee_to_github_mirror.py
+	@bash -n scripts/ci/gitee_ci_run.sh scripts/ops/install_gitee_webhook_ci.sh scripts/ops/install_gitee_ci_https.sh scripts/ops/gitee_to_github_mirror.sh scripts/ops/install_gitee_to_github_mirror.sh scripts/ops/configure_github_mirror_ruleset.sh deploy/gitee-ci/install.sh deploy/gitee-ci/install_https.sh deploy/gitee-mirror/install.sh
 
 gitee.ci.server.install: guard.prod.forbid
 	@GITEE_CI_SERVER_CONFIRM="$(GITEE_CI_SERVER_CONFIRM)" bash scripts/ops/install_gitee_webhook_ci.sh
 
 gitee.ci.server.status: guard.prod.forbid
 	@ssh -o BatchMode=yes root@1.95.2.123 'systemctl --no-pager --full status gitee-webhook-ci.service gitee-ci-worker.service; curl --fail --silent http://127.0.0.1:9080/healthz'
+
+gitee.github.mirror.install: guard.prod.forbid
+	@GITEE_MIRROR_SERVER_CONFIRM="$(GITEE_MIRROR_SERVER_CONFIRM)" bash scripts/ops/install_gitee_to_github_mirror.sh
+
+gitee.github.mirror.seed: guard.prod.forbid
+	@GITEE_MIRROR_SEED_CONFIRM="$(GITEE_MIRROR_SEED_CONFIRM)" \
+	 GITEE_MIRROR_SEED_SHA="$(GITEE_MIRROR_SEED_SHA)" \
+	 bash scripts/ops/seed_gitee_to_github_mirror.sh
+
+gitee.github.mirror.run: guard.prod.forbid
+	@GITEE_MIRROR_RUN_CONFIRM="$(GITEE_MIRROR_RUN_CONFIRM)" bash scripts/ops/run_gitee_to_github_mirror.sh
+
+github.mirror.ruleset.configure: guard.prod.forbid
+	@GITHUB_MIRROR_RULESET_CONFIRM="$(GITHUB_MIRROR_RULESET_CONFIRM)" \
+	 GITHUB_MIRROR_PUBLIC_KEY_FILE="$(GITHUB_MIRROR_PUBLIC_KEY_FILE)" \
+	 bash scripts/ops/configure_github_mirror_ruleset.sh
+
+github.mirror.non_mirror_push.test: guard.prod.forbid
+	@bash scripts/verify/github_non_mirror_push_denied.sh
 
 gitee.ci.https.install: guard.prod.forbid
 	@GITEE_CI_HTTPS_CONFIRM="$(GITEE_CI_HTTPS_CONFIRM)" bash scripts/ops/install_gitee_ci_https.sh
@@ -170,7 +192,7 @@ pr.update: guard.prod.forbid
 	'
 
 pr.push: guard.prod.forbid
-	@bash scripts/ops/git_safe_push.sh
+	@GITEE_AUTH_REMOTE="$(or $(GITEE_AUTH_REMOTE),gitee)" bash scripts/ops/git_safe_push.sh
 
 pr.merge: guard.prod.forbid
 	@bash -lc '\

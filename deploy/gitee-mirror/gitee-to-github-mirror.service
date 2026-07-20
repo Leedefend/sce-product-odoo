@@ -1,0 +1,22 @@
+[Unit]
+Description=Fast-forward-only Gitee to GitHub mirror for sce-product-odoo
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=gitee-mirror
+Group=gitee-mirror
+Environment=GITEE_MIRROR_SOURCE_REPOSITORY=leegege/sce-product-odoo
+Environment=GITEE_MIRROR_SOURCE_REPO=/var/lib/gitee-mirror/source.git
+Environment=GITHUB_MIRROR_KEY_FILE=/etc/gitee-mirror/github_ed25519
+Environment=GITHUB_MIRROR_KNOWN_HOSTS=/etc/gitee-mirror/github_known_hosts
+ExecStart=/opt/gitee-mirror/gitee_to_github_mirror.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/var/lib/gitee-mirror/source.git /etc/gitee-mirror
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true

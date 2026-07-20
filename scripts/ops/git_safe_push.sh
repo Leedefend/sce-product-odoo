@@ -11,7 +11,11 @@ if [[ "${GIT_SAFE_PUSH_FAKE_GIT:-0}" == "1" && "$(basename "$0")" == "git" ]]; t
   printf '%s\n' "$*" >>"${FAKE_GIT_LOG:?}"
   case "${1:-}" in
     rev-parse)
-      printf '%s\n' "${FAKE_BRANCH:-fix/test-branch}"
+      if [[ "${2:-}" == "HEAD" ]]; then
+        printf '%s\n' "${FAKE_HEAD_SHA:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}"
+      else
+        printf '%s\n' "${FAKE_BRANCH:-fix/test-branch}"
+      fi
       ;;
     check-ref-format)
       [[ "${FAKE_INVALID_BRANCH:-0}" != "1" ]]
@@ -37,7 +41,12 @@ if [[ "${GIT_SAFE_PUSH_FAKE_GIT:-0}" == "1" && "$(basename "$0")" == "git" ]]; t
         contains_word "${FAKE_EXISTING_REMOTES:-origin gitee}" "$remote"
       else
         remote="${2:-}"
-        ! contains_word "${FAKE_INACCESSIBLE_REMOTES:-}" "$remote"
+        if contains_word "${FAKE_INACCESSIBLE_REMOTES:-}" "$remote"; then
+          exit 128
+        fi
+        if [[ "${3:-}" == refs/heads/* ]]; then
+          printf '%s\t%s\n' "${FAKE_HEAD_SHA:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}" "${3}"
+        fi
       fi
       ;;
     push)
@@ -108,12 +117,8 @@ if [[ "${1:-}" == "--self-test" ]]; then
     [[ "$count" -eq "$2" ]] || fail "$1: expected $2 push calls, got $count"
   }
 
-  FAKE_MISSING_REMOTES=origin run_push
-  assert_nonzero 'missing origin'; assert_output 'missing origin' "required remote 'origin' not configured"; assert_push_count 'missing origin' 0
   FAKE_MISSING_REMOTES=gitee run_push
   assert_nonzero 'missing gitee'; assert_output 'missing gitee' "required remote 'gitee' not configured"; assert_push_count 'missing gitee' 0
-  FAKE_INACCESSIBLE_REMOTES=origin run_push
-  assert_nonzero 'origin inaccessible'; assert_output 'origin inaccessible' "remote 'origin' is not accessible"; assert_push_count 'origin inaccessible' 0
   FAKE_INACCESSIBLE_REMOTES=gitee run_push
   assert_nonzero 'gitee inaccessible'; assert_output 'gitee inaccessible' "remote 'gitee' is not accessible"; assert_push_count 'gitee inaccessible' 0
 
@@ -124,20 +129,18 @@ if [[ "${1:-}" == "--self-test" ]]; then
   grep -q '^make --no-print-directory ci.generated_reports.guard$' "$log_file" || fail 'stale generated reports: local guard missing'
 
   FAKE_EXISTING_REMOTES='origin gitee' run_push
-  assert_zero 'existing branches'; assert_push_count 'existing branches' 2
-  grep -q '^push origin fix/test-branch$' "$log_file" || fail 'existing branches: origin update push missing'
+  assert_zero 'existing branches'; assert_push_count 'existing branches' 1
   grep -q '^push gitee fix/test-branch$' "$log_file" || fail 'existing branches: gitee update push missing'
 
   FAKE_EXISTING_REMOTES=none run_push
-  assert_zero 'new branches'; assert_push_count 'new branches' 2
-  grep -q '^push -u origin fix/test-branch$' "$log_file" || fail 'new branches: origin tracking push missing'
-  grep -q '^push gitee fix/test-branch$' "$log_file" || fail 'new branches: gitee push missing'
+  assert_zero 'new branches'; assert_push_count 'new branches' 1
+  grep -q '^push -u gitee fix/test-branch$' "$log_file" || fail 'new branches: Gitee tracking push missing'
 
   FAKE_PUSH_FAIL_REMOTES=gitee run_push
   assert_nonzero 'gitee write failure'
-  assert_output 'gitee write failure' 'partial_sync: successful_remotes=origin failed_remote=gitee'
+  assert_output 'gitee write failure' 'sync_failed: successful_remotes=none failed_remote=gitee'
   assert_output 'gitee write failure' 'recovery_command: make pr.push'
-  assert_push_count 'gitee write failure' 2
+  assert_push_count 'gitee write failure' 1
 
   for protected_branch in main master prod prod/production; do
     FAKE_BRANCH="$protected_branch" run_push
@@ -149,7 +152,7 @@ if [[ "${1:-}" == "--self-test" ]]; then
   for allowed_branch in feature/test fix/test refactor/test audit/test release/test codex/test; do
     FAKE_BRANCH="$allowed_branch" FAKE_EXISTING_REMOTES='origin gitee' run_push
     assert_zero "allowed branch $allowed_branch"
-    assert_push_count "allowed branch $allowed_branch" 2
+    assert_push_count "allowed branch $allowed_branch" 1
   done
 
   FAKE_DIRTY=1 run_push
@@ -195,57 +198,38 @@ if ! make --no-print-directory ci.generated_reports.guard; then
   exit 2
 fi
 
-for remote in origin gitee; do
-  if ! git remote get-url "$remote" >/dev/null 2>&1; then
-    echo "❌ required remote '${remote}' not configured" >&2
-    exit 2
-  fi
-done
-
-declare -A branch_exists
-for remote in origin gitee; do
-  echo "[pr.push] preflight remote=${remote}"
-  if ! git ls-remote "$remote" >/dev/null 2>&1; then
-    echo "❌ preflight_failed: remote '${remote}' is not accessible; no push attempted" >&2
-    exit 3
-  fi
-done
-
-for remote in origin gitee; do
-  if git ls-remote --exit-code --heads "$remote" "refs/heads/${branch}" >/dev/null 2>&1; then
-    branch_exists["$remote"]=1
-  else
-    branch_exists["$remote"]=0
-  fi
-done
-
-echo "[pr.push] preflight complete; remotes=origin,gitee branch=${branch} worktree=clean"
-
-if [[ "${branch_exists[origin]}" == "1" ]]; then
-  echo "[pr.push] pushing to origin/${branch}"
-  if ! git push origin "$branch"; then
-    echo "❌ sync_failed: successful_remotes=none failed_remote=origin" >&2
-    echo "recovery_command: make pr.push" >&2
-    exit 4
-  fi
-else
-  echo "[pr.push] pushing new branch to origin/${branch}"
-  if ! git push -u origin "$branch"; then
-    echo "❌ sync_failed: successful_remotes=none failed_remote=origin" >&2
-    echo "recovery_command: make pr.push" >&2
-    exit 4
-  fi
+remote="${GITEE_AUTH_REMOTE:-gitee}"
+if ! git remote get-url "$remote" >/dev/null 2>&1; then
+  echo "❌ required remote '${remote}' not configured" >&2
+  exit 2
 fi
-
-if [[ "${branch_exists[gitee]}" == "1" ]]; then
-  echo "[pr.push] pushing to gitee/${branch}"
-else
-  echo "[pr.push] pushing new branch to gitee/${branch}"
+remote_url="$(git remote get-url "$remote")"
+if [[ "${GIT_SAFE_PUSH_FAKE_GIT:-0}" != "1" && "$remote_url" != "git@gitee.com:leegege/sce-product-odoo.git" ]]; then
+  echo "❌ authoritative remote is not the approved Gitee repository" >&2
+  exit 2
 fi
-if ! git push gitee "$branch"; then
-  echo "❌ partial_sync: successful_remotes=origin failed_remote=gitee" >&2
+echo "[pr.push] preflight authoritative_remote=${remote}"
+if ! git ls-remote "$remote" >/dev/null 2>&1; then
+  echo "❌ preflight_failed: remote '${remote}' is not accessible; no push attempted" >&2
+  exit 3
+fi
+if git ls-remote --exit-code --heads "$remote" "refs/heads/${branch}" >/dev/null 2>&1; then
+  branch_exists=1
+else
+  branch_exists=0
+fi
+echo "[pr.push] preflight complete; authoritative_remote=${remote} branch=${branch} worktree=clean"
+if [[ "${branch_exists}" == "1" ]]; then
+  push_args=("$remote" "$branch")
+else
+  push_args=(-u "$remote" "$branch")
+fi
+if ! git push "${push_args[@]}"; then
+  echo "❌ sync_failed: successful_remotes=none failed_remote=${remote}" >&2
   echo "recovery_command: make pr.push" >&2
   exit 5
 fi
-
-echo "[pr.push] sync complete; successful_remotes=origin,gitee branch=${branch}"
+local_sha="$(git rev-parse HEAD)"
+remote_sha="$(git ls-remote "$remote" "refs/heads/${branch}" | awk 'NR == 1 {print $1}')"
+[[ "$local_sha" == "$remote_sha" ]] || { echo "❌ post_push_sha_mismatch" >&2; exit 6; }
+echo "[pr.push] sync complete; authoritative_remote=${remote} branch=${branch} sha=${local_sha}"
