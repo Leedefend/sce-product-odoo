@@ -174,7 +174,7 @@ async function main() {
       applyReleasedNavigationTarget(
         TARGETS,
         ['contract'],
-        await releasedNavigation.targetByMenuXmlid(TARGETS.contract.menu_xmlid),
+        await releasedNavigation.target(TARGETS.contract.action_xmlid),
       );
       report.j12 = await j12(page);
       await context.close();
