@@ -15,7 +15,7 @@ English: [gitee_webhook_ci_v1.en.md](gitee_webhook_ci_v1.en.md)
 1. 只接受 `POST /hooks/gitee` 和 JSON 请求，最大 1 MiB。
 2. 按 Gitee 官方算法校验签名与时间戳，兼容文档请求头和 API 创建钩子的
    `sign`/`timestamp` 查询参数；存在完整查询签名时以它为权威，否则使用请求头。
-   允许时钟偏差 300 秒，查询签名不写入访问日志。
+   专用解析器保留 Gitee 未转义的 Base64 `+`，允许时钟偏差 300 秒，查询签名不写入访问日志。
 3. 已使用过的签名时间戳不可重放。
 4. 校验仓库、发送者、事件；fork PR、删除分支、关闭/合并后的 PR 直接拒绝。
 5. 只把规范化的 SHA、事件和 PR 编号写入 SQLite；不保存原始请求或明文密钥。
@@ -75,4 +75,4 @@ make gitee.ci.server.status
 make gitee.ci.https.status
 ```
 
-13 项矩阵包括请求头/查询签名正向用例、API 双通道优先级、Push→PR 队列升级，以及无效签名、意外或重复查询参数、过期请求、重放、错误仓库、错误发送者、fork PR、分支/命令注入、删除/关闭事件和 secret 环境隔离。
+14 项矩阵包括请求头/查询签名正向用例、原始 Base64 `+`、API 双通道优先级、Push→PR 队列升级，以及无效签名、意外或重复查询参数、过期请求、重放、错误仓库、错误发送者、fork PR、分支/命令注入、删除/关闭事件和 secret 环境隔离。

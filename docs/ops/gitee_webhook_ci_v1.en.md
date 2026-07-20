@@ -12,7 +12,7 @@ Chinese: [gitee_webhook_ci_v1.md](gitee_webhook_ci_v1.md)
 ## Security chain
 
 1. Accept only JSON at `POST /hooks/gitee`, capped at 1 MiB.
-2. Verify the signature and timestamp with Gitee's documented algorithm, accepting both the documented headers and the API-created hook's `sign`/`timestamp` query transport. A complete query signature is authoritative when present; otherwise use the headers. The clock skew is 300 seconds, and query signatures are excluded from access logs.
+2. Verify the signature and timestamp with Gitee's documented algorithm, accepting both the documented headers and the API-created hook's `sign`/`timestamp` query transport. A complete query signature is authoritative when present; otherwise use the headers. A dedicated parser preserves Gitee's unescaped base64 `+`; the clock skew is 300 seconds, and query signatures are excluded from access logs.
 3. Reject reuse of a consumed signature timestamp.
 4. Validate repository, sender, and event; deny fork PRs, deleted refs, and closed/merged PR events.
 5. Persist only normalized SHA, event, and PR number in SQLite; never persist raw requests or plaintext secrets.
@@ -68,4 +68,4 @@ make gitee.ci.server.status
 make gitee.ci.https.status
 ```
 
-The 13-case matrix covers positive header/query signature transport, API dual-transport precedence, Push-to-PR queue upgrades, invalid signatures, unexpected or repeated query parameters, expiry, replay, wrong repository, wrong sender, fork PRs, branch/command injection, deleted/closed events, and secret isolation.
+The 14-case matrix covers positive header/query signature transport, raw base64 `+`, API dual-transport precedence, Push-to-PR queue upgrades, invalid signatures, unexpected or repeated query parameters, expiry, replay, wrong repository, wrong sender, fork PRs, branch/command injection, deleted/closed events, and secret isolation.

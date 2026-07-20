@@ -75,6 +75,23 @@ def authentication_values(headers: Any, query: dict[str, list[str]]) -> tuple[st
     return timestamp, token
 
 
+def parse_signature_query(raw_query: str) -> dict[str, list[str]]:
+    """Parse WebHook auth without treating a raw base64 '+' as a space."""
+    if not raw_query:
+        return {}
+    parsed: dict[str, list[str]] = {}
+    for field in raw_query.split("&"):
+        if "=" not in field:
+            raise Rejected("invalid query encoding")
+        raw_name, raw_value = field.split("=", 1)
+        name = urllib.parse.unquote(raw_name)
+        value = urllib.parse.unquote(raw_value)
+        if not name:
+            raise Rejected("invalid query encoding")
+        parsed.setdefault(name, []).append(value)
+    return parsed
+
+
 def require_fresh_timestamp(timestamp: str, now_ms: int, max_skew_seconds: int) -> None:
     if not timestamp.isdigit():
         raise Rejected("invalid timestamp")
@@ -369,12 +386,8 @@ def handler_factory(application: Application) -> type[BaseHTTPRequestHandler]:
                 self.respond(HTTPStatus.NOT_FOUND, "not_found")
                 return
             try:
-                query = urllib.parse.parse_qs(
-                    target.query,
-                    keep_blank_values=True,
-                    strict_parsing=True,
-                )
-            except ValueError:
+                query = parse_signature_query(target.query)
+            except Rejected:
                 self.respond(HTTPStatus.FORBIDDEN, "rejected")
                 return
             content_type = self.headers.get("Content-Type", "")

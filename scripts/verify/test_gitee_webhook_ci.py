@@ -180,6 +180,28 @@ class GiteeWebhookTests(unittest.TestCase):
         self.assertTrue(inserted)
         self.assertEqual(SHA, sha)
 
+    def test_raw_base64_plus_in_query_is_preserved(self) -> None:
+        import json
+
+        timestamp_number = int(time.time() * 1000)
+        while True:
+            timestamp = str(timestamp_number)
+            signature = MODULE.expected_signature(timestamp, SECRET)
+            if "+" in signature:
+                break
+            timestamp_number += 1
+        query = MODULE.parse_signature_query(
+            f"timestamp={timestamp}&sign={signature}"
+        )
+        self.assertIn("+", query["sign"][0])
+        inserted, sha = self.application.accept(
+            json.dumps(push_payload(), separators=(",", ":")).encode(),
+            Headers(),
+            query,
+        )
+        self.assertTrue(inserted)
+        self.assertEqual(SHA, sha)
+
     def test_wrong_repository_and_sender_are_rejected(self) -> None:
         self.assert_rejected(push_payload(repository={"full_name": "other/repo"}))
         self.assert_rejected(push_payload(sender={"login": "attacker"}))
