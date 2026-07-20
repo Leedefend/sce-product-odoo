@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "ops" / "gitee_to_github_mirror.sh"
 RULESET_SCRIPT = ROOT / "scripts" / "ops" / "configure_github_mirror_ruleset.sh"
+WORKER_UNIT = ROOT / "deploy" / "gitee-ci" / "gitee-ci-worker.service"
 OLD = "1" * 40
 NEW = "2" * 40
 
@@ -106,6 +107,15 @@ esac
             text.index('select(.enforcement == "active")'),
             text.index('branches/main/protection'),
         )
+
+    def test_worker_sandbox_allows_only_the_credential_free_handoff(self) -> None:
+        text = WORKER_UNIT.read_text(encoding="utf-8")
+        read_write = next(
+            line for line in text.splitlines() if line.startswith("ReadWritePaths=")
+        )
+        self.assertIn("/var/lib/gitee-mirror/source.git", read_write.split())
+        self.assertNotIn("/etc/gitee-mirror", read_write)
+        self.assertNotIn("github_ed25519", text)
 
 
 if __name__ == "__main__":
