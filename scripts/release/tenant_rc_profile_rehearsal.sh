@@ -143,6 +143,30 @@ if [[ "$profile" == RC-C04 ]]; then
       --entrypoint odoo odoo shell -d "$database" -c /var/lib/odoo/odoo.conf --log-level=error \
       < scripts/tenant_payload/odoo_action.py >> "$artifacts/profiles/RC-C04-payload-${payload_action}.jsonl"
   done
+  python3 - "$artifacts/profiles/RC-C04-payload-import.jsonl" \
+    "$artifacts/profiles/RC-C04-payload-verify.jsonl" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+
+def load_jsonl(path):
+    return [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+imports = load_jsonl(sys.argv[1])
+verifications = load_jsonl(sys.argv[2])
+if len(imports) != 2 or len(verifications) != 2:
+    raise SystemExit("RC_C04_IDEMPOTENCY_RESULT_COUNT_INVALID")
+if imports[0].get("idempotent_noop") is not False:
+    raise SystemExit("RC_C04_FIRST_IMPORT_MUST_APPLY")
+if imports[1].get("idempotent_noop") is not True:
+    raise SystemExit("RC_C04_SECOND_IMPORT_MUST_BE_NOOP")
+if any(result.get("status") != "PASS" for result in imports + verifications):
+    raise SystemExit("RC_C04_PAYLOAD_RESULT_FAILED")
+if len({result.get("payload_checksum") for result in imports + verifications}) != 1:
+    raise SystemExit("RC_C04_PAYLOAD_CHECKSUM_DRIFT")
+PY
 fi
 
 metrics="$("${compose[@]}" exec -T db psql -U "$DB_USER" -d "$database" -At -F '|' -c "
