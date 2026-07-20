@@ -853,7 +853,7 @@ verify.github_actions.security:
 	@python3 scripts/verify/test_github_actions_security_guard.py
 	@python3 scripts/verify/github_actions_security_guard.py
 
-verify.repository.clean_history: guard.prod.forbid security.secrets.scan security.personal_data_scan verify.tenant.product_payload_boundary verify.branch.governance.consistency verify.github_actions.security
+verify.repository.clean_history: guard.prod.forbid security.secrets.scan security.personal_data_scan verify.tenant.product_payload_boundary verify.branch.governance.consistency verify.github_actions.security verify.gitee.webhook.ci
 	@python3 -m py_compile scripts/verify/repository_clean_history_guard.py scripts/verify/test_repository_clean_history_guard.py
 	@python3 scripts/verify/test_repository_clean_history_guard.py
 	@python3 scripts/verify/repository_clean_history_guard.py

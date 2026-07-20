@@ -108,3 +108,17 @@ customer delivery evidence belongs in private customer or payload repositories.
 - Why Not Elsewhere / Blast Radius: P0 does not own payment semantics and P2 must not repair standard navigation. The change is limited to payment quick links, financial relationship links, and acceptance target resolution; released-navigation, page-identity, finance, My Work, boundary, build, and role-journey gates contain it.
 - Q11 role-semantics correction: J12 contract editing now uses an acceptance-only contract operator carrying the existing P1 `group_sc_role_operation_user`; PM remains contract-read-only as required by the authoritative role matrix. No ACL, record rule, production seed, or customer role changes.
 - Q11 low-code acceptance closure: two acceptance-only users carry the existing P1 business-configuration administrator role so change-set preview, atomic publish, isolation, rollback, and ordinary-user denial are exercised without legacy accounts or fixed production credentials. Runtime targets are the current canonical contract action/menu resolved from product XML-IDs.
+
+## 2026-07-20 — CLEAN-REPO-01G Gitee WebHook CI
+
+- Branch: `fix/clean-repository-ci-governance`
+- Starting product commit: `f01710c926188c4f7b482068bc491880c57a628d`
+- Formal Product Layer: P4 operations delivery tool
+- Layer Target: Gitee WebHook authentication, normalized CI queue, exact-SHA checkout, and server service isolation
+- Module: `scripts/ci`, `scripts/verify`, `deploy/gitee-ci`, and Make governance entry points
+- Reason: run repository guards on the existing Huawei CI node without GitHub billing or Gitee Go build minutes
+- Standard vs User-Specific: product-neutral repository governance; no customer code, payload, credential, or business semantic is introduced
+- Why Here: repository CI owns event admission, source identity, immutable checkout, cleanup, and evidence retention
+- Why Not Elsewhere: Gitee must not execute builds, product modules must not own delivery orchestration, and production hosts must not accept ordinary Push events
+- Blast Radius: one loopback-only service on `1.95.2.123`, a dedicated unprivileged account/deploy key, SQLite idempotency state, lightweight clean-history gates, and no RC/attachment/production entry point
+- System-bound verification: nine signed WebHook positive/negative tests, server systemd activation, loopback health probe, fixed repository/sender allowlist, replay denial, fork denial, SHA injection denial, and secret environment isolation

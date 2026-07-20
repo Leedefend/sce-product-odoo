@@ -1,0 +1,25 @@
+[Unit]
+Description=Gitee WebHook CI for sce-product-odoo
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gitee-ci
+Group=gitee-ci
+WorkingDirectory=/opt/gitee-ci/sce-product-odoo
+EnvironmentFile=/etc/gitee-ci/sce-product-odoo.env
+ExecStart=/usr/bin/python3 /opt/gitee-ci/sce-product-odoo/gitee_webhook_ci.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/gitee-ci /var/log/gitee-ci
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target

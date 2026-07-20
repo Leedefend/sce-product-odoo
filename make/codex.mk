@@ -5,6 +5,18 @@ CODEX_ALLOWED_WRITE_BRANCH_REGEX := ^(feature|fix|refactor|audit|release|codex)/
 CODEX_ALLOWED_WRITE_BRANCH_PREFIXES := feature/* fix/* refactor/* audit/* release/* codex/*
 
 .PHONY: codex.fast codex.gate codex.print codex.pr codex.cleanup codex.sync-main codex.cli
+.PHONY: verify.gitee.webhook.ci gitee.ci.server.install gitee.ci.server.status
+
+verify.gitee.webhook.ci: guard.prod.forbid
+	@python3 -m py_compile scripts/ci/gitee_webhook_ci.py scripts/verify/test_gitee_webhook_ci.py
+	@python3 scripts/verify/test_gitee_webhook_ci.py
+	@bash -n scripts/ci/gitee_ci_run.sh scripts/ops/install_gitee_webhook_ci.sh deploy/gitee-ci/install.sh
+
+gitee.ci.server.install: guard.prod.forbid
+	@GITEE_CI_SERVER_CONFIRM="$(GITEE_CI_SERVER_CONFIRM)" bash scripts/ops/install_gitee_webhook_ci.sh
+
+gitee.ci.server.status: guard.prod.forbid
+	@ssh -o BatchMode=yes root@1.95.2.123 'systemctl --no-pager --full status gitee-webhook-ci.service; curl --fail --silent http://127.0.0.1:9080/healthz'
 
 codex.print:
 	@echo "== Codex SOP =="
