@@ -87,6 +87,9 @@ umask 0077
     'GITEE_CI_WORKSPACE_ROOT=/var/lib/gitee-ci/workspaces' \
     'GITEE_CI_ARTIFACT_ROOT=/var/lib/gitee-ci/artifacts' \
     'GIT_SSH_COMMAND="/usr/bin/ssh -i /etc/gitee-ci/id_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=/etc/gitee-ci/known_hosts -o StrictHostKeyChecking=yes"'
+  if [ -d /var/lib/gitee-mirror/source.git ]; then
+    printf '%s\n' 'GITEE_MIRROR_SOURCE_REPO=/var/lib/gitee-mirror/source.git'
+  fi
 } > /etc/gitee-ci/sce-product-odoo-worker.env
 chown root:gitee-ci \
   /etc/gitee-ci/sce-product-odoo-receiver.env \

@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "ops" / "gitee_to_github_mirror.sh"
 RULESET_SCRIPT = ROOT / "scripts" / "ops" / "configure_github_mirror_ruleset.sh"
 WORKER_UNIT = ROOT / "deploy" / "gitee-ci" / "gitee-ci-worker.service"
+CI_INSTALL = ROOT / "deploy" / "gitee-ci" / "install.sh"
 OLD = "1" * 40
 NEW = "2" * 40
 
@@ -116,6 +117,11 @@ esac
         self.assertIn("/var/lib/gitee-mirror/source.git", read_write.split())
         self.assertNotIn("/etc/gitee-mirror", read_write)
         self.assertNotIn("github_ed25519", text)
+        install_text = CI_INSTALL.read_text(encoding="utf-8")
+        self.assertIn(
+            "GITEE_MIRROR_SOURCE_REPO=/var/lib/gitee-mirror/source.git",
+            install_text,
+        )
 
 
 if __name__ == "__main__":
