@@ -37,10 +37,10 @@ verify_product() {
   local counts
   counts="$("${compose[@]}" exec -T db psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$database" -At -F '|' -c "
 SELECT
-  count(*) FILTER (WHERE state IN ('to install','to upgrade','to remove')),
-  count(*) FILTER (WHERE name LIKE 'sce_customer_%' AND state='installed'),
-  count(*) FILTER (WHERE name IN ('smart_construction_demo','smart_construction_acceptance_fixture') AND state='installed'),
-  count(*) FILTER (WHERE name = ANY(string_to_array('$modules', ',')) AND state='installed'),
+  (SELECT count(*) FROM ir_module_module WHERE state IN ('to install','to upgrade','to remove')),
+  (SELECT count(*) FROM ir_module_module WHERE name LIKE 'sce_customer_%' AND state='installed'),
+  (SELECT count(*) FROM ir_module_module WHERE name IN ('smart_construction_demo','smart_construction_acceptance_fixture') AND state='installed'),
+  (SELECT count(*) FROM ir_module_module WHERE name = ANY(string_to_array('$modules', ',')) AND state='installed'),
   (SELECT count(*) FROM project_project)
     + (SELECT count(*) FROM construction_contract)
     + (SELECT count(*) FROM sc_settlement_order)
