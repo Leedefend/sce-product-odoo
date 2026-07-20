@@ -174,7 +174,7 @@ async function main() {
       applyReleasedNavigationTarget(
         TARGETS,
         ['contract'],
-        await releasedNavigation.target(TARGETS.contract.action_xmlid),
+        await releasedNavigation.targetByMenuXmlid('smart_construction_core.menu_sc_contract_center'),
       );
       report.j12 = await j12(page);
       await context.close();
