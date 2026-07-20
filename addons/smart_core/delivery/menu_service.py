@@ -54,42 +54,16 @@ class MenuService:
         )
 
     @classmethod
-    def _filter_role_surface_nodes(
-        cls,
-        nodes: list[dict],
-        role_surface: dict | None,
-        *,
-        _in_allowed_branch: bool = False,
-    ) -> list[dict]:
+    def _filter_role_surface_nodes(cls, nodes: list[dict], role_surface: dict | None) -> list[dict]:
         if isinstance(role_surface, dict) and role_surface.get("deny_all_navigation"):
             return []
-        surface = role_surface if isinstance(role_surface, dict) else {}
-        allowed_xmlids = {
-            str(item).strip().lower()
-            for item in surface.get("menu_xmlids") or []
-            if str(item).strip()
-        }
         filtered = []
         for node in nodes or []:
             if not isinstance(node, dict):
                 continue
             if not cls._role_surface_menu_allowed(node, role_surface):
                 continue
-            meta = node.get("meta") if isinstance(node.get("meta"), dict) else {}
-            xmlid = str(
-                node.get("menu_xmlid")
-                or node.get("xmlid")
-                or meta.get("menu_xmlid")
-                or ""
-            ).strip().lower()
-            in_allowed_branch = _in_allowed_branch or (bool(xmlid) and xmlid in allowed_xmlids)
-            children = cls._filter_role_surface_nodes(
-                node.get("children") or [],
-                role_surface,
-                _in_allowed_branch=in_allowed_branch,
-            )
-            if allowed_xmlids and not in_allowed_branch and not children:
-                continue
+            children = cls._filter_role_surface_nodes(node.get("children") or [], role_surface)
             candidate = dict(node)
             candidate["children"] = children
             filtered.append(candidate)
@@ -1077,9 +1051,8 @@ class MenuService:
         is_business_config_admin = bool((role_surface or {}).get("is_business_config_admin")) or self._is_business_config_role(role_code)
         policy_has_menu_surface = self._policy_has_menu_surface(policy)
         customer_acceptance_focus = self._policy_is_customer_acceptance_focus(policy)
-        role_native_nav = self._filter_role_surface_nodes(native_nav or [], role_surface)
-        native_index = self._native_authorized_menu_index(role_native_nav)
-        native_group_config_ids_by_label = self._native_group_config_menu_ids_by_label(role_native_nav)
+        native_index = self._native_authorized_menu_index(native_nav or [])
+        native_group_config_ids_by_label = self._native_group_config_menu_ids_by_label(native_nav or [])
         authorized_policy_rows = [
             menu
             for menu in self._flatten_policy_menus(policy)
@@ -1112,14 +1085,14 @@ class MenuService:
             []
             if customer_acceptance_focus and not is_admin
             else self._native_runtime_config_menus(
-                    native_nav=role_native_nav,
+                    native_nav=native_nav or [],
                     policy=policy,
                     role_code=role_code,
                     is_admin=is_admin,
                     is_business_config_admin=is_business_config_admin,
                 )
             if policy_has_menu_surface
-            else self._native_preview_menus(native_nav=role_native_nav, policy=policy)
+            else self._native_preview_menus(native_nav=native_nav or [], policy=policy)
         )
         if self.env is not None and (is_admin or is_business_config_admin):
             grouped_native = native_config_delivery_groups(self.env) + list(grouped_native or [])
@@ -1357,13 +1330,7 @@ class MenuService:
             group_nodes.append(group_node)
 
         group_nodes = self._sort_delivery_nodes(group_nodes, top_level=True)
-        # The allowlist has already been applied while the authoritative native
-        # parent chain was still available. Delivery grouping below introduces
-        # synthetic ancestors, so only identifier blocklists may be re-applied
-        # at this final defense-in-depth boundary.
-        final_surface = dict(role_surface or {})
-        final_surface["menu_xmlids"] = []
-        group_nodes = self._filter_role_surface_nodes(group_nodes, final_surface)
+        group_nodes = self._filter_role_surface_nodes(group_nodes, role_surface)
         root = build_delivery_menu_root(group_nodes, role_code)
         root["key"] = "root:system_menu"
         root["label"] = "系统菜单"
