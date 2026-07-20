@@ -121,6 +121,41 @@ class GiteeWebhookTests(unittest.TestCase):
     def test_invalid_signature_is_rejected(self) -> None:
         self.assert_rejected(push_payload(), self.headers(secret="wrong"))
 
+    def test_api_created_query_signature_is_accepted(self) -> None:
+        import json
+
+        timestamp = str(int(time.time() * 1000))
+        signature = MODULE.expected_signature(timestamp, SECRET)
+        inserted, sha = self.application.accept(
+            json.dumps(push_payload(), separators=(",", ":")).encode(),
+            Headers(),
+            {"timestamp": [timestamp], "sign": [signature]},
+        )
+        self.assertTrue(inserted)
+        self.assertEqual(SHA, sha)
+
+    def test_ambiguous_or_unexpected_query_authentication_is_rejected(self) -> None:
+        import json
+
+        timestamp = str(int(time.time() * 1000))
+        signature = MODULE.expected_signature(timestamp, SECRET)
+        body = json.dumps(push_payload(), separators=(",", ":")).encode()
+        rejected_queries = (
+            {"timestamp": [timestamp], "sign": [signature, signature]},
+            {"timestamp": [timestamp]},
+            {"timestamp": [timestamp], "sign": [signature], "branch": ["main"]},
+        )
+        for query in rejected_queries:
+            with self.subTest(query=set(query)):
+                with self.assertRaises(MODULE.Rejected):
+                    self.application.accept(body, Headers(), query)
+        with self.assertRaises(MODULE.Rejected):
+            self.application.accept(
+                body,
+                self.headers(timestamp),
+                {"timestamp": [str(int(timestamp) + 1)], "sign": [signature]},
+            )
+
     def test_wrong_repository_and_sender_are_rejected(self) -> None:
         self.assert_rejected(push_payload(repository={"full_name": "other/repo"}))
         self.assert_rejected(push_payload(sender={"login": "attacker"}))

@@ -80,6 +80,9 @@ server {
     client_max_body_size 1m;
 
     location = /hooks/gitee {
+        # Gitee's API-created signing WebHook puts its ephemeral signature in
+        # the query string. The receiver validates it; Nginx must not log it.
+        access_log off;
         limit_except POST { deny all; }
         limit_req zone=gitee_ci_webhook burst=10 nodelay;
         proxy_pass http://127.0.0.1:9080;

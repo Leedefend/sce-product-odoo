@@ -12,7 +12,7 @@ Chinese: [gitee_webhook_ci_v1.md](gitee_webhook_ci_v1.md)
 ## Security chain
 
 1. Accept only JSON at `POST /hooks/gitee`, capped at 1 MiB.
-2. Verify `X-Gitee-Timestamp` and `X-Gitee-Token` with Gitee's documented algorithm and a 300-second clock skew.
+2. Verify the signature and timestamp with Gitee's documented algorithm, accepting both the documented headers and the API-created hook's `sign`/`timestamp` query transport with a 300-second clock skew. Query signatures are excluded from access logs.
 3. Reject reuse of a consumed signature timestamp.
 4. Validate repository, sender, and event; deny fork PRs, deleted refs, and closed/merged PR events.
 5. Persist only normalized SHA, event, and PR number in SQLite; never persist raw requests or plaintext secrets.
@@ -44,12 +44,11 @@ Let's Encrypt short-lived IP certificate and a systemd timer renews it automatic
 
 ## Platform configuration status
 
-Publicly trusted HTTPS is complete. The following Gitee repository configuration remains required before real events are enabled:
+Publicly trusted HTTPS, the read-only Deploy Key, signed WebHook, `main` protection, and the governance PR are complete. The configurator can verify these states idempotently. Gitee's built-in WebHook test uses a simulated payload for a different repository, so the repository allowlist correctly denies it; acceptance must use an exact SHA from a real same-repository Push or PR.
 
-1. Run `make gitee.ci.repository.configure GITEE_TOKEN_FILE=<0600-file>` with a temporary administrative token carrying `keys`, `hook`, `pull_requests`, and repository-management permissions.
-2. The command registers the server public key, creates the signed WebHook, protects `main`, opens the governance PR, and sends a test event.
-3. Revoke the temporary administrative token after configuration; never copy it to the CI server.
-4. Store a separate least-privilege bot token on the server for result comments/status reporting; build jobs must not receive repository write access.
+1. To recheck configuration, run `make gitee.ci.repository.configure GITEE_TOKEN_FILE=<0600-file>` with a temporary administrative token carrying `keys`, `hook`, `pull_requests`, and repository-management permissions.
+2. Revoke the temporary administrative token after configuration; never copy it to the CI server.
+3. Result comments/status reporting still require a separate least-privilege bot token; build jobs must not receive repository write access.
 
 The command probes all required permissions before its first write. If permissions are insufficient, it lists all missing scopes and leaves the repository unchanged.
 
@@ -61,4 +60,4 @@ make gitee.ci.server.status
 make gitee.ci.https.status
 ```
 
-The negative matrix covers invalid signatures, expired requests, replay, wrong repository, wrong sender, fork PRs, branch/command injection, deleted/closed events, and secret isolation.
+The 11-case matrix covers positive header/query signature transport plus invalid or conflicting signatures, unexpected query parameters, expiry, replay, wrong repository, wrong sender, fork PRs, branch/command injection, deleted/closed events, and secret isolation.

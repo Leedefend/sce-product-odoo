@@ -43,10 +43,36 @@ def expected_signature(timestamp: str, secret: str) -> str:
 
 
 def verify_signature(timestamp: str, token: str, secret: str) -> bool:
-    # The value is an HTTP header, not a query string.  Preserve a literal
-    # base64 '+' while still accepting Gitee's documented percent encoding.
+    # Preserve a literal base64 '+' while still accepting percent encoding.
     decoded = urllib.parse.unquote(token)
     return hmac.compare_digest(decoded, expected_signature(timestamp, secret))
+
+
+def authentication_values(headers: Any, query: dict[str, list[str]]) -> tuple[str, str]:
+    """Accept Gitee's documented headers and its API-created query transport."""
+    unknown = set(query) - {"timestamp", "sign"}
+    if unknown:
+        raise Rejected("unexpected query parameter")
+    for name, values in query.items():
+        if len(values) != 1 or not values[0]:
+            raise Rejected(f"invalid {name} parameter")
+
+    header_timestamp = headers.get("X-Gitee-Timestamp", "")
+    header_token = headers.get("X-Gitee-Token", "")
+    query_timestamp = query.get("timestamp", [""])[0]
+    query_token = query.get("sign", [""])[0]
+    if bool(header_timestamp) != bool(header_token):
+        raise Rejected("incomplete header authentication")
+    if bool(query_timestamp) != bool(query_token):
+        raise Rejected("incomplete query authentication")
+    if header_timestamp and query_timestamp:
+        if header_timestamp != query_timestamp or header_token != query_token:
+            raise Rejected("conflicting authentication")
+    timestamp = header_timestamp or query_timestamp
+    token = header_token or query_token
+    if not timestamp or not token:
+        raise Rejected("missing authentication")
+    return timestamp, token
 
 
 def require_fresh_timestamp(timestamp: str, now_ms: int, max_skew_seconds: int) -> None:
@@ -231,11 +257,15 @@ class Application:
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.queue = Queue(Path(os.environ.get("GITEE_CI_DB", "/var/lib/gitee-ci/jobs.sqlite3")))
 
-    def accept(self, body: bytes, headers: Any) -> tuple[bool, str]:
-        timestamp = headers.get("X-Gitee-Timestamp", "")
-        token = headers.get("X-Gitee-Token", "")
+    def accept(
+        self,
+        body: bytes,
+        headers: Any,
+        query: dict[str, list[str]] | None = None,
+    ) -> tuple[bool, str]:
+        timestamp, token = authentication_values(headers, query or {})
         require_fresh_timestamp(timestamp, int(time.time() * 1000), self.max_skew_seconds)
-        if not token or not verify_signature(timestamp, token, self.secret):
+        if not verify_signature(timestamp, token, self.secret):
             raise Rejected("invalid signature")
         try:
             payload = json.loads(body)
@@ -287,8 +317,8 @@ def handler_factory(application: Application) -> type[BaseHTTPRequestHandler]:
         server_version = "gitee-ci/1"
 
         def log_message(self, format: str, *args: Any) -> None:
-            # Never log headers or request bodies because they contain signatures.
-            print(f"[gitee_webhook] peer={self.client_address[0]} {format % args}")
+            # The request target may contain a signature. Never log it.
+            return
 
         def respond(self, status: HTTPStatus, message: str) -> None:
             data = json.dumps({"status": message}, separators=(",", ":")).encode()
@@ -305,8 +335,18 @@ def handler_factory(application: Application) -> type[BaseHTTPRequestHandler]:
                 self.respond(HTTPStatus.NOT_FOUND, "not_found")
 
         def do_POST(self) -> None:  # noqa: N802
-            if self.path != application.endpoint:
+            target = urllib.parse.urlsplit(self.path)
+            if target.path != application.endpoint:
                 self.respond(HTTPStatus.NOT_FOUND, "not_found")
+                return
+            try:
+                query = urllib.parse.parse_qs(
+                    target.query,
+                    keep_blank_values=True,
+                    strict_parsing=True,
+                )
+            except ValueError:
+                self.respond(HTTPStatus.FORBIDDEN, "rejected")
                 return
             content_type = self.headers.get("Content-Type", "")
             if not content_type.lower().startswith("application/json"):
@@ -320,10 +360,20 @@ def handler_factory(application: Application) -> type[BaseHTTPRequestHandler]:
                 self.respond(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "rejected")
                 return
             try:
-                inserted, _sha = application.accept(self.rfile.read(length), self.headers)
-            except Rejected:
+                inserted, sha = application.accept(self.rfile.read(length), self.headers, query)
+            except Rejected as exc:
+                print(
+                    f"[gitee_webhook] peer={self.client_address[0]} "
+                    f"status=rejected reason={exc}",
+                    flush=True,
+                )
                 self.respond(HTTPStatus.FORBIDDEN, "rejected")
                 return
+            print(
+                f"[gitee_webhook] peer={self.client_address[0]} "
+                f"status={'queued' if inserted else 'duplicate'} sha={sha}",
+                flush=True,
+            )
             self.respond(HTTPStatus.ACCEPTED, "queued" if inserted else "duplicate")
 
     return Handler
