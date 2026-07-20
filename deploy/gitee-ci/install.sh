@@ -71,6 +71,7 @@ umask 0077
   printf '%s\n' \
     'GITEE_ALLOWED_REPOSITORY=leegege/sce-product-odoo' \
     'GITEE_ALLOWED_SENDER=leegege' \
+    'GITEE_ALLOWED_PR_SENDER=sce-ci-bot' \
     "GITEE_WEBHOOK_SECRET=${secret}" \
     'GITEE_WEBHOOK_PATH=/hooks/gitee' \
     'GITEE_WEBHOOK_MAX_SKEW_SECONDS=300' \
@@ -86,6 +87,9 @@ umask 0077
     'GITEE_CI_WORKSPACE_ROOT=/var/lib/gitee-ci/workspaces' \
     'GITEE_CI_ARTIFACT_ROOT=/var/lib/gitee-ci/artifacts' \
     'GIT_SSH_COMMAND="/usr/bin/ssh -i /etc/gitee-ci/id_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=/etc/gitee-ci/known_hosts -o StrictHostKeyChecking=yes"'
+  if [ -d /var/lib/gitee-mirror/source.git ]; then
+    printf '%s\n' 'GITEE_MIRROR_SOURCE_REPO=/var/lib/gitee-mirror/source.git'
+  fi
 } > /etc/gitee-ci/sce-product-odoo-worker.env
 chown root:gitee-ci \
   /etc/gitee-ci/sce-product-odoo-receiver.env \

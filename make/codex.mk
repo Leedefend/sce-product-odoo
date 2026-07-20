@@ -8,13 +8,15 @@ CODEX_ALLOWED_WRITE_BRANCH_PREFIXES := feature/* fix/* refactor/* audit/* releas
 .PHONY: verify.gitee.webhook.ci gitee.ci.server.install gitee.ci.server.status
 .PHONY: gitee.github.mirror.install gitee.github.mirror.seed gitee.github.mirror.run
 .PHONY: github.mirror.ruleset.configure github.mirror.non_mirror_push.test
+.PHONY: gitee.pr.bot.create gitee.pr.bot.status gitee.pr.bot.merge
+.PHONY: gitee.pr.bot.professional.run
 .PHONY: gitee.ci.https.install gitee.ci.https.status gitee.ci.repository.configure
 
 verify.gitee.webhook.ci: guard.prod.forbid
-	@python3 -m py_compile scripts/ci/gitee_webhook_ci.py scripts/verify/test_gitee_webhook_ci.py scripts/verify/test_gitee_to_github_mirror.py scripts/ops/configure_gitee_ci_repository.py
+	@python3 -m py_compile scripts/ci/gitee_webhook_ci.py scripts/verify/test_gitee_webhook_ci.py scripts/verify/test_gitee_to_github_mirror.py scripts/ops/configure_gitee_ci_repository.py scripts/ops/gitee_pr_bot.py
 	@python3 scripts/verify/test_gitee_webhook_ci.py
 	@python3 scripts/verify/test_gitee_to_github_mirror.py
-	@bash -n scripts/ci/gitee_ci_run.sh scripts/ops/install_gitee_webhook_ci.sh scripts/ops/install_gitee_ci_https.sh scripts/ops/gitee_to_github_mirror.sh scripts/ops/install_gitee_to_github_mirror.sh scripts/ops/configure_github_mirror_ruleset.sh deploy/gitee-ci/install.sh deploy/gitee-ci/install_https.sh deploy/gitee-mirror/install.sh
+	@bash -n scripts/ci/gitee_ci_run.sh scripts/ops/install_gitee_webhook_ci.sh scripts/ops/install_gitee_ci_https.sh scripts/ops/gitee_to_github_mirror.sh scripts/ops/install_gitee_to_github_mirror.sh scripts/ops/configure_github_mirror_ruleset.sh scripts/ops/run_gitee_pr_professional_gate.sh deploy/gitee-ci/install.sh deploy/gitee-ci/install_https.sh deploy/gitee-mirror/install.sh
 
 gitee.ci.server.install: guard.prod.forbid
 	@GITEE_CI_SERVER_CONFIRM="$(GITEE_CI_SERVER_CONFIRM)" bash scripts/ops/install_gitee_webhook_ci.sh
@@ -40,6 +42,23 @@ github.mirror.ruleset.configure: guard.prod.forbid
 
 github.mirror.non_mirror_push.test: guard.prod.forbid
 	@bash scripts/verify/github_non_mirror_push_denied.sh
+
+gitee.pr.bot.create: guard.prod.forbid
+	@test -n "$(GITEE_PR_BOT_TOKEN_FILE)" || (echo "GITEE_PR_BOT_TOKEN_FILE is required"; exit 2)
+	@python3 scripts/ops/gitee_pr_bot.py create --token-file "$(GITEE_PR_BOT_TOKEN_FILE)"
+
+gitee.pr.bot.status: guard.prod.forbid
+	@test -n "$(GITEE_PR_BOT_TOKEN_FILE)" || (echo "GITEE_PR_BOT_TOKEN_FILE is required"; exit 2)
+	@python3 scripts/ops/gitee_pr_bot.py status --token-file "$(GITEE_PR_BOT_TOKEN_FILE)"
+
+gitee.pr.bot.merge: guard.prod.forbid
+	@test -n "$(GITEE_PR_BOT_TOKEN_FILE)" || (echo "GITEE_PR_BOT_TOKEN_FILE is required"; exit 2)
+	@test -n "$(GITEE_PR_NUMBER)" || (echo "GITEE_PR_NUMBER is required"; exit 2)
+	@test -n "$(GITEE_PR_EVIDENCE_FILE)" || (echo "GITEE_PR_EVIDENCE_FILE is required"; exit 2)
+	@python3 scripts/ops/gitee_pr_bot.py merge --token-file "$(GITEE_PR_BOT_TOKEN_FILE)" --number "$(GITEE_PR_NUMBER)" --evidence "$(GITEE_PR_EVIDENCE_FILE)"
+
+gitee.pr.bot.professional.run: guard.prod.forbid
+	@GITEE_PR_PROFESSIONAL_CONFIRM="$(GITEE_PR_PROFESSIONAL_CONFIRM)" bash scripts/ops/run_gitee_pr_professional_gate.sh
 
 gitee.ci.https.install: guard.prod.forbid
 	@GITEE_CI_HTTPS_CONFIRM="$(GITEE_CI_HTTPS_CONFIRM)" bash scripts/ops/install_gitee_ci_https.sh

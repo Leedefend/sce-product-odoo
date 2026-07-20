@@ -68,6 +68,7 @@ class GiteeWebhookTests(unittest.TestCase):
             "GITEE_WEBHOOK_SECRET": SECRET,
             "GITEE_ALLOWED_REPOSITORY": "leegege/sce-product-odoo",
             "GITEE_ALLOWED_SENDER": "leegege",
+            "GITEE_ALLOWED_PR_SENDER": "sce-ci-bot",
             "GITEE_CI_RUNNER": str(runner),
             "GITEE_CI_DB": str(root / "jobs.sqlite3"),
             "GITEE_CI_LOG_DIR": str(root / "logs"),
@@ -220,6 +221,19 @@ class GiteeWebhookTests(unittest.TestCase):
     def test_wrong_repository_and_sender_are_rejected(self) -> None:
         self.assert_rejected(push_payload(repository={"full_name": "other/repo"}))
         self.assert_rejected(push_payload(sender={"login": "attacker"}))
+
+    def test_pr_bot_is_limited_to_same_repository_pull_requests(self) -> None:
+        inserted, sha = self.accept(pr_payload(sender={"login": "sce-ci-bot"}))
+        self.assertTrue(inserted)
+        self.assertEqual(SHA, sha)
+        self.assert_rejected(push_payload(after="b" * 40, sender={"login": "sce-ci-bot"}))
+
+        fork = pr_payload(sender={"login": "sce-ci-bot"})
+        fork["pull_request"] = {
+            "number": 7,
+            "head": {"sha": "c" * 40, "repo": {"full_name": "attacker/fork"}},
+        }
+        self.assert_rejected(fork)
 
     def test_fork_pull_request_is_rejected(self) -> None:
         payload = pr_payload()

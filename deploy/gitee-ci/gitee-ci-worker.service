@@ -16,7 +16,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/gitee-ci /var/log/gitee-ci
+ReadWritePaths=/var/lib/gitee-ci /var/log/gitee-ci /var/lib/gitee-mirror/source.git
 RestrictSUIDSGID=true
 LockPersonality=true
 

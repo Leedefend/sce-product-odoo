@@ -116,6 +116,7 @@ def normalized_job(
     *,
     allowed_repository: str,
     allowed_sender: str,
+    allowed_pr_sender: str,
 ) -> dict[str, Any]:
     hook_name = payload.get("hook_name")
     if hook_name not in SUPPORTED_HOOKS:
@@ -132,7 +133,9 @@ def normalized_job(
         or nested(payload, "sender", "username")
         or nested(payload, "sender", "user_name")
     )
-    if sender != allowed_sender:
+    if sender != allowed_sender and not (
+        hook_name == "merge_request_hooks" and sender == allowed_pr_sender
+    ):
         raise Rejected("sender not allowed")
 
     pr_number: int | None = None
@@ -301,6 +304,11 @@ class Application:
             required_env("GITEE_ALLOWED_REPOSITORY") if receiver_enabled else ""
         )
         self.allowed_sender = required_env("GITEE_ALLOWED_SENDER") if receiver_enabled else ""
+        self.allowed_pr_sender = (
+            os.environ.get("GITEE_ALLOWED_PR_SENDER", self.allowed_sender)
+            if receiver_enabled
+            else ""
+        )
         self.endpoint = os.environ.get("GITEE_WEBHOOK_PATH", "/hooks/gitee")
         self.max_skew_seconds = int(os.environ.get("GITEE_WEBHOOK_MAX_SKEW_SECONDS", "300"))
         self.runner = Path(required_env("GITEE_CI_RUNNER")) if worker_enabled else None
@@ -344,6 +352,7 @@ class Application:
             payload,
             allowed_repository=self.allowed_repository,
             allowed_sender=self.allowed_sender,
+            allowed_pr_sender=self.allowed_pr_sender,
         )
         inserted = self.queue.enqueue(job, timestamp)
         return inserted, job["sha"]
