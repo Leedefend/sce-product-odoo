@@ -178,7 +178,7 @@ async function main() {
     const createdHeading = (await page.locator('h1.headline').innerText()).trim();
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 });
     await page.locator('.financial-workspace[data-workspace-kind="payment_request"]').waitFor({ timeout: 45000 });
-    check((await page.locator('[data-field-name="amount"] input').inputValue()).includes('10'), 'J08 saved amount did not recover');
+    check((await page.locator('[data-field-name="amount"] input').first().inputValue()).includes('10'), 'J08 saved amount did not recover');
     const fileInput = page.locator('input[type="file"]').first();
     if (await fileInput.count()) await fileInput.setInputFiles({ name: 'fe-b05.txt', mimeType: 'text/plain', buffer: Buffer.from('FE-B05 form journey') });
     const submit = page.locator('.template-page-header-actions button').filter({ hasText: /^提交$/ }).first();
