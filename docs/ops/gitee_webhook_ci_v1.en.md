@@ -21,6 +21,7 @@ Chinese: [gitee_webhook_ci_v1.md](gitee_webhook_ci_v1.md)
 8. Use only the fixed Gitee URL and verify the detached HEAD SHA before running gates.
 9. Use an isolated temporary directory per run and retain logs/reports outside the repository.
 10. Push events run only the public guard; only same-repository, owner-sent PR events run the professional gate, while forks are rejected before enqueue.
+11. Keep systemd `MemoryDenyWriteExecute=true`; professional-gate Node/V8 processes use `--jitless` instead of weakening the service's executable-memory boundary.
 
 ## Server state
 

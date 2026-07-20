@@ -25,6 +25,8 @@ English: [gitee_webhook_ci_v1.en.md](gitee_webhook_ci_v1.en.md)
 8. 构建器只使用固定 Gitee URL，并在 detached HEAD 上复核实际 SHA。
 9. 每次构建使用独立临时目录；日志和扫描报告保存在服务器独立目录。
 10. Push 只执行公开守卫；同仓库、同所有者 PR 才执行专业门禁，fork 在入队前拒绝。
+11. systemd 保持 `MemoryDenyWriteExecute=true`；专业门禁的 Node/V8 使用 `--jitless`，
+    不为前端构建放宽服务的可执行内存限制。
 
 ## 服务器状态
 

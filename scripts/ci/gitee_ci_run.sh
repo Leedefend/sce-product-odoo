@@ -39,6 +39,9 @@ echo "[gitee_ci] start sha=${sha} event=${hook_name} pr=${pr_number:-none}"
 export GIT_TERMINAL_PROMPT=0
 export ENV=test
 export CI=1
+# Keep systemd MemoryDenyWriteExecute=true. Node/V8 must not request JIT pages
+# inside this hardened service boundary.
+export NODE_OPTIONS="--jitless"
 
 git clone --no-tags "${repo_url}" "${workdir}/repo"
 cd "${workdir}/repo"
