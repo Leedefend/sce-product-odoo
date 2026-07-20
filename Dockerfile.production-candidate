@@ -35,12 +35,13 @@ COPY addons/smart_owner_core /mnt/product-addons/smart_owner_core
 COPY addons/smart_owner_bundle /mnt/product-addons/smart_owner_bundle
 COPY addons_external/oca_server_ux /mnt/addons_external/oca_server_ux
 COPY config/odoo.conf.template /etc/odoo/odoo.conf.template
-COPY config/nginx/conf.d/production-candidate.conf /etc/nginx/conf.d/default.conf
+COPY config/nginx/conf.d/production-candidate.conf /etc/nginx/templates/default.conf.template
 COPY scripts/render_odoo_conf.py /usr/local/bin/render_odoo_conf.py
+COPY scripts/render_nginx_conf.sh /usr/local/bin/render_nginx_conf.sh
 COPY scripts/odoo-entrypoint.sh /usr/local/bin/odoo-entrypoint.sh
 COPY frontend/apps/web/dist-production-candidate /usr/share/nginx/html
 
-RUN chmod 0755 /usr/local/bin/odoo-entrypoint.sh /usr/local/bin/render_odoo_conf.py \
+RUN chmod 0755 /usr/local/bin/odoo-entrypoint.sh /usr/local/bin/render_odoo_conf.py /usr/local/bin/render_nginx_conf.sh \
     && rm -f /etc/nginx/sites-enabled/default \
     && find /mnt/product-addons /mnt/customer-addons /mnt/test-addons /mnt/source-addons /mnt/addons_external -type d -exec chmod 0755 {} + \
     && find /mnt/product-addons /mnt/customer-addons /mnt/test-addons /mnt/source-addons /mnt/addons_external -type f -exec chmod 0644 {} + \

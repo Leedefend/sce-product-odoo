@@ -95,7 +95,7 @@ DAILY_DEV_PROJECT ?= sc-backend-odoo-dev
 CANDIDATE_ARTIFACTS ?= artifacts/release/immutable-production-candidate-v1
 
 .PHONY: release.workspace.prepare release.production.readonly_baseline release.candidate.build release.boundary.candidate.build release.candidate.scan
-.PHONY: product.install product.upgrade product.verify tenant.rc.payload.export tenant.rc.profile.product tenant.rc.profile.sample tenant.rc.profile.customer tenant.rc.profile.digest.verify
+.PHONY: product.install product.upgrade product.verify tenant.rc.payload.export tenant.rc.profile.product tenant.rc.profile.sample tenant.rc.profile.customer tenant.rc.profile.digest.verify tenant.rc.runtime.acceptance
 .PHONY: release.history.source_probe release.history.backup release.history.restore release.history.upgrade
 .PHONY: release.history.source_restore
 .PHONY: release.history.runtime_up release.history.runtime_down release.history.fingerprint.source_pre
@@ -183,6 +183,12 @@ tenant.rc.profile.customer: guard.prod.forbid check-compose-env
 
 tenant.rc.profile.digest.verify: guard.prod.forbid
 	@python3 scripts/release/verify_tenant_rc_profile_digests.py --profiles "$(CANDIDATE_ARTIFACTS)/profiles"
+
+tenant.rc.runtime.acceptance: guard.prod.forbid check-compose-env
+	@test -n "$(CANDIDATE_IMAGE)" || (echo "CANDIDATE_IMAGE is required"; exit 2)
+	@test -n "$(CANDIDATE_IMAGE_DIGEST)" || (echo "CANDIDATE_IMAGE_DIGEST is required"; exit 2)
+	@CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" CANDIDATE_IMAGE_DIGEST="$(CANDIDATE_IMAGE_DIGEST)" \
+		CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" bash scripts/release/tenant_rc_runtime_acceptance.sh
 
 release.history.source_probe: guard.prod.forbid check-compose-project check-compose-env
 	@HISTORY_SOURCE_DB="$(HISTORY_SOURCE_DB)" HISTORY_SOURCE_BACKUP="$(HISTORY_SOURCE_BACKUP)" CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" bash scripts/release/production_candidate_history.sh source-probe

@@ -1,0 +1,7 @@
+services:
+  odoo:
+    environment:
+      SC_ENVIRONMENT: acceptance
+      SC_ALLOW_DEMO_DATA: "1"
+    volumes:
+      - ./addons/smart_construction_acceptance_fixture:/mnt/test-addons/smart_construction_acceptance_fixture:ro

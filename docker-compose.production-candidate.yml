@@ -65,11 +65,13 @@ services:
   nginx:
     image: ${CANDIDATE_IMAGE:?CANDIDATE_IMAGE is required}
     user: root
-    entrypoint: ["/usr/sbin/nginx", "-g", "daemon off;"]
+    entrypoint: ["/usr/local/bin/render_nginx_conf.sh"]
     restart: unless-stopped
     depends_on:
       odoo:
         condition: service_healthy
+    environment:
+      ODOO_DB: ${CANDIDATE_DB:-sc_user_data_rehearsal_candidate}
     ports:
       - "${CANDIDATE_NGINX_PORT:-18088}:80"
     healthcheck:
