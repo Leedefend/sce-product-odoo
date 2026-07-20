@@ -24,11 +24,11 @@ fi
 export CANDIDATE_IMAGE="$image" CANDIDATE_DB="$database" CANDIDATE_PROJECT="$project"
 
 run_modules() {
-  local flag="$1"
+  local flags=("$@")
   "${compose[@]}" up -d --wait db redis odoo
   "${compose[@]}" stop odoo >/dev/null
   "${compose[@]}" run --rm --no-deps --entrypoint odoo odoo \
-    -c /var/lib/odoo/odoo.conf -d "$database" "$flag" "$modules" \
+    -c /var/lib/odoo/odoo.conf -d "$database" "${flags[@]}" \
     --without-demo=all --workers=0 --max-cron-threads=0 --no-http --stop-after-init
 }
 
@@ -56,8 +56,8 @@ SELECT
 }
 
 case "$action" in
-  install) run_modules -i ;;
-  upgrade) run_modules -u ;;
+  install) run_modules -i "$modules" ;;
+  upgrade) run_modules -i "$modules" -u "$modules" ;;
   verify) verify_product ;;
   *) echo "[product.lifecycle] unsupported action: $action" >&2; exit 2 ;;
 esac
