@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -131,6 +132,22 @@ class CustomerPackagePreflightTests(unittest.TestCase):
         self.assertIn("CUSTOMER_MODULE_VERSION_MISMATCH", result.stderr)
         self.assertFalse((self.root / "report.json").exists())
         self.assertNotIn(self.hmac_key, result.stdout + result.stderr)
+
+    def test_payload_company_key_mismatch_fails_before_database_work(self) -> None:
+        module = self.root / "company-mismatch" / "sce_customer_sample"
+        shutil.copytree(SAMPLE, module)
+        customer_manifest = module / "customer_module_manifest.json"
+        payload = json.loads(customer_manifest.read_text(encoding="utf-8"))
+        payload["payload_company_keys"] = ["not_the_payload_company"]
+        customer_manifest.write_text(json.dumps(payload), encoding="utf-8")
+        self.archive.unlink()
+        with tarfile.open(self.archive, "w:gz") as handle:
+            handle.add(module, arcname="package/addons/sce_customer_sample")
+        digest = hashlib.sha256(self.archive.read_bytes()).hexdigest()
+        result = self.run_preflight(SC_CUSTOMER_ARCHIVE_SHA256=digest)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("PAYLOAD_COMPANY_MISMATCH", result.stderr)
+        self.assertFalse((self.root / "report.json").exists())
 
 
 if __name__ == "__main__":

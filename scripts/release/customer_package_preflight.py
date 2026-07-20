@@ -140,7 +140,13 @@ def main() -> int:
         raise SystemExit("PAYLOAD_CUSTOMER_MODULE_MISMATCH")
     if payload_manifest.get("customer_module_version") != customer_manifest.get("module_version"):
         raise SystemExit("PAYLOAD_CUSTOMER_VERSION_MISMATCH")
-    allowed_companies = set(customer_manifest.get("company_keys") or [])
+    # Runtime payload identities are not necessarily the same keys used by a
+    # customer module to resolve deployment-time company XML IDs.
+    allowed_companies = set(
+        customer_manifest.get("payload_company_keys")
+        if "payload_company_keys" in customer_manifest
+        else customer_manifest.get("company_keys") or []
+    )
     if allowed_companies:
         company_file = payload_root / "records" / "companies.jsonl"
         payload_companies = {

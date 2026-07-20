@@ -60,14 +60,6 @@ class ScMaterialCatalog(models.Model):
     )
     active = fields.Boolean(string="有效", default=True, index=True)
 
-    _sql_constraints = [
-        (
-            "legacy_material_detail_unique",
-            "unique(legacy_material_detail_id)",
-            "历史物资明细记录必须唯一。",
-        ),
-    ]
-
     @api.constrains("company_id", "project_id")
     def _check_project_company(self):
         for record in self:
