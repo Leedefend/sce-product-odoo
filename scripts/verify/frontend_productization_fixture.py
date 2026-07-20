@@ -220,7 +220,8 @@ journey_settlement = env.ref("smart_construction_acceptance_fixture.fe_journey_s
 journey_request = env.ref("smart_construction_acceptance_fixture.fe_journey_payment_request_a", raise_if_not_found=False)
 j06_settlement = env.ref("smart_construction_acceptance_fixture.fe_j06_settlement_a", raise_if_not_found=False)
 j06_request = env.ref("smart_construction_acceptance_fixture.fe_j06_payment_request_a", raise_if_not_found=False)
-if not journey_settlement or not journey_request or not j06_settlement or not j06_request:
+core_form_request = env.ref("smart_construction_acceptance_fixture.fe_core_form_payment_request_a", raise_if_not_found=False)
+if not journey_settlement or not journey_request or not j06_settlement or not j06_request or not core_form_request:
     fail("FE-B04 journey records are missing")
 if not (
     journey_request.settlement_id == journey_settlement
@@ -240,6 +241,14 @@ if not (
     and not j06_request.ledger_line_ids
 ):
     fail("J06 financial workspace baseline is not deterministic")
+if not (
+    core_form_request.project_id == project_a
+    and core_form_request.state == "draft"
+    and core_form_request.validation_status in (False, "no")
+    and core_form_request.amount == 20.0
+    and not core_form_request.ledger_line_ids
+):
+    fail("J13 core form baseline is not deterministic")
 
 print("[verify.frontend.fixture] PASS")
 print(json.dumps({

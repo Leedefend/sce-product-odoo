@@ -622,6 +622,11 @@ def _payment_journey(env, project, contract, partner, finance):
         "FE-DELIVERY-HARDENING-001",
         "draft",
     )
+    core_form_request = _approval_request(
+        "fe_core_form_payment_request_a",
+        "FE-CORE-FORM-CONFLICT-001",
+        "draft",
+    )
     env["payment.ledger"].sudo().search([
         ("payment_request_id", "=", request.id),
     ]).with_context(allow_payment_reversal=True).unlink()
@@ -638,6 +643,7 @@ def _payment_journey(env, project, contract, partner, finance):
         reject_request,
         completed_request,
         hardening_request,
+        core_form_request,
     )
 
 
@@ -772,6 +778,7 @@ def ensure_fixture(env) -> Dict[str, Any]:
         reject_request,
         completed_request,
         hardening_request,
+        core_form_request,
     ) = _payment_journey(
         env,
         project_a,
@@ -813,5 +820,6 @@ def ensure_fixture(env) -> Dict[str, Any]:
             "reject_request": reject_request.name,
             "completed_request": completed_request.name,
             "hardening_request": hardening_request.name,
+            "core_form_request": core_form_request.name,
         },
     }
