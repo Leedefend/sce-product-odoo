@@ -10,6 +10,11 @@ test -f "${source_root}/scripts/ci/gitee_webhook_ci.py"
 test -f "${source_root}/scripts/ci/gitee_ci_run.sh"
 test -f "${source_root}/deploy/gitee-ci/gitee-webhook-ci.service"
 
+if ! command -v corepack >/dev/null 2>&1; then
+  echo "[gitee_ci_install] corepack is required" >&2
+  exit 2
+fi
+
 if ! id gitee-ci >/dev/null 2>&1; then
   useradd --system --home-dir /var/lib/gitee-ci --shell /usr/sbin/nologin gitee-ci
 fi
@@ -17,6 +22,8 @@ install -d -m 0755 /opt/gitee-ci/sce-product-odoo
 install -d -o gitee-ci -g gitee-ci -m 0750 \
   /var/lib/gitee-ci /var/lib/gitee-ci/workspaces /var/lib/gitee-ci/artifacts /var/log/gitee-ci
 install -d -o gitee-ci -g gitee-ci -m 0750 /etc/gitee-ci
+runuser -u gitee-ci -- env HOME=/var/lib/gitee-ci \
+  corepack prepare pnpm@9 --activate >/dev/null
 
 install -o root -g root -m 0755 \
   "${source_root}/scripts/ci/gitee_webhook_ci.py" \

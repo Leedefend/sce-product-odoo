@@ -5,7 +5,7 @@ Chinese: [gitee_webhook_ci_v1.md](gitee_webhook_ci_v1.md)
 ## Boundary
 
 - Gitee is the primary code and PR entry point; GitHub is temporarily a mirror.
-- Huawei node `1.95.2.123` runs the lightweight public guard. Professional gates remain a later step.
+- Huawei node `1.95.2.123` runs the lightweight public guard for same-repository events. PR events continue with `pnpm install` and the full `make ci` professional gate after the public guard passes.
 - This design does not use Gitee Go, consume hosted build minutes, or trigger RC, attachment, or production deployment work.
 - WebHook CI only accepts `leegege/sce-product-odoo`, sender `leegege`, same-repository Push/PR events, and a full 40-character SHA.
 
@@ -20,6 +20,7 @@ Chinese: [gitee_webhook_ci_v1.md](gitee_webhook_ci_v1.md)
 7. Do not export the WebHook secret or reporting token to the worker.
 8. Use only the fixed Gitee URL and verify the detached HEAD SHA before running gates.
 9. Use an isolated temporary directory per run and retain logs/reports outside the repository.
+10. Push events run only the public guard; only same-repository, owner-sent PR events run the professional gate, while forks are rejected before enqueue.
 
 ## Server state
 

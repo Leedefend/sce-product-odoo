@@ -5,7 +5,8 @@ English: [gitee_webhook_ci_v1.en.md](gitee_webhook_ci_v1.en.md)
 ## 边界
 
 - Gitee 是主代码与 PR 入口；GitHub 暂时作为镜像。
-- 华为节点 `1.95.2.123` 执行轻量公开守卫，后续才允许接专业门禁。
+- 华为节点 `1.95.2.123` 对同仓库事件执行轻量公开守卫；PR 事件在其通过后继续执行
+  `pnpm install` 和完整 `make ci` 专业门禁。
 - 本方案不使用 Gitee Go，不消耗 Gitee 构建分钟，不触发 RC、附件或生产部署。
 - WebHook CI 只接受 `leegege/sce-product-odoo`、发送者 `leegege`、同仓库 Push/PR 和完整 40 位 SHA。
 
@@ -21,6 +22,7 @@ English: [gitee_webhook_ci_v1.en.md](gitee_webhook_ci_v1.en.md)
 7. Worker 不继承 WebHook secret 或回写 token。
 8. 构建器只使用固定 Gitee URL，并在 detached HEAD 上复核实际 SHA。
 9. 每次构建使用独立临时目录；日志和扫描报告保存在服务器独立目录。
+10. Push 只执行公开守卫；同仓库、同所有者 PR 才执行专业门禁，fork 在入队前拒绝。
 
 ## 服务器状态
 

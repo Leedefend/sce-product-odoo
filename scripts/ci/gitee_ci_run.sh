@@ -61,10 +61,21 @@ python3 scripts/verify/clean_product_release_scan.py \
   --report "${artifact_root}/${sha}/clean-product-release-scan.json"
 python3 scripts/verify/github_actions_security_guard.py
 
+professional_result="SKIPPED"
+if [ "${hook_name}" = "merge_request_hooks" ]; then
+  echo "[gitee_ci] professional gate start sha=${sha}"
+  pnpm --dir frontend/apps/web install --frozen-lockfile=false
+  make ci
+  professional_result="PASS"
+  echo "[gitee_ci] professional gate PASS sha=${sha}"
+fi
+
 printf '%s\n' \
   "SHA=${sha}" \
   "EVENT=${hook_name}" \
   "PR=${pr_number:-none}" \
+  "PUBLIC_GUARD=PASS" \
+  "PROFESSIONAL_QUALITY_GATE=${professional_result}" \
   "RESULT=PASS" \
   > "${artifact_root}/${sha}/result.txt"
 echo "[gitee_ci] PASS sha=${sha}"
