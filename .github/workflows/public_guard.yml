@@ -1,0 +1,51 @@
+name: public_guard
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-guard-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  public_guard:
+    name: public_guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout untrusted source without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Compile repository guards
+        run: >-
+          python3 -m py_compile
+          scripts/verify/repository_clean_history_guard.py
+          scripts/verify/test_repository_clean_history_guard.py
+          scripts/verify/github_actions_security_guard.py
+          scripts/verify/test_github_actions_security_guard.py
+
+      - name: Run guard unit and negative tests
+        run: |
+          python3 scripts/verify/test_repository_clean_history_guard.py
+          python3 scripts/verify/test_github_actions_security_guard.py
+
+      - name: Scan all reachable product history
+        run: make verify.repository.clean_history
+
+      - name: Run clean product boundary scan
+        run: >-
+          python3 scripts/verify/clean_product_release_scan.py
+          --report "${RUNNER_TEMP}/clean-product-release-scan.json"
+
+      - name: Verify workflow security policy
+        run: python3 scripts/verify/github_actions_security_guard.py

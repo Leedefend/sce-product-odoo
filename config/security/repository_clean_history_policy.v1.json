@@ -3,6 +3,7 @@
   "allowed_remotes": {
     "origin": [
       "https://github.com/Leedefend/sce-product-odoo.git",
+      "https://github.com/Leedefend/sce-product-odoo",
       "git@gitee.com:leegege/sce-product-odoo.git"
     ],
     "gitee": "git@gitee.com:leegege/sce-product-odoo.git"

@@ -9,7 +9,7 @@ RELEASE_ENV = SC_ENVIRONMENT=release_rehearsal SC_ALLOW_DEMO_DATA=0 DB_NAME=$(RE
 
 .PHONY: verify.release.guard verify.release.tooling release.rehearsal.prepare release.rehearsal.build release.rehearsal.runtime.up release.rehearsal.upgrade verify.release.data_compatibility release.rehearsal.fingerprint release.rehearsal.backup release.rehearsal.filestore.recover release.rehearsal.restore release.rehearsal.rollback verify.release.rehearsal verify.release.monitoring release.rehearsal.cleanup release.production.acceptance release.production.acceptance.report release.readiness.report release.pilot.all
 
-verify.release.guard:
+verify.release.guard: verify.repository.release_hygiene
 	@SC_ENVIRONMENT=release_rehearsal SC_ALLOW_DEMO_DATA=0 DB_NAME=$(RELEASE_DB) python3 scripts/release/rehearsal_guard.py
 
 verify.release.tooling:
@@ -101,10 +101,10 @@ CANDIDATE_ARTIFACTS ?= artifacts/release/immutable-production-candidate-v1
 release.production.readonly_baseline: guard.prod.readonly check-compose-project check-compose-env
 	@CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" bash scripts/release/production_readonly_baseline.sh
 
-release.candidate.build: guard.prod.forbid
+release.candidate.build: guard.prod.forbid verify.repository.release_hygiene
 	@CANDIDATE_SOURCE_SHA="$(CANDIDATE_SOURCE_SHA)" CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" bash scripts/release/immutable_candidate_build.sh
 
-release.boundary.candidate.build: guard.prod.forbid
+release.boundary.candidate.build: guard.prod.forbid verify.repository.release_hygiene
 	@CANDIDATE_SOURCE_SHA="$(CANDIDATE_SOURCE_SHA)" CANDIDATE_SOURCE_REF=HEAD ALLOW_BOUNDARY_BRANCH_BUILD=1 \
 		CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" \
 		bash scripts/release/immutable_candidate_build.sh

@@ -2,7 +2,9 @@ name: sc smoke + validate
 
 on:
   workflow_dispatch:
-  
+
+permissions:
+  contents: read
 
 concurrency:
   group: sc-smoke-${{ github.ref }}
@@ -10,6 +12,10 @@ concurrency:
 
 jobs:
   smoke:
+    if: >-
+      github.repository == 'Leedefend/sce-product-odoo' &&
+      github.actor == 'Leedefend' &&
+      github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, huawei, ubuntu22]
     timeout-minutes: 30
 
@@ -105,7 +111,7 @@ jobs:
       # 关键：上传整个目录，更稳（避免 glob 找不到导致误判）
       - name: Upload validation reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: validate-reports
           path: |

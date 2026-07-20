@@ -1,0 +1,94 @@
+name: professional_quality_gate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: professional-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  professional_authorization:
+    name: professional_authorization
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Deny forks and non-owner actors
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REPOSITORY: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || '' }}
+        run: |
+          set -euo pipefail
+          test "${REPOSITORY}" = "Leedefend/sce-product-odoo"
+          test "${ACTOR}" = "Leedefend"
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            test "${HEAD_REPOSITORY}" = "${REPOSITORY}"
+          else
+            test "${EVENT_NAME}" = "workflow_dispatch"
+          fi
+
+  professional_quality_gate:
+    name: professional_quality_gate
+    needs: professional_authorization
+    if: >-
+      github.repository == 'Leedefend/sce-product-odoo' &&
+      github.actor == 'Leedefend' &&
+      ((github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository) ||
+      github.event_name == 'workflow_dispatch')
+    runs-on: [self-hosted, huawei, ubuntu22]
+    timeout-minutes: 45
+    env:
+      CI_REMOTE_URL: https://gitee.com/leegege/sce-product-odoo.git
+      HEAD_REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      CI_PROJECT_NAME: sc-prof-${{ github.run_id }}
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ github.workspace }}
+
+    steps:
+      - name: Checkout exact mirrored owner commit
+        run: |
+          set -euo pipefail
+          find "${GITHUB_WORKSPACE}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          git init "${GITHUB_WORKSPACE}"
+          git remote add origin "${CI_REMOTE_URL}"
+          for attempt in 1 2 3 4 5; do
+            if timeout 90 git fetch --no-tags origin \
+              "+refs/heads/${HEAD_REF}:refs/remotes/origin/${HEAD_REF}" &&
+              test "$(git rev-parse "refs/remotes/origin/${HEAD_REF}")" = "${HEAD_SHA}"; then
+              git checkout --detach "${HEAD_SHA}"
+              exit 0
+            fi
+            sleep "$((attempt * 5))"
+          done
+          echo "mirror checkout failed for authorized commit" >&2
+          exit 1
+
+      - name: Verify runner tools
+        run: |
+          python3 --version
+          node --version
+          corepack enable
+          corepack prepare pnpm@9 --activate
+          pnpm --version
+
+      - name: Install frontend dependencies
+        run: pnpm --dir frontend/apps/web install --frozen-lockfile=false
+
+      - name: Run professional quality gate
+        run: make ci
+
+      - name: Clean self-hosted runner state
+        if: always()
+        run: bash scripts/ci/self_hosted_runner_cleanup.sh
