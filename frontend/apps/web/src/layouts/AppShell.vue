@@ -377,7 +377,11 @@ const rootNode = computed(() => (menuTree.value.length === 1 ? menuTree.value[0]
 const menuNodes = computed(() => rootNode.value?.children ?? menuTree.value);
 const visibleMenuNodes = computed(() => menuNodes.value);
 const menuCount = computed(() => visibleMenuNodes.value.length);
-const routeAllowsEmptyMenu = computed(() => route.meta?.adminOnly === true || route.path.startsWith('/admin/'));
+const routeAllowsEmptyMenu = computed(() => (
+  route.meta?.adminOnly === true
+  || route.path.startsWith('/admin/')
+  || ['my-work', 'scene-my-work'].includes(String(route.name || ''))
+));
 const rootTitle = computed(() => {
   const root = rootNode.value;
   const rawTitle = normalizeDeliveryText(root?.title || root?.name || root?.label || '');
