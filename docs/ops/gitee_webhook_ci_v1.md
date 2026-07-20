@@ -34,27 +34,32 @@ LOG=/var/log/gitee-ci
 ARTIFACT=/var/lib/gitee-ci/artifacts
 DEPLOY_KEY=/etc/gitee-ci/id_ed25519
 SECRET=/etc/gitee-ci/sce-product-odoo.env
+PUBLIC_HEALTH=https://1.95.2.123/healthz
+WEBHOOK=https://1.95.2.123/hooks/gitee
 ```
 
 密钥和私钥均为服务器本地 `0400/0440` 文件，不进入 Git、不打印到日志。
+Nginx 只把精确的 WebHook 路径反向代理到 loopback 服务；公网证书由 Certbot
+使用 Let's Encrypt 短期 IP 证书签发并由 systemd timer 自动续期。
 
-## 尚需平台配置
+## 平台配置状态
 
-在启用真实事件之前必须同时完成：
+已完成公网可信 HTTPS。以下 Gitee 仓库配置仍必须在启用真实事件前完成：
 
-1. 为 `1.95.2.123` 建立公网可信 HTTPS 反向代理到 `127.0.0.1:9080`。
-2. 把服务器生成的公钥登记为仓库只读 Deploy Key。
-3. 使用 Gitee 签名密钥模式创建 WebHook，只启用 Push 和 Pull Request。
-4. 配置 `main` 保护：禁止直接 Push、禁止 force push/删除、必须 PR。
-5. 为最小权限机器人令牌建立服务器本地 secret 文件，用于结果评论/状态回写；构建进程不得获得写仓库权限。
+1. 使用具备 `keys`、`hook`、`pull_requests` 和仓库管理权限的临时管理令牌运行
+   `make gitee.ci.repository.configure GITEE_TOKEN_FILE=<0600文件>`。
+2. 该命令登记服务器公钥、创建签名 WebHook、保护 `main`、创建治理 PR 并发送测试事件。
+3. 配置成功后撤销临时管理令牌；不得把它复制到 CI 服务器。
+4. 为最小权限机器人令牌建立服务器本地 secret 文件，用于结果评论/状态回写；构建进程不得获得写仓库权限。
 
-没有 HTTPS 和 Gitee 管理授权时，服务保持 loopback-only，不得临时改成公网 HTTP。
+配置命令在任何写操作前统一探测所需权限；权限不足时列出全部缺项并保持仓库不变。
 
 ## 验证
 
 ```bash
 make verify.gitee.webhook.ci
 make gitee.ci.server.status
+make gitee.ci.https.status
 ```
 
 负向矩阵包括无效签名、过期请求、重放、错误仓库、错误发送者、fork PR、分支/命令注入、删除/关闭事件和 secret 环境隔离。

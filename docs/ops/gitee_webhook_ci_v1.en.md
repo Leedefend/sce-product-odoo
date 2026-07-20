@@ -34,27 +34,31 @@ LOG=/var/log/gitee-ci
 ARTIFACT=/var/lib/gitee-ci/artifacts
 DEPLOY_KEY=/etc/gitee-ci/id_ed25519
 SECRET=/etc/gitee-ci/sce-product-odoo.env
+PUBLIC_HEALTH=https://1.95.2.123/healthz
+WEBHOOK=https://1.95.2.123/hooks/gitee
 ```
 
 The secret and private key remain server-local `0400/0440` files. They are not committed or printed in logs.
+Nginx proxies only the exact WebHook path to the loopback service. Certbot obtains a
+Let's Encrypt short-lived IP certificate and a systemd timer renews it automatically.
 
-## Remaining platform configuration
+## Platform configuration status
 
-All of the following are required before real events are enabled:
+Publicly trusted HTTPS is complete. The following Gitee repository configuration remains required before real events are enabled:
 
-1. Provide publicly trusted HTTPS on `1.95.2.123`, reverse-proxied to `127.0.0.1:9080`.
-2. Register the generated public key as a read-only repository Deploy Key.
-3. Create a Gitee WebHook in signing-secret mode with only Push and Pull Request enabled.
-4. Protect `main`: deny direct pushes, force pushes, and deletion; require PRs.
-5. Store a least-privilege bot token on the server for result comments/status reporting; build jobs must not receive repository write access.
+1. Run `make gitee.ci.repository.configure GITEE_TOKEN_FILE=<0600-file>` with a temporary administrative token carrying `keys`, `hook`, `pull_requests`, and repository-management permissions.
+2. The command registers the server public key, creates the signed WebHook, protects `main`, opens the governance PR, and sends a test event.
+3. Revoke the temporary administrative token after configuration; never copy it to the CI server.
+4. Store a separate least-privilege bot token on the server for result comments/status reporting; build jobs must not receive repository write access.
 
-Without HTTPS and Gitee administrative authorization, the service remains loopback-only and must not be exposed over plain HTTP.
+The command probes all required permissions before its first write. If permissions are insufficient, it lists all missing scopes and leaves the repository unchanged.
 
 ## Verification
 
 ```bash
 make verify.gitee.webhook.ci
 make gitee.ci.server.status
+make gitee.ci.https.status
 ```
 
 The negative matrix covers invalid signatures, expired requests, replay, wrong repository, wrong sender, fork PRs, branch/command injection, deleted/closed events, and secret isolation.
