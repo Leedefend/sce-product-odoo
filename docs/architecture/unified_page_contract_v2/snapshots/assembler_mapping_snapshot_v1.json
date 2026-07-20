@@ -1,0 +1,34 @@
+{
+  "snapshotVersion": "v1",
+  "contractVersion": "2.1.0",
+  "sources": {
+    "scene_contract_v1": {
+      "sourceType": "scene_contract_v1",
+      "minContainerCount": 1,
+      "minWidgetStatusCount": 1,
+      "minActionCount": 1
+    },
+    "page_orchestration_v1": {
+      "sourceType": "page_orchestration_v1",
+      "minContainerCount": 1,
+      "minWidgetStatusCount": 1,
+      "minActionCount": 1
+    },
+    "ui_contract": {
+      "sourceType": "ui.contract",
+      "minContainerCount": 1,
+      "minWidgetStatusCount": 1,
+      "expectedWidgetIds": [
+        "field.stage_id"
+      ],
+      "minActionCount": 0,
+      "requiresFormStructureContract": true
+    },
+    "api_onchange": {
+      "sourceType": "api.onchange",
+      "updateType": "partial",
+      "minDataPatchKeys": 1,
+      "minWidgetStatusCount": 1
+    }
+  }
+}

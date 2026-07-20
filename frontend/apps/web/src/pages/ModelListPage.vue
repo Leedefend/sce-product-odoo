@@ -1,0 +1,40 @@
+<template>
+  <main class="page sc-page sc-page-frame sc-content-layout--data-grid sc-product-workspace-stack" data-product-page-mode="list" data-workspace-frame="business" data-content-layout-mode="data-grid">
+    <StatusPanel
+      title="Legacy List Route"
+      message="This route has been redirected to contract-driven ActionView."
+      variant="info"
+    />
+  </main>
+</template>
+
+<script setup lang="ts">
+import { onMounted } from 'vue';
+import { useRoute, useRouter, type LocationQueryRaw } from 'vue-router';
+import StatusPanel from '../components/StatusPanel.vue';
+import { ErrorCodes } from '../app/error_codes';
+
+const route = useRoute();
+const router = useRouter();
+
+onMounted(() => {
+  const actionId = Number(route.query.action_id || 0);
+  if (Number.isFinite(actionId) && actionId > 0) {
+    const query = route.query as LocationQueryRaw;
+    router.replace({ name: 'action', params: { actionId }, query }).catch(() => {});
+    return;
+  }
+  router
+    .replace({
+      name: 'workbench',
+      query: { reason: ErrorCodes.CONTRACT_CONTEXT_MISSING, diag: 'legacy_route_missing_action_id' },
+    })
+    .catch(() => {});
+});
+</script>
+
+<style scoped>
+.page {
+  padding: 12px;
+}
+</style>

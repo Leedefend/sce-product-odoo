@@ -1,0 +1,277 @@
+import { computed, type Ref } from 'vue';
+import {
+  resolveUnifiedPageContractV2SelectorStatus,
+  resolveUnifiedPageContractV2SurfacePolicies,
+} from '../contracts/unifiedPageContractV2';
+
+type Dict = Record<string, unknown>;
+
+type UseActionViewFilterComputedRuntimeOptions = {
+  actionContract: Ref<{
+    search?: {
+      filters?: Array<Record<string, unknown>>;
+      saved_filters?: Array<Record<string, unknown>>;
+      group_by?: Array<Record<string, unknown>>;
+      custom?: Record<string, unknown>;
+      ui_labels?: Record<string, unknown>;
+    };
+    surface_policies?: {
+      filters_primary_max?: number;
+    };
+  } | null>;
+  activeGroupByField: Ref<string>;
+  parseContractContextRaw: (value: unknown) => Dict;
+  isActionViewNumericToken: (value: unknown) => boolean;
+  hasActionViewNoiseMarker: (key: unknown, label: unknown, domainRaw: unknown, contextRaw: unknown) => boolean;
+};
+
+function resolveGroupByFromContextRaw(value: unknown): string {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const scalarMatch = text.match(/['"]group_by['"]\s*:\s*['"]([^'"]+)['"]/);
+  if (scalarMatch?.[1]) return scalarMatch[1].trim();
+  const listMatch = text.match(/['"]group_by['"]\s*:\s*\[\s*['"]([^'"]+)['"]/);
+  return listMatch?.[1]?.trim() || '';
+}
+
+function resolveGroupByField(
+  row: Record<string, unknown>,
+  context: Dict,
+  contextRaw: unknown,
+  options?: { allowKeyFallback?: boolean },
+): string {
+  const direct = String(row.field || row.group_by || row.groupBy || row.group || '').trim();
+  if (direct) return direct;
+  const fromContext = context.group_by;
+  if (typeof fromContext === 'string') return fromContext.trim();
+  if (Array.isArray(fromContext)) return String(fromContext[0] || '').trim();
+  const fromContextRaw = resolveGroupByFromContextRaw(contextRaw);
+  if (fromContextRaw) return fromContextRaw;
+  if (options?.allowKeyFallback) return String(row.key || row.name || '').trim();
+  return '';
+}
+
+function isGroupByFilter(row: Record<string, unknown>, context: Dict): boolean {
+  const hasGroupBy = Boolean(resolveGroupByField(row, context, row.context_raw));
+  if (!hasGroupBy) return false;
+  const domain = Array.isArray(row.domain) ? row.domain : [];
+  const domainRaw = String(row.domain_raw || '').trim();
+  return !domain.length && !domainRaw;
+}
+
+function selectorTokens(...items: unknown[]): string[] {
+  return items
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+}
+
+export function useActionViewFilterComputedRuntime(options: UseActionViewFilterComputedRuntimeOptions) {
+  function isSelectorEnabled(selectors: string[]): boolean {
+    const status = resolveUnifiedPageContractV2SelectorStatus(options.actionContract.value, selectors);
+    return status?.visible !== false && status?.disabled !== true;
+  }
+
+  const contractFilterChips = computed(() => {
+    const rows = options.actionContract.value?.search?.filters;
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .map((row) => {
+        const key = String(row?.key || '').trim();
+        const label = String(row?.label || row?.key || '').trim();
+        if (!key || !label) return null;
+        if (options.isActionViewNumericToken(key) || options.isActionViewNumericToken(label)) return null;
+        if (options.hasActionViewNoiseMarker(key, label, row?.domain_raw, row?.context_raw)) return null;
+        if (!isSelectorEnabled(selectorTokens(`filter.${key}`, key))) return null;
+        const domain = Array.isArray(row?.domain) ? row.domain : [];
+        const domainRaw = String(row?.domain_raw || '').trim();
+        const contextRaw = String(row?.context_raw || '').trim();
+        const context = options.parseContractContextRaw(row?.context_raw);
+        if (isGroupByFilter(row, context)) return null;
+        return { key, label, domain, domainRaw, context, contextRaw };
+      })
+      .filter(Boolean)
+      .slice(0, 8);
+  });
+
+  const filterPrimaryBudget = computed(() => {
+    const surfacePolicies = resolveUnifiedPageContractV2SurfacePolicies(options.actionContract.value);
+    const raw = Number(surfacePolicies.filters_primary_max ?? 5);
+    if (!Number.isFinite(raw) || raw < 0) return 5;
+    return Math.floor(raw);
+  });
+
+  const contractPrimaryFilterChips = computed(() =>
+    contractFilterChips.value.slice(0, filterPrimaryBudget.value),
+  );
+
+  const contractOverflowFilterChips = computed(() =>
+    contractFilterChips.value.slice(filterPrimaryBudget.value),
+  );
+
+  const contractSavedFilterChips = computed(() => {
+    const rows = options.actionContract.value?.search?.saved_filters;
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .map((row, idx) => {
+        const raw = row as Record<string, unknown>;
+        const key = String(raw.key || raw.name || raw.xmlid || raw.xml_id || `saved_${idx + 1}`).trim();
+        const label = String(raw.label || raw.name || key).trim();
+        if (!key || !label) return null;
+        if (options.isActionViewNumericToken(key) || options.isActionViewNumericToken(label)) return null;
+        if (options.hasActionViewNoiseMarker(key, label, raw.domain_raw, raw.context_raw)) return null;
+        if (!isSelectorEnabled(selectorTokens(`saved_filter.${key}`, key))) return null;
+        const domain = Array.isArray(raw.domain) ? raw.domain : [];
+        const domainRaw = String(raw.domain_raw || '').trim();
+        const contextRaw = String(raw.context_raw || '').trim();
+        const context = options.parseContractContextRaw(raw.context_raw);
+        const isDefault = raw.default === true || raw.is_default === true;
+        const isShared = raw.is_shared === true;
+        return { key, label, domain, domainRaw, context, contextRaw, isDefault, isShared };
+      })
+      .filter(Boolean)
+      .slice(0, 12);
+  });
+
+  const savedFilterPrimaryChips = computed(() =>
+    contractSavedFilterChips.value.slice(0, filterPrimaryBudget.value),
+  );
+
+  const savedFilterOverflowChips = computed(() =>
+    contractSavedFilterChips.value.slice(filterPrimaryBudget.value),
+  );
+
+  const contractGroupByChips = computed(() => {
+    const explicitRows = options.actionContract.value?.search?.group_by;
+    const filterRows = options.actionContract.value?.search?.filters;
+    const rows = [
+      ...(Array.isArray(filterRows) ? filterRows.map((row) => ({ row, source: 'filter' as const })) : []),
+      ...(Array.isArray(explicitRows) ? explicitRows.map((row) => ({ row, source: 'group' as const })) : []),
+    ];
+    const seen = new Set<string>();
+    return rows
+      .map((entry) => {
+        const raw = entry.row as Record<string, unknown>;
+        const contextRaw = String(raw.context_raw || '').trim();
+        const context = options.parseContractContextRaw(contextRaw);
+        const field = resolveGroupByField(raw, context, contextRaw, { allowKeyFallback: entry.source === 'group' });
+        const label = String(raw.label || raw.string || raw.name || field).trim();
+        if (!field || !label) return null;
+        if (seen.has(field)) return null;
+        if (options.isActionViewNumericToken(field) || options.isActionViewNumericToken(label)) return null;
+        if (!isSelectorEnabled(selectorTokens(`group.${field}`, field))) return null;
+        seen.add(field);
+        const isDefault = raw.default === true || raw.is_default === true;
+        return { key: field, field, label, context, contextRaw, isDefault };
+      })
+      .filter(Boolean)
+      .slice(0, 12);
+  });
+
+  const customFilterFields = computed(() => {
+    const custom = options.actionContract.value?.search?.custom as Dict | undefined;
+    const filterConfig = (custom?.filters || {}) as Dict;
+    const rows = filterConfig.enabled === false ? [] : filterConfig.fields;
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .map((row) => {
+        const raw = row as Dict;
+        const field = String(raw.field || '').trim();
+        const label = String(raw.label || field).trim();
+        const type = String(raw.type || 'char').trim();
+        if (!field || !label) return null;
+        if (options.isActionViewNumericToken(field) || options.isActionViewNumericToken(label)) return null;
+        if (!isSelectorEnabled(selectorTokens(`custom_filter.${field}`, `filter.${field}`, field))) return null;
+        const operators = Array.isArray(raw.operators) ? raw.operators : [];
+        const choices = Array.isArray(raw.choices) ? raw.choices : [];
+        return { field, label, type, operators, choices };
+      })
+      .filter(Boolean)
+      .slice(0, 40);
+  });
+
+  const customGroupByChips = computed(() => {
+    const custom = options.actionContract.value?.search?.custom as Dict | undefined;
+    const groupConfig = (custom?.group_by || {}) as Dict;
+    const rows = groupConfig.enabled === false ? [] : groupConfig.fields;
+    if (!Array.isArray(rows)) return [];
+    const seen = new Set<string>();
+    return rows
+      .map((row) => {
+        const raw = row as Dict;
+        const field = String(raw.field || '').trim();
+        const label = String(raw.label || field).trim();
+        if (!field || !label || seen.has(field)) return null;
+        if (options.isActionViewNumericToken(field) || options.isActionViewNumericToken(label)) return null;
+        if (!isSelectorEnabled(selectorTokens(`custom_group.${field}`, `group.${field}`, field))) return null;
+        seen.add(field);
+        return { key: field, field, label, context: {}, contextRaw: '', isDefault: false, custom: true };
+      })
+      .filter(Boolean)
+      .slice(0, 30);
+  });
+
+  const routeGroupByChips = computed(() => {
+    const seen = new Set<string>();
+    return [...contractGroupByChips.value, ...customGroupByChips.value].filter((chip) => {
+      const field = String((chip as Dict).field || '').trim();
+      if (!field || seen.has(field)) return false;
+      seen.add(field);
+      return true;
+    });
+  });
+
+  const customSearchCapabilities = computed(() => {
+    const searchLabels = (options.actionContract.value?.search?.ui_labels || {}) as Dict;
+    const custom = options.actionContract.value?.search?.custom as Dict | undefined;
+    const filters = (custom?.filters || {}) as Dict;
+    const groups = (custom?.group_by || {}) as Dict;
+    const favorites = (custom?.favorites || {}) as Dict;
+    const customLabels = (custom?.ui_labels || {}) as Dict;
+    const uiLabels = { ...searchLabels, ...customLabels };
+    const label = (key: string, fallback: string) => String(uiLabels[key] || fallback);
+    return {
+      enabled: custom?.enabled !== false,
+      filterEnabled: filters.enabled !== false && customFilterFields.value.length > 0,
+      filterLabel: String(filters.label || label('custom_filter', '添加自定义筛选')),
+      groupEnabled: groups.enabled !== false && customGroupByChips.value.length > 0,
+      groupLabel: String(groups.label || label('custom_group', '添加自定义分组')),
+      favoriteSaveEnabled: favorites.save_enabled !== false,
+      favoriteLabel: String(favorites.label || label('favorite_save', '加入收藏')),
+      favoriteIntent: String(favorites.intent || 'search.favorite.set'),
+      uiLabels,
+    };
+  });
+
+  const groupByPrimaryChips = computed(() =>
+    contractGroupByChips.value.slice(0, filterPrimaryBudget.value),
+  );
+
+  const groupByOverflowChips = computed(() =>
+    contractGroupByChips.value.slice(filterPrimaryBudget.value),
+  );
+
+  const activeGroupByLabel = computed(() => {
+    const field = options.activeGroupByField.value;
+    if (!field) return '';
+    const found = routeGroupByChips.value.find((chip) => String((chip as Dict).field || '') === field) as Dict | undefined;
+    return String(found?.label || field);
+  });
+
+  return {
+    contractFilterChips,
+    filterPrimaryBudget,
+    contractPrimaryFilterChips,
+    contractOverflowFilterChips,
+    contractSavedFilterChips,
+    savedFilterPrimaryChips,
+    savedFilterOverflowChips,
+    contractGroupByChips,
+    customFilterFields,
+    customGroupByChips,
+    routeGroupByChips,
+    customSearchCapabilities,
+    groupByPrimaryChips,
+    groupByOverflowChips,
+    activeGroupByLabel,
+  };
+}

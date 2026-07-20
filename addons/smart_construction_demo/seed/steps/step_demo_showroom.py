@@ -1,0 +1,275 @@
+# -*- coding: utf-8 -*-
+from odoo import fields
+from odoo.exceptions import UserError
+
+from ..registry import SeedStep, register
+
+
+SHOWROOM_PROJECTS = [
+    {"name": "展厅-智能制造示范项目", "state": "in_progress", "with_chain": True},
+    {"name": "展厅-市政工程样板段", "state": "closing", "with_chain": True},
+    {"name": "展厅-工业园区建设一期", "state": "warranty", "with_chain": True},
+    {"name": "展厅-绿色建材基地", "state": "in_progress", "with_chain": True},
+    {"name": "展厅-智慧园区运营中心", "state": "in_progress", "with_chain": False},
+    {"name": "展厅-产线升级改造工程", "state": "done", "with_chain": False},
+    {"name": "展厅-城市更新综合体", "state": "closing", "with_chain": False},
+    {"name": "展厅-科技研发中心", "state": "warranty", "with_chain": False},
+    {"name": "展厅-海绵城市示范区", "state": "done", "with_chain": False},
+    {"name": "展厅-装配式住宅试点", "state": "in_progress", "with_chain": False},
+    {"name": "展厅-停工整改样板", "state": "paused", "with_chain": False},
+]
+
+
+def _complete_settlement(settlement):
+    if settlement.state == "draft":
+        settlement.action_submit()
+    if settlement.state == "submit":
+        reviewer = settlement.env.ref("smart_construction_demo.user_sc_settlement_manager_cap")
+        for _index in range(max(1, len(settlement.review_ids))):
+            settlement.with_user(reviewer).validate_tier()
+            settlement.invalidate_recordset()
+            if settlement.validation_status == "validated":
+                break
+        if settlement.validation_status == "validated" and settlement.state == "submit":
+            settlement.action_on_tier_approved()
+    if settlement.state == "approve":
+        settlement.action_done()
+    if settlement.state != "done":
+        raise UserError("Demo 结算单未能按正式状态机完成。")
+
+TASKS_PER_PROJECT = 12
+
+
+def _get_demo_user(env, login):
+    return env["res.users"].sudo().search([("login", "=", login)], limit=1)
+
+
+def _ensure_boq(env, project, idx):
+    Boq = env["project.boq.line"].sudo()
+    if Boq.search_count([("project_id", "=", project.id)]) > 0:
+        return
+    uom_unit = env.ref("uom.product_uom_unit")
+    code_prefix = f"SR-{idx:02d}"
+    Boq.create(
+        {
+            "project_id": project.id,
+            "code": f"{code_prefix}-001",
+            "name": f"{project.name}-清单项",
+            "uom_id": uom_unit.id,
+            "quantity": 10.0,
+            "price": 120.0,
+            "section_type": "building",
+        }
+    )
+
+
+def _ensure_tasks(env, project, user, target):
+    Task = env["project.task"].sudo()
+    existing = Task.search([("project_id", "=", project.id)])
+    if len(existing) >= target:
+        return
+    start = len(existing) + 1
+    for i in range(start, target + 1):
+        vals = {
+            "name": f"{project.name}-任务 {i:02d}",
+            "project_id": project.id,
+        }
+        if user:
+            vals["user_ids"] = [(6, 0, [user.id])]
+        Task.create(vals)
+
+
+def _ensure_lifecycle(project, target_state):
+    if project.lifecycle_state != "draft":
+        return
+    if target_state == "in_progress":
+        project.action_set_lifecycle_state("in_progress")
+    elif target_state == "paused":
+        project.action_set_lifecycle_state("paused")
+    elif target_state == "closing":
+        project.action_set_lifecycle_state("in_progress")
+        project.action_set_lifecycle_state("closing")
+    elif target_state == "done":
+        project.action_set_lifecycle_state("in_progress")
+        project.action_set_lifecycle_state("done")
+    elif target_state == "warranty":
+        project.action_set_lifecycle_state("in_progress")
+        project.action_set_lifecycle_state("done")
+        project.action_set_lifecycle_state("warranty")
+
+
+def _ensure_project_prereqs(env, project):
+    vals = {}
+    if not project.owner_id:
+        partner = env.ref("smart_construction_demo.seed_partner_contract", raise_if_not_found=False)
+        if not partner:
+            partner = env["res.partner"].sudo().create({"name": "Demo-业主单位"})
+        vals["owner_id"] = partner.id
+        if not project.partner_id:
+            vals["partner_id"] = partner.id
+    elif not project.partner_id:
+        vals["partner_id"] = project.owner_id.id
+    if not project.location:
+        vals["location"] = "示范区"
+    if vals:
+        project.write(vals)
+
+
+def _ensure_purchase_order(env, settlement):
+    if settlement.purchase_order_ids:
+        return
+
+    Purchase = env["purchase.order"].sudo()
+    PurchaseLine = env["purchase.order.line"].sudo()
+    Product = env["product.product"].sudo()
+    uom_unit = env.ref("uom.product_uom_unit", raise_if_not_found=False)
+    if not uom_unit:
+        uom_unit = env["uom.uom"].sudo().search([], limit=1)
+
+    product = Product.search([("name", "=", "展厅采购服务")], limit=1)
+    if not product:
+        product = Product.create(
+            {
+                "name": "展厅采购服务",
+                "type": "service",
+                "uom_id": uom_unit.id if uom_unit else False,
+                "uom_po_id": uom_unit.id if uom_unit else False,
+                "purchase_ok": True,
+                "sale_ok": False,
+            }
+        )
+
+    po = Purchase.search(
+        [
+            ("partner_id", "=", settlement.partner_id.id),
+            ("origin", "=", settlement.name),
+        ],
+        limit=1,
+    )
+    if not po:
+        po = Purchase.create(
+            {
+                "partner_id": settlement.partner_id.id,
+                "date_order": fields.Datetime.now(),
+                "origin": settlement.name,
+            }
+        )
+    if not po.order_line:
+        total = settlement.amount_total or sum(settlement.line_ids.mapped("amount")) or 0.0
+        PurchaseLine.create(
+            {
+                "order_id": po.id,
+                "name": "展厅-采购服务",
+                "product_id": product.id,
+                "product_qty": 1.0,
+                "product_uom": uom_unit.id if uom_unit else product.uom_po_id.id,
+                "price_unit": total,
+                "date_planned": fields.Datetime.now(),
+            }
+        )
+    if po.state not in ("purchase", "done"):
+        env.cr.execute("UPDATE purchase_order SET state=%s WHERE id=%s", ("purchase", po.id))
+        env.invalidate_all()
+    settlement.purchase_order_ids = [(4, po.id)]
+
+
+def _ensure_contract_chain(env, project, idx):
+    partner = env.ref("smart_construction_demo.seed_partner_contract", raise_if_not_found=False)
+    if not partner:
+        partner = env["res.partner"].sudo().create({"name": "Demo-合同相对方"})
+
+    Contract = env["construction.contract"].sudo()
+    tax = env.ref("smart_construction_seed.tax_purchase_13", raise_if_not_found=False)
+    if not tax:
+        tax = Contract._get_default_tax("in")
+
+    subject = f"展厅合同-支出-{idx:02d}"
+    contract = Contract.search(
+        [("subject", "=", subject), ("project_id", "=", project.id)],
+        limit=1,
+    )
+    if not contract:
+        contract = Contract.create(
+            {
+                "subject": subject,
+                "type": "in",
+                "project_id": project.id,
+                "partner_id": partner.id,
+                "tax_id": tax.id if tax else False,
+                "date_contract": fields.Date.context_today(env.user),
+            }
+        )
+
+    Settlement = env["sc.settlement.order"].sudo()
+    Line = env["sc.settlement.order.line"].sudo()
+    settle_name = f"SHOW-SO-{idx:02d}"
+    settlement = Settlement.search([("name", "=", settle_name)], limit=1)
+    if not settlement:
+        settlement = Settlement.create(
+            {
+                "name": settle_name,
+                "project_id": project.id,
+                "contract_id": contract.id,
+                "partner_id": partner.id,
+                "settlement_type": "out",
+                "note": "seed:demo_showroom",
+            }
+        )
+    if not settlement.line_ids:
+        Line.create(
+            {
+                "settlement_id": settlement.id,
+                "name": "展厅-结算行",
+                "qty": 1.0,
+                "price_unit": 100.0,
+            }
+        )
+    _ensure_purchase_order(env, settlement)
+    _complete_settlement(settlement)
+
+    Payment = env["payment.request"].sudo()
+    pay_name = f"SHOW-PR-{idx:02d}"
+    payment = Payment.search([("name", "=", pay_name)], limit=1)
+    if not payment:
+        Payment.create(
+            {
+                "name": pay_name,
+                "type": "pay",
+                "project_id": project.id,
+                "contract_id": contract.id,
+                "settlement_id": settlement.id,
+                "partner_id": partner.id,
+                "amount": 50.0,
+                "note": "seed:demo_showroom",
+            }
+        )
+
+
+def run(env):
+    Project = env["project.project"].sudo()
+    demo_pm = _get_demo_user(env, "demo_pm")
+    for idx, spec in enumerate(SHOWROOM_PROJECTS, start=1):
+        project = Project.search([("name", "=", spec["name"])], limit=1)
+        created = False
+        if not project:
+            project = Project.create({"name": spec["name"]})
+            created = True
+        _ensure_boq(env, project, idx)
+        _ensure_tasks(env, project, demo_pm, TASKS_PER_PROJECT)
+        _ensure_project_prereqs(env, project)
+        if created or project.lifecycle_state == "draft":
+            _ensure_lifecycle(project, spec["state"])
+        if spec["with_chain"]:
+            _ensure_contract_chain(env, project, idx)
+
+    env["ir.config_parameter"].sudo().set_param("sc.seed.demo_showroom", "1")
+    return {"ok": True, "projects": len(SHOWROOM_PROJECTS)}
+
+
+register(
+    SeedStep(
+        name="demo_showroom",
+        description="Create showroom-friendly projects, tasks, and happy-path docs.",
+        run=run,
+    )
+)

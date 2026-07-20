@@ -1,0 +1,7 @@
+services:
+  odoo:
+    volumes:
+      - ./addons/smart_construction_bootstrap:/mnt/transition-addons/smart_construction_bootstrap:ro
+      - ./addons/smart_construction_seed:/mnt/transition-addons/smart_construction_seed:ro
+      - ./addons/smart_owner_core:/mnt/transition-addons/smart_owner_core:ro
+      - ./addons/smart_owner_bundle:/mnt/transition-addons/smart_owner_bundle:ro

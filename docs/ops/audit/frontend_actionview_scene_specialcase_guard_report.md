@@ -1,0 +1,38 @@
+# Frontend ActionView Scene Specialcase Guard Report
+
+- ok: true
+- check: verify.frontend.actionview.scene_specialcase.guard
+- files:
+  - frontend/apps/web/src/views/ActionView.vue
+  - frontend/apps/web/src/app/runtime/actionViewBatchActionFlowRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewBatchRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewContractActionRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewContractLoadRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewDataRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewGroupPagingRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewGroupRuntimeState.ts
+  - frontend/apps/web/src/app/runtime/actionViewGroupWindowRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadBranchRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadCatchApplyRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadDomainContextRequestRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadErrorRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadFinalizeRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadGuardRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadPreflightRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadRedirectErrorRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadResetRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadRouteApplyRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadRouteRequestRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadStateApplyRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadSuccessApplyRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadSuccessStateApplyRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadTriggerRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewLoadViewFieldStateRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewMetaRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewNavigationApplyRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewRequestRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewRoutePresetRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewRouteRuntime.ts
+  - frontend/apps/web/src/app/runtime/actionViewRouteSyncStateRuntime.ts
+  - frontend/apps/web/src/app/runtime/useActionViewGroupRuntime.ts
+- errors: []

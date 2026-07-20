@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="0">
+        <!-- Default scene tiles -->
+        <record id="sc_scene_version_default_v2" model="sc.scene.version">
+            <field name="scene_id" ref="smart_construction_core.sc_scene_default"/>
+            <field name="version">v2</field>
+            <field name="source">system</field>
+            <field name="payload_json" eval="{
+                'code': 'default',
+                'name': '默认场景',
+                'version': 'v2',
+                'layout': {'kind': 'workspace', 'sidebar': 'fixed', 'header': 'full'},
+                'target': {'route': '/workbench?scene=default'},
+                'tiles': [
+                    {
+                        'key': 'project.board.open',
+                        'title': '项目工作',
+                        'subtitle': '项目台账与项目办理入口',
+                        'icon': 'P',
+                        'scene_key': 'projects.list',
+                        'payload': {
+                            'action_xmlid': 'smart_construction_core.action_sc_project_list',
+                            'menu_xmlid': 'smart_construction_core.menu_sc_project_project',
+                            'scene_key': 'projects.list'
+                        },
+                        'required_capabilities': ['project.board.open']
+                    },
+                    {
+                        'key': 'governance.capability.matrix',
+                        'title': '能力矩阵',
+                        'subtitle': '查看角色可用能力',
+                        'icon': 'M',
+                        'payload': {
+                            'scene_key': 'portal.capability_matrix',
+                            'route': '/s/portal.capability_matrix'
+                        },
+                        'required_capabilities': ['governance.capability.matrix']
+                    },
+                    {
+                        'key': 'contract.center.open',
+                        'title': '合同工作',
+                        'subtitle': '合同台账与合同清单',
+                        'icon': 'C',
+                        'payload': {
+                            'action_xmlid': 'smart_construction_core.action_construction_contract_my',
+                            'menu_xmlid': 'smart_construction_core.menu_sc_contract_center'
+                        },
+                        'required_capabilities': ['contract.center.open']
+                    },
+                    {
+                        'key': 'cost.ledger.open',
+                        'title': '成本工作',
+                        'subtitle': '成本台账与预算入口',
+                        'icon': 'K',
+                        'payload': {
+                            'action_xmlid': 'smart_construction_core.action_project_cost_ledger_my',
+                            'menu_xmlid': 'smart_construction_core.menu_sc_project_cost_ledger'
+                        },
+                        'required_capabilities': ['cost.ledger.open']
+                    },
+                    {
+                        'key': 'finance.payment_request.list',
+                        'title': '财务工作',
+                        'subtitle': '付款申请与财务台账',
+                        'icon': 'F',
+                        'payload': {
+                            'action_xmlid': 'smart_construction_core.action_payment_request_my',
+                            'menu_xmlid': 'smart_construction_core.menu_payment_request'
+                        },
+                        'required_capabilities': ['finance.payment_request.list']
+                    }
+                ]
+            }"/>
+        </record>
+
+        <record id="smart_construction_core.sc_scene_default" model="sc.scene">
+            <field name="active_version_id" ref="sc_scene_version_default_v2"/>
+        </record>
+    </data>
+</odoo>

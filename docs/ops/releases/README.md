@@ -1,0 +1,211 @@
+---
+capability_stage: P0.1
+status: active
+---
+# Releases Index (Authoritative)
+
+This directory is the single source of truth for release entries.
+Other release notes under `docs/release/` or GitHub Releases are supporting copies.
+
+## Current Stable Recommendation
+- v0.3.0-stable (tag: `v0.3.0-stable`)
+  - Type: runtime
+  - Status: stable
+  - Notes: `docs/ops/release_notes_v0.3.0-stable.md`
+  - Checklist: `docs/ops/release_checklist_v0.3.0-stable.md`
+  - Verify: `make ci.gate.tp08 DB=sc_demo`
+  - GitHub Release: (not published)
+
+## Planned Formal Release
+- v2.0.0 (planned tag: `v2.0.0`)
+  - Type: release
+  - Status: planned
+  - Notes: `docs/ops/release_notes_v2.0.0.md`
+  - Checklist: `docs/ops/release_checklist_v2.0.0.md`
+  - Evidence: `docs/ops/releases/v2.0.0/evidence_manifest.md`
+  - Verify Catalog: `docs/ops/verify/README.md`
+  - Verify: `make verify.release.v2_0_0.preflight`
+  - Governance Verify: `make verify.release.v2_0_0.governance.guard`
+  - Formal Evidence Verify: `PROD_SIM_ACCEPTANCE_ARTIFACT_DIR=<run_dir> make verify.release.v2_0_0.formal_evidence.schema.guard`
+  - Evidence Boundary: recorded sample artifacts are not release signoff evidence
+  - GitHub Release: required after formal tag
+
+## Release List (Newest First)
+
+1) 2026-02-04 — Portal Shell UI v0.7.1
+   - Tag: `portal-shell-ui-v0.7.1` (planned)
+   - Type: frontend
+   - Status: draft
+   - Docs: `docs/ops/releases/archive/frontend_history/frontend_v0_7_1_ui_notes.md`
+   - Verify: `make verify.portal.ui.v0_7.container`, `make verify.portal.guard_groups`, `make verify.portal.recordview_hud_smoke.container`
+   - GitHub Release: (not published)
+
+2) 2026-01-20 — Infra Stage Exec v0.3 (SOP squash rebuild)
+   - Tag: `infra-stage-exec-v0.3-squash1` (canonical)
+   - Type: infra
+   - Status: released
+   - Docs: `docs/ops/stage_execution_template_v1.0.md`, `docs/ops/stage_defs/p2.yml`, `docs/ops/stage_defs/p3-runtime-r1.yml`
+   - Verify: `make stage.run STAGE=p2 DB=sc_p2`, `make stage.run STAGE=p3-runtime-r1 DB=sc_p3`
+   - GitHub Release: (not published)
+
+3) 2026-01-20 — Infra Stage Exec v0.3
+   - Tag: `infra-stage-exec-v0.3` (legacy, non-SOP; do not use)
+   - Type: infra
+   - Status: released
+   - Docs: `docs/ops/stage_execution_template_v1.0.md`, `docs/ops/stage_defs/p2.yml`, `docs/ops/stage_defs/p3-runtime-r1.yml`
+   - Verify: `make stage.run STAGE=p2 DB=sc_p2`, `make stage.run STAGE=p3-runtime-r1 DB=sc_p3`
+   - GitHub Release: (not published)
+
+4) 2026-01-20 — Infra Stage Exec v0.2
+   - Tag: `infra-stage-exec-v0.2`
+   - Type: infra
+   - Status: released
+   - Docs: `docs/ops/stage_execution_template_v1.0.md`, `docs/ops/stage_defs/p2.yml`, `docs/ops/stage_defs/p3-runtime-r1.yml`
+   - Verify: `make stage.run STAGE=p2 DB=sc_p2`, `make stage.run STAGE=p3-runtime-r1 DB=sc_p3`
+   - GitHub Release: (not published)
+
+5) 2026-01-20 — Infra Stage Exec v0.1
+   - Tag: `infra-stage-exec-v0.1`
+   - Type: infra
+   - Status: released
+   - Docs: `docs/ops/stage_execution_template_v1.0.md`, `docs/ops/codex_rules_v1.0.md`, `docs/ops/codex_preamble_v1.0.txt`
+   - Verify: `make stage.run STAGE=p2 DB=sc_p2`, `make stage.run STAGE=p3-runtime-r1 DB=sc_p3`
+   - GitHub Release: (not published)
+
+6) 2026-01-20 — Infra Codex Policy v0.1
+   - Tag: `infra-codex-policy-v0.1`
+   - Type: infra
+   - Status: merged
+   - Docs: `docs/ops/codex_rules_v1.0.md`
+   - Verify: `make codex.preflight`, `make ci.gate.tp08 DB=sc_demo`
+   - GitHub Release: (not published)
+
+7) 2026-01-20 — P3 Runtime R1 v0.1
+   - Tag: `p3-runtime-r1-v0.1`
+   - Type: runtime
+   - Status: active
+   - Docs: `docs/release/p3_runtime_r1_v0.1.md`
+   - Verify: `make ci.gate.tp08 DB=sc_demo`, `make p3.smoke DB=sc_p3`, `make p3.audit DB=sc_p3`
+   - GitHub Release: (not published)
+
+8) 2026-01-20 — P2 Runtime v0.1
+   - Tag: `p2-runtime-v0.1`
+   - Type: runtime
+   - Status: active
+   - Docs: `docs/release/p2_runtime_v0.1.md`
+   - Verify: `make p2.smoke DB=sc_p2`
+   - GitHub Release: (not published)
+
+9) 2026-01-19 — Gate P2 v0.1
+   - Tag: `p2-gate-v0.1`
+   - Type: gate
+   - Status: active
+   - Docs: `docs/p2/p2_runtime_validation_matrix_v0.1.md`
+   - Verify: `make ci.gate.tp08 DB=sc_demo`, `make p2.smoke DB=sc_p2`
+   - Legacy release link intentionally omitted during clean-repository bootstrap.
+
+10) 2026-01-19 — P1 Initiation v0.1
+   - Tag: `p1-initiation-v0.1`
+   - Type: phase
+   - Status: active
+   - Docs: `docs/ops/releases/release_notes_p1-initiation-v0.1.md`
+   - Verify: `make ci.gate.tp08 DB=sc_demo`
+   - GitHub Release: (not published)
+
+11) 2026-01-18 — v0.3.0-stable
+   - Tag: `v0.3.0-stable`
+   - Type: runtime
+   - Status: stable
+   - Docs: `docs/ops/release_notes_v0.3.0-stable.md`
+   - Verify: `make ci.gate.tp08 DB=sc_demo`
+   - GitHub Release: (not published)
+
+## Templates
+- Notes template: `docs/ops/releases/templates/release_notes_TEMPLATE.md`
+- Checklist template: `docs/ops/releases/templates/release_checklist_TEMPLATE.md`
+- Production deployment record template (zh): `docs/ops/releases/templates/production_deployment_record_TEMPLATE.zh.md`
+
+## Current Review Baseline
+- Menu scene coverage evidence:
+  - `docs/ops/releases/current/menu_scene_coverage_evidence.md`
+- Project management scene productization (v0.1):
+  - release flow doc: `docs/ops/releases/current/project_management_scene_v0_1_productization.md`
+  - productization gate: `make verify.project.management.productization`
+  - acceptance gate: `make verify.project.management.acceptance`
+  - acceptance evidence:
+    - `tmp/project_management_productization_flow_report.json`
+    - `tmp/project_management_scene_v0_1_acceptance_report.json`
+- Frontend contract-driven runtime (all views use contract as the only render source):
+  - `make verify.frontend.contract_route.guard`
+  - `make verify.frontend.contract_runtime.guard`
+  - `make verify.frontend.contract_normalized_fields.guard`
+  - `make verify.frontend.contract_query_context.guard`
+  - `make verify.frontend.contract_record_layout.guard`
+  - `make verify.frontend.typecheck.strict`
+  - `make verify.frontend.build`
+  - release check:
+    - `/a/:actionId` and `/r/:model/:id` and `/f/:model/:id` must render from `ui.contract` (`head/views/fields/buttons/toolbar/permissions/workflow/search`) without requiring `load_view` as primary source
+    - record runtime must not fallback to `load_view`; it should resolve an action context and consume `ui.contract` form payload only
+    - behavior/interaction changes should be driven by contract payload changes (no per-scene hardcoded UI branches)
+    - list/kanban must consume contract field labels, search filters, and toolbar/button actions as runtime behavior source
+    - form save must normalize payload by contract field types and submit diff-only writable fields
+    - record form runtime must normalize `views.form.layout` node arrays into renderer layout and keep field coverage aligned with contract `fields` (no silent field drop from partial layout nodes)
+    - legacy model pages (`ModelFormPage`/`ModelListPage`) should only act as compatibility shells and must delegate to contract-driven runtime
+- P4 contract semantics baseline (productized convergence):
+  - `system.init` must include grouped capability payload (`capability_groups`) and stable grouped ordering
+  - `system.init` capability/tile entries must expose semantic `capability_state` + `capability_state_reason`
+  - `ui.contract` project form (user mode) must expose governed `action_groups` with overflow buckets (not flat action flood)
+  - `ui.contract` project form (user mode) must expose lifecycle summary (`current_state/allowed_transitions/blockers/progress_percent`)
+- Backend evidence & observability expansion (Phase Next):
+  - `make verify.load_view.access.contract.guard`
+    - artifact: `/mnt/artifacts/backend/load_view_access_contract_guard.json` (fallback: `artifacts/backend/load_view_access_contract_guard.json`)
+    - release check: finance fixture should have at least one allowed business model and reject `ir.ui.view` with `403/PERMISSION_DENIED`
+  - `make verify.scene.catalog.governance.guard`
+    - artifact: `artifacts/scene_catalog_runtime_alignment_guard.json`
+    - release check: `summary.probe_source` should be `prod_like_baseline` (or explicit env override), not demo-only fallback
+  - `make verify.role.capability_floor.prod_like`
+    - artifact: `/mnt/artifacts/backend/role_capability_floor_prod_like.json` (fallback: `artifacts/backend/role_capability_floor_prod_like.json`)
+  - `make verify.contract.assembler.semantic.smoke`
+    - artifact: `/mnt/artifacts/backend/contract_assembler_semantic_smoke.json` (fallback: `artifacts/backend/contract_assembler_semantic_smoke.json`)
+    - includes project form density assertions (user mode `project.project/form`: field cap, layout-field coverage, search-filter cap, toolbar/header/smart action caps, hud >= user field surface)
+  - `make verify.contract.assembler.semantic.strict`
+    - strict mode: `SC_P4_SEMANTIC_STRICT=1` to fail on missing P4 semantic fields (`capability_groups`, `capability_state`, `action_groups`, `lifecycle`)
+    - use in strict release windows; keep `semantic.smoke` as non-breaking observability gate in default flow
+  - `make verify.project.form.contract.surface.guard`
+    - artifact: `/mnt/artifacts/backend/project_form_contract_surface_guard.json` (fallback: `artifacts/backend/project_form_contract_surface_guard.json`)
+    - release check: `project.project/form` user profile must keep required business fields, strip technical fields, and remain within density caps
+  - `make verify.runtime.surface.dashboard.report`
+    - artifact: `/mnt/artifacts/backend/runtime_surface_dashboard_report.json` (fallback: `artifacts/backend/runtime_surface_dashboard_report.json`)
+  - `make verify.scene.capability.matrix.report`
+    - artifact: `/mnt/artifacts/backend/scene_capability_matrix_report.json` (fallback: `artifacts/backend/scene_capability_matrix_report.json`)
+    - release check: outputs full scene/capability matrix and reports `scene_without_binding_count`, `unused_capability_count`, `missing_capability_ref_count`
+  - `make verify.release.capability.audit`
+    - artifacts:
+      - `/mnt/artifacts/backend/release_capability_report.json` (fallback: `artifacts/backend/release_capability_report.json`)
+      - `/mnt/artifacts/backend/release_capability_top20_fix_backlog.json` (fallback: `artifacts/backend/release_capability_top20_fix_backlog.json`)
+    - release check: runs PM/Finance/Executive key journeys (3 each), exports intent trace chain, runtime capability coverage matrix, scene openability audit, system-model ACL probe, and Top-20 fix backlog
+  - `make verify.release.capability.audit.schema.guard`
+    - release check: enforces deterministic report structure for `release_capability_report` and `release_capability_top20_fix_backlog`
+  - `make verify.capability.core.health.report`
+    - artifact: `/mnt/artifacts/backend/capability_core_health_report.json` (fallback: `artifacts/backend/capability_core_health_report.json`)
+    - release check: each sampled role must return capability entries with valid `group/state/capability_state` semantics in `system.init` (user + hud)
+  - `make verify.capability.registry.smoke`
+    - artifact: `artifacts/backend/capability_registry_smoke.json`
+    - release check: capability key naming regex, `group_key` required, capability count `>=30`, role floor (`pm/finance/executive >=10`, max role `>=20`), and `entry_target.scene_key` openability
+  - `make verify.scene.contract.semantic.v2.guard`
+    - artifact: `/mnt/artifacts/backend/scene_contract_semantic_v2_guard.json` (fallback: `artifacts/backend/scene_contract_semantic_v2_guard.json`)
+    - release check: enforces strict v2 semantic keys (`scene_meta` + `list_profile`) on opted-in scenes and reports migration gap/coverage for remaining runtime scenes
+  - `make verify.boundary.import_guard`
+    - artifact: `/mnt/artifacts/backend/boundary_import_guard_report.json` (fallback: `artifacts/backend/boundary_import_guard_report.json`)
+    - release check: no forbidden cross-layer imports and no forbidden manifest depends between platform/business/demo tiers
+  - `make verify.boundary.import_guard.schema.guard`
+    - release check: boundary import report schema stays deterministic for diff/CI guard
+  - `SC_BOUNDARY_IMPORT_STRICT=1 make verify.backend.architecture.full`
+    - strict check: enforce boundary import warnings/violations thresholds (`SC_BOUNDARY_IMPORT_WARN_MAX`, `SC_BOUNDARY_IMPORT_VIOLATION_MAX`)
+  - `make verify.backend.architecture.full.report`
+    - artifact: `/mnt/artifacts/backend/backend_architecture_full_report.json` (fallback: `artifacts/backend/backend_architecture_full_report.json`)
+  - `make verify.backend.evidence.manifest.guard`
+    - artifact: `/mnt/artifacts/backend/backend_evidence_manifest.json` (fallback: `artifacts/backend/backend_evidence_manifest.json`)
+  - `make verify.contract.evidence.guard`
+    - contract evidence now includes `load_view_access_contract` section (allowed model + forbidden status/code) for release audit
+    - contract evidence now includes `boundary_import_report` section (warning/violation/tracked modules) for layer-governance audit

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+        <record id="view_payment_ledger_search" model="ir.ui.view">
+            <field name="name">payment.ledger.search</field>
+            <field name="model">payment.ledger</field>
+            <field name="arch" type="xml">
+                <search string="支付台账">
+                    <field name="payment_request_id"/>
+                    <field name="project_id"/>
+                    <field name="operation_strategy"/>
+                    <field name="partner_id"/>
+                    <field name="ref"/>
+                    <filter string="按项目" name="group_project" context="{'group_by': 'project_id'}"/>
+                    <filter string="公司直营" name="operation_direct" domain="[('operation_strategy', '=', 'direct')]"/>
+                    <filter string="联营项目" name="operation_joint" domain="[('operation_strategy', '=', 'joint')]"/>
+                    <filter string="按经营策略" name="group_operation_strategy" context="{'group_by': 'operation_strategy'}"/>
+                    <filter string="按单位" name="group_partner" context="{'group_by': 'partner_id'}"/>
+                    <filter string="按日期" name="group_paid_at" context="{'group_by': 'paid_at:day'}"/>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_payment_ledger" model="ir.actions.act_window">
+            <field name="name">支付台账</field>
+            <field name="res_model">payment.ledger</field>
+            <field name="view_mode">tree,form</field>
+            <field name="search_view_id" ref="view_payment_ledger_search"/>
+            <field name="context">{'create': False, 'search_default_group_project': 1}</field>
+            <field name="groups_id" eval="[(6, 0, [
+                ref('smart_construction_core.group_sc_cap_finance_read'),
+                ref('smart_construction_core.group_sc_cap_finance_user'),
+                ref('smart_construction_core.group_sc_cap_finance_manager'),
+            ])]"/>
+        </record>
+
+        <record id="view_payment_ledger_tree" model="ir.ui.view">
+            <field name="name">payment.ledger.tree</field>
+            <field name="model">payment.ledger</field>
+            <field name="arch" type="xml">
+                <tree string="支付台账" create="false" edit="false" delete="false">
+                    <field name="payment_request_id"/>
+                    <field name="project_id"/>
+                    <field name="operation_strategy"/>
+                    <field name="partner_id"/>
+                    <field name="amount"/>
+                    <field name="currency_id" invisible="1"/>
+                    <field name="paid_at"/>
+                    <field name="ref"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_payment_ledger_form" model="ir.ui.view">
+            <field name="name">payment.ledger.form</field>
+            <field name="model">payment.ledger</field>
+            <field name="arch" type="xml">
+                <form string="支付台账" create="false" edit="false" delete="false">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="payment_request_id"/>
+                                <field name="project_id" readonly="1"/>
+                                <field name="operation_strategy" readonly="1"/>
+                                <field name="partner_id" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="amount"/>
+                                <field name="currency_id" readonly="1" invisible="1"/>
+                                <field name="paid_at"/>
+                                <field name="ref"/>
+                            </group>
+                        </group>
+                        <group>
+                            <field name="note"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <menuitem id="menu_payment_ledger"
+                  name="支付台账"
+                  parent="smart_construction_core.menu_sc_finance_center"
+                  action="action_payment_ledger"
+                  sequence="30"
+                  groups="smart_construction_core.group_sc_cap_finance_read,smart_construction_core.group_sc_cap_finance_user,smart_construction_core.group_sc_cap_finance_manager"/>
+    </data>
+</odoo>

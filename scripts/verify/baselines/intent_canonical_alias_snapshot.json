@@ -1,0 +1,512 @@
+{
+  "source": "docs.contract.exports.intent_catalog",
+  "canonical_count": 98,
+  "alias_count": 3,
+  "rows": [
+    {
+      "name": "api.data",
+      "status": "canonical",
+      "canonical": "api.data"
+    },
+    {
+      "name": "api.data.batch",
+      "status": "canonical",
+      "canonical": "api.data.batch"
+    },
+    {
+      "name": "api.data.create",
+      "status": "canonical",
+      "canonical": "api.data.create"
+    },
+    {
+      "name": "api.data.unlink",
+      "status": "canonical",
+      "canonical": "api.data.unlink"
+    },
+    {
+      "name": "api.data.write",
+      "status": "alias",
+      "canonical": "api.data.create"
+    },
+    {
+      "name": "api.onchange",
+      "status": "canonical",
+      "canonical": "api.onchange"
+    },
+    {
+      "name": "app.catalog",
+      "status": "canonical",
+      "canonical": "app.catalog"
+    },
+    {
+      "name": "app.init",
+      "status": "alias",
+      "canonical": "system.init"
+    },
+    {
+      "name": "app.nav",
+      "status": "canonical",
+      "canonical": "app.nav"
+    },
+    {
+      "name": "app.open",
+      "status": "canonical",
+      "canonical": "app.open"
+    },
+    {
+      "name": "auth.logout",
+      "status": "canonical",
+      "canonical": "auth.logout"
+    },
+    {
+      "name": "bootstrap",
+      "status": "alias",
+      "canonical": "system.init"
+    },
+    {
+      "name": "business.evidence.trace",
+      "status": "canonical",
+      "canonical": "business.evidence.trace"
+    },
+    {
+      "name": "capability.describe",
+      "status": "canonical",
+      "canonical": "capability.describe"
+    },
+    {
+      "name": "capability.visibility.report",
+      "status": "canonical",
+      "canonical": "capability.visibility.report"
+    },
+    {
+      "name": "chatter.activity.schedule",
+      "status": "canonical",
+      "canonical": "chatter.activity.schedule"
+    },
+    {
+      "name": "chatter.activity.update",
+      "status": "canonical",
+      "canonical": "chatter.activity.update"
+    },
+    {
+      "name": "chatter.post",
+      "status": "canonical",
+      "canonical": "chatter.post"
+    },
+    {
+      "name": "chatter.timeline",
+      "status": "canonical",
+      "canonical": "chatter.timeline"
+    },
+    {
+      "name": "collaboration.users.search",
+      "status": "canonical",
+      "canonical": "collaboration.users.search"
+    },
+    {
+      "name": "cost.tracking.block.fetch",
+      "status": "canonical",
+      "canonical": "cost.tracking.block.fetch"
+    },
+    {
+      "name": "cost.tracking.enter",
+      "status": "canonical",
+      "canonical": "cost.tracking.enter"
+    },
+    {
+      "name": "cost.tracking.record.create",
+      "status": "canonical",
+      "canonical": "cost.tracking.record.create"
+    },
+    {
+      "name": "dashboard.company.enter",
+      "status": "canonical",
+      "canonical": "dashboard.company.enter"
+    },
+    {
+      "name": "execute_button",
+      "status": "canonical",
+      "canonical": "execute_button"
+    },
+    {
+      "name": "file.download",
+      "status": "canonical",
+      "canonical": "file.download"
+    },
+    {
+      "name": "file.upload",
+      "status": "canonical",
+      "canonical": "file.upload"
+    },
+    {
+      "name": "global.message.conversations",
+      "status": "canonical",
+      "canonical": "global.message.conversations"
+    },
+    {
+      "name": "global.message.inbox",
+      "status": "canonical",
+      "canonical": "global.message.inbox"
+    },
+    {
+      "name": "global.message.read",
+      "status": "canonical",
+      "canonical": "global.message.read"
+    },
+    {
+      "name": "global.message.send",
+      "status": "canonical",
+      "canonical": "global.message.send"
+    },
+    {
+      "name": "load_contract",
+      "status": "canonical",
+      "canonical": "load_contract"
+    },
+    {
+      "name": "load_metadata",
+      "status": "canonical",
+      "canonical": "load_metadata"
+    },
+    {
+      "name": "load_view",
+      "status": "canonical",
+      "canonical": "load_view"
+    },
+    {
+      "name": "login",
+      "status": "canonical",
+      "canonical": "login"
+    },
+    {
+      "name": "meta.describe_model",
+      "status": "canonical",
+      "canonical": "meta.describe_model"
+    },
+    {
+      "name": "meta.intent_catalog",
+      "status": "canonical",
+      "canonical": "meta.intent_catalog"
+    },
+    {
+      "name": "my.work.complete",
+      "status": "canonical",
+      "canonical": "my.work.complete"
+    },
+    {
+      "name": "my.work.complete_batch",
+      "status": "canonical",
+      "canonical": "my.work.complete_batch"
+    },
+    {
+      "name": "my.work.summary",
+      "status": "canonical",
+      "canonical": "my.work.summary"
+    },
+    {
+      "name": "payment.block.fetch",
+      "status": "canonical",
+      "canonical": "payment.block.fetch"
+    },
+    {
+      "name": "payment.enter",
+      "status": "canonical",
+      "canonical": "payment.enter"
+    },
+    {
+      "name": "payment.record.create",
+      "status": "canonical",
+      "canonical": "payment.record.create"
+    },
+    {
+      "name": "payment.request.approve",
+      "status": "canonical",
+      "canonical": "payment.request.approve"
+    },
+    {
+      "name": "payment.request.available_actions",
+      "status": "canonical",
+      "canonical": "payment.request.available_actions"
+    },
+    {
+      "name": "payment.request.done",
+      "status": "canonical",
+      "canonical": "payment.request.done"
+    },
+    {
+      "name": "payment.request.execute",
+      "status": "canonical",
+      "canonical": "payment.request.execute"
+    },
+    {
+      "name": "payment.request.reject",
+      "status": "canonical",
+      "canonical": "payment.request.reject"
+    },
+    {
+      "name": "payment.request.submit",
+      "status": "canonical",
+      "canonical": "payment.request.submit"
+    },
+    {
+      "name": "permission.check",
+      "status": "canonical",
+      "canonical": "permission.check"
+    },
+    {
+      "name": "project.connection.transition",
+      "status": "canonical",
+      "canonical": "project.connection.transition"
+    },
+    {
+      "name": "project.context.search",
+      "status": "canonical",
+      "canonical": "project.context.search"
+    },
+    {
+      "name": "project.dashboard",
+      "status": "canonical",
+      "canonical": "project.dashboard"
+    },
+    {
+      "name": "project.dashboard.block.fetch",
+      "status": "canonical",
+      "canonical": "project.dashboard.block.fetch"
+    },
+    {
+      "name": "project.dashboard.enter",
+      "status": "canonical",
+      "canonical": "project.dashboard.enter"
+    },
+    {
+      "name": "project.dashboard.open",
+      "status": "canonical",
+      "canonical": "project.dashboard.open"
+    },
+    {
+      "name": "project.entry.context.options",
+      "status": "canonical",
+      "canonical": "project.entry.context.options"
+    },
+    {
+      "name": "project.entry.context.resolve",
+      "status": "canonical",
+      "canonical": "project.entry.context.resolve"
+    },
+    {
+      "name": "project.execution.advance",
+      "status": "canonical",
+      "canonical": "project.execution.advance"
+    },
+    {
+      "name": "project.execution.block.fetch",
+      "status": "canonical",
+      "canonical": "project.execution.block.fetch"
+    },
+    {
+      "name": "project.execution.enter",
+      "status": "canonical",
+      "canonical": "project.execution.enter"
+    },
+    {
+      "name": "project.initiation.enter",
+      "status": "canonical",
+      "canonical": "project.initiation.enter"
+    },
+    {
+      "name": "project.plan_bootstrap.block.fetch",
+      "status": "canonical",
+      "canonical": "project.plan_bootstrap.block.fetch"
+    },
+    {
+      "name": "project.plan_bootstrap.enter",
+      "status": "canonical",
+      "canonical": "project.plan_bootstrap.enter"
+    },
+    {
+      "name": "release.operator.approve",
+      "status": "canonical",
+      "canonical": "release.operator.approve"
+    },
+    {
+      "name": "release.operator.freeze",
+      "status": "canonical",
+      "canonical": "release.operator.freeze"
+    },
+    {
+      "name": "release.operator.promote",
+      "status": "canonical",
+      "canonical": "release.operator.promote"
+    },
+    {
+      "name": "release.operator.rollback",
+      "status": "canonical",
+      "canonical": "release.operator.rollback"
+    },
+    {
+      "name": "release.operator.runtime_probe",
+      "status": "canonical",
+      "canonical": "release.operator.runtime_probe"
+    },
+    {
+      "name": "release.operator.set_page_enabled",
+      "status": "canonical",
+      "canonical": "release.operator.set_page_enabled"
+    },
+    {
+      "name": "release.operator.surface",
+      "status": "canonical",
+      "canonical": "release.operator.surface"
+    },
+    {
+      "name": "release.operator.sync_policy",
+      "status": "canonical",
+      "canonical": "release.operator.sync_policy"
+    },
+    {
+      "name": "release.operator.update_page_policy",
+      "status": "canonical",
+      "canonical": "release.operator.update_page_policy"
+    },
+    {
+      "name": "release.operator.update_policy",
+      "status": "canonical",
+      "canonical": "release.operator.update_policy"
+    },
+    {
+      "name": "risk.action.execute",
+      "status": "canonical",
+      "canonical": "risk.action.execute"
+    },
+    {
+      "name": "scene.governance.export_contract",
+      "status": "canonical",
+      "canonical": "scene.governance.export_contract"
+    },
+    {
+      "name": "scene.governance.pin_stable",
+      "status": "canonical",
+      "canonical": "scene.governance.pin_stable"
+    },
+    {
+      "name": "scene.governance.rollback",
+      "status": "canonical",
+      "canonical": "scene.governance.rollback"
+    },
+    {
+      "name": "scene.governance.set_channel",
+      "status": "canonical",
+      "canonical": "scene.governance.set_channel"
+    },
+    {
+      "name": "scene.health",
+      "status": "canonical",
+      "canonical": "scene.health"
+    },
+    {
+      "name": "scene.package.dry_run_import",
+      "status": "canonical",
+      "canonical": "scene.package.dry_run_import"
+    },
+    {
+      "name": "scene.package.export",
+      "status": "canonical",
+      "canonical": "scene.package.export"
+    },
+    {
+      "name": "scene.package.import",
+      "status": "canonical",
+      "canonical": "scene.package.import"
+    },
+    {
+      "name": "scene.package.list",
+      "status": "canonical",
+      "canonical": "scene.package.list"
+    },
+    {
+      "name": "scene.packages.installed",
+      "status": "canonical",
+      "canonical": "scene.packages.installed"
+    },
+    {
+      "name": "search.favorite.set",
+      "status": "canonical",
+      "canonical": "search.favorite.set"
+    },
+    {
+      "name": "session.bootstrap",
+      "status": "canonical",
+      "canonical": "session.bootstrap"
+    },
+    {
+      "name": "settlement.block.fetch",
+      "status": "canonical",
+      "canonical": "settlement.block.fetch"
+    },
+    {
+      "name": "settlement.enter",
+      "status": "canonical",
+      "canonical": "settlement.enter"
+    },
+    {
+      "name": "system.init",
+      "status": "canonical",
+      "canonical": "system.init"
+    },
+    {
+      "name": "system.ping.construction",
+      "status": "canonical",
+      "canonical": "system.ping.construction"
+    },
+    {
+      "name": "telemetry.track",
+      "status": "canonical",
+      "canonical": "telemetry.track"
+    },
+    {
+      "name": "terminal.shell.v2",
+      "status": "canonical",
+      "canonical": "terminal.shell.v2"
+    },
+    {
+      "name": "ui.contract",
+      "status": "canonical",
+      "canonical": "ui.contract"
+    },
+    {
+      "name": "ui.contract.v2",
+      "status": "canonical",
+      "canonical": "ui.contract.v2"
+    },
+    {
+      "name": "usage.export.csv",
+      "status": "canonical",
+      "canonical": "usage.export.csv"
+    },
+    {
+      "name": "usage.report",
+      "status": "canonical",
+      "canonical": "usage.report"
+    },
+    {
+      "name": "usage.track",
+      "status": "canonical",
+      "canonical": "usage.track"
+    },
+    {
+      "name": "user.view.preference.get",
+      "status": "canonical",
+      "canonical": "user.view.preference.get"
+    },
+    {
+      "name": "user.view.preference.set",
+      "status": "canonical",
+      "canonical": "user.view.preference.set"
+    },
+    {
+      "name": "workspace.home.enter",
+      "status": "canonical",
+      "canonical": "workspace.home.enter"
+    }
+  ]
+}

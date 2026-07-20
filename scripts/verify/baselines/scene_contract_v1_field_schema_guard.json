@@ -1,0 +1,20 @@
+{
+  "min_scene_count": 4,
+  "required_top_keys": [
+    "contract_version",
+    "scenes",
+    "meta"
+  ],
+  "required_scene_row_keys": [
+    "scene",
+    "page",
+    "meta",
+    "action_surface",
+    "search_surface"
+  ],
+  "required_meta_keys": [
+    "ui_base_contract_source"
+  ],
+  "report_json": "artifacts/backend/scene_contract_v1_field_schema_report.json",
+  "report_md": "artifacts/backend/scene_contract_v1_field_schema_report.md"
+}

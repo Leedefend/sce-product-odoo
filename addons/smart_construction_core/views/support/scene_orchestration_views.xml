@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+        <!-- Capability -->
+        <record id="view_sc_capability_tree" model="ir.ui.view">
+            <field name="name">sc.capability.tree</field>
+            <field name="model">sc.capability</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="sequence"/>
+                    <field name="group_id"/>
+                    <field name="key"/>
+                    <field name="name"/>
+                    <field name="intent"/>
+                    <field name="required_flag"/>
+                    <field name="role_scope"/>
+                    <field name="capability_scope"/>
+                    <field name="status"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+        <record id="view_sc_capability_form" model="ir.ui.view">
+            <field name="name">sc.capability.form</field>
+            <field name="model">sc.capability</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="active"/>
+                            <field name="sequence"/>
+                            <field name="group_id"/>
+                            <field name="key"/>
+                            <field name="name"/>
+                            <field name="ui_label"/>
+                            <field name="ui_hint"/>
+                            <field name="intent"/>
+                            <field name="required_flag"/>
+                            <field name="role_scope"/>
+                            <field name="capability_scope"/>
+                            <field name="status"/>
+                            <field name="version"/>
+                            <field name="tags"/>
+                            <field name="required_group_ids" widget="many2many_tags"/>
+                            <field name="is_test"/>
+                        </group>
+                        <group>
+                            <field name="default_payload" widget="json"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_sc_capability" model="ir.actions.act_window">
+            <field name="name">能力目录</field>
+            <field name="res_model">sc.capability</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <record id="view_sc_capability_group_tree" model="ir.ui.view">
+            <field name="name">sc.capability.group.tree</field>
+            <field name="model">sc.capability.group</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="sequence"/>
+                    <field name="key"/>
+                    <field name="label"/>
+                    <field name="icon"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_sc_capability_group_form" model="ir.ui.view">
+            <field name="name">sc.capability.group.form</field>
+            <field name="model">sc.capability.group</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="active"/>
+                            <field name="sequence"/>
+                            <field name="key"/>
+                            <field name="label"/>
+                            <field name="icon"/>
+                        </group>
+                        <group string="Capabilities">
+                            <field name="capability_ids">
+                                <tree>
+                                    <field name="sequence"/>
+                                    <field name="key"/>
+                                    <field name="name"/>
+                                    <field name="status"/>
+                                    <field name="active"/>
+                                </tree>
+                            </field>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_sc_capability_group" model="ir.actions.act_window">
+            <field name="name">能力分组</field>
+            <field name="res_model">sc.capability.group</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <!-- Scene -->
+        <record id="view_sc_scene_tree" model="ir.ui.view">
+            <field name="name">sc.scene.tree</field>
+            <field name="model">sc.scene</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="sequence"/>
+                    <field name="code"/>
+                    <field name="name"/>
+                    <field name="layout"/>
+                    <field name="state"/>
+                    <field name="is_default"/>
+                    <field name="is_test"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+        <record id="view_sc_scene_form" model="ir.ui.view">
+            <field name="name">sc.scene.form</field>
+            <field name="model">sc.scene</field>
+            <field name="arch" type="xml">
+                <form>
+                    <header>
+                        <button name="action_publish" type="object" string="发布" class="btn-primary"
+                                invisible="state == 'published'"/>
+                        <button name="action_archive" type="object" string="归档"
+                                invisible="state == 'archived'"/>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,published,archived"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <field name="active"/>
+                            <field name="sequence"/>
+                            <field name="code"/>
+                            <field name="name"/>
+                            <field name="layout"/>
+                            <field name="is_default"/>
+                            <field name="version"/>
+                            <field name="active_version_id"/>
+                            <field name="published_at" readonly="1"/>
+                            <field name="published_by" readonly="1"/>
+                            <field name="is_test"/>
+                            <field name="target_group_ids" widget="many2many_tags"/>
+                            <field name="description"/>
+                        </group>
+                        <notebook>
+                            <page string="Tiles">
+                                <field name="tile_ids">
+                                    <tree editable="bottom">
+                                        <field name="sequence"/>
+                                        <field name="capability_id"/>
+                                        <field name="title"/>
+                                        <field name="subtitle"/>
+                                        <field name="icon"/>
+                                        <field name="badge"/>
+                                        <field name="visible"/>
+                                        <field name="span"/>
+                                        <field name="min_width"/>
+                                        <field name="active"/>
+                                    </tree>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_sc_scene" model="ir.actions.act_window">
+            <field name="name">场景编排</field>
+            <field name="res_model">sc.scene</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <record id="view_sc_scene_version_tree" model="ir.ui.view">
+            <field name="name">sc.scene.version.tree</field>
+            <field name="model">sc.scene.version</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="scene_id"/>
+                    <field name="version"/>
+                    <field name="create_date"/>
+                    <field name="create_uid"/>
+                </tree>
+            </field>
+        </record>
+        <record id="view_sc_scene_version_form" model="ir.ui.view">
+            <field name="name">sc.scene.version.form</field>
+            <field name="model">sc.scene.version</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="scene_id"/>
+                            <field name="version"/>
+                            <field name="create_date" readonly="1"/>
+                            <field name="create_uid" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="payload_json" widget="json"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_sc_scene_version" model="ir.actions.act_window">
+            <field name="name">场景版本</field>
+            <field name="res_model">sc.scene.version</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <!-- Pack Registry -->
+        <record id="view_sc_pack_registry_tree" model="ir.ui.view">
+            <field name="name">sc.pack.registry.tree</field>
+            <field name="model">sc.pack.registry</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="pack_id"/>
+                    <field name="name"/>
+                    <field name="pack_version"/>
+                    <field name="vendor"/>
+                    <field name="channel"/>
+                    <field name="pack_type"/>
+                    <field name="industry_code"/>
+                    <field name="published_at"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+        <record id="view_sc_pack_registry_form" model="ir.ui.view">
+            <field name="name">sc.pack.registry.form</field>
+            <field name="model">sc.pack.registry</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="active"/>
+                            <field name="pack_id"/>
+                            <field name="name"/>
+                            <field name="pack_version"/>
+                            <field name="vendor"/>
+                            <field name="channel"/>
+                            <field name="pack_type"/>
+                            <field name="industry_code"/>
+                            <field name="depends_on_ids" widget="many2many_tags"/>
+                            <field name="pack_hash"/>
+                            <field name="signed_by"/>
+                            <field name="published_at" readonly="1"/>
+                            <field name="published_by" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="notes"/>
+                            <field name="changelog"/>
+                        </group>
+                        <group>
+                            <field name="payload_json" widget="json"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_sc_pack_registry" model="ir.actions.act_window">
+            <field name="name">交付包注册表</field>
+            <field name="res_model">sc.pack.registry</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <!-- Pack Installation -->
+        <record id="view_sc_pack_installation_tree" model="ir.ui.view">
+            <field name="name">sc.pack.installation.tree</field>
+            <field name="model">sc.pack.installation</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="company_id"/>
+                    <field name="pack_id"/>
+                    <field name="installed_version"/>
+                    <field name="status"/>
+                    <field name="installed_at"/>
+                    <field name="installed_by"/>
+                </tree>
+            </field>
+        </record>
+        <record id="view_sc_pack_installation_form" model="ir.ui.view">
+            <field name="name">sc.pack.installation.form</field>
+            <field name="model">sc.pack.installation</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="company_id"/>
+                            <field name="pack_id"/>
+                            <field name="installed_version"/>
+                            <field name="status"/>
+                            <field name="installed_at" readonly="1"/>
+                            <field name="installed_by" readonly="1"/>
+                            <field name="source_hash"/>
+                        </group>
+                        <group>
+                            <field name="last_diff_json" widget="json"/>
+                            <field name="upgrade_history" widget="json"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_sc_pack_installation" model="ir.actions.act_window">
+            <field name="name">交付包安装记录</field>
+            <field name="res_model">sc.pack.installation</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <!-- Menu -->
+        <menuitem id="menu_sc_scene_root"
+                  name="场景与能力"
+                  parent="menu_sc_config_center"
+                  sequence="70"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_capability"
+                  name="能力目录"
+                  parent="menu_sc_scene_root"
+                  action="action_sc_capability"
+                  sequence="10"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_scene"
+                  name="场景编排"
+                  parent="menu_sc_scene_root"
+                  action="action_sc_scene"
+                  sequence="20"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_capability_group"
+                  name="能力分组"
+                  parent="menu_sc_scene_root"
+                  action="action_sc_capability_group"
+                  sequence="30"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_scene_version"
+                  name="场景版本"
+                  parent="menu_sc_scene_root"
+                  action="action_sc_scene_version"
+                  sequence="40"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_pack_registry"
+                  name="交付包注册表"
+                  parent="menu_sc_scene_root"
+                  action="action_sc_pack_registry"
+                  sequence="50"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_pack_installation"
+                  name="交付包安装记录"
+                  parent="menu_sc_scene_root"
+                  action="action_sc_pack_installation"
+                  sequence="60"
+                  groups="smart_core.group_smart_core_admin"/>
+
+        <!-- Replace legacy menu group links left by older installs. -->
+        <record id="menu_sc_scene_root" model="ir.ui.menu">
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+        <record id="menu_sc_capability" model="ir.ui.menu">
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+        <record id="menu_sc_scene" model="ir.ui.menu">
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+        <record id="menu_sc_capability_group" model="ir.ui.menu">
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+        <record id="menu_sc_scene_version" model="ir.ui.menu">
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+        <record id="menu_sc_pack_registry" model="ir.ui.menu">
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+        <record id="menu_sc_pack_installation" model="ir.ui.menu">
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,214 @@
+name: demo.ci
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "可选：场景名，如 s50_repairable_paths"
+        required: false
+        default: ""
+      step:
+        description: "可选：bad|fix|all"
+        required: false
+        default: "all"
+
+concurrency:
+  group: demo-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  demo_ci:
+    runs-on: [self-hosted, huawei, ubuntu22]
+    timeout-minutes: 45
+
+    env:
+      CI_REMOTE_URL: git@gitee.com:leegege/sce-product-odoo.git
+      HEAD_REF: ${{ github.ref_name }}
+      HEAD_SHA: ${{ github.sha }}
+      APT_MIRROR: huaweicloud
+      NODE_BASE_IMAGE: docker.m.daocloud.io/library/node:22.17.0-bookworm-slim@sha256:b04ce4ae4e95b522112c2e5c52f781471a5cbc3b594527bcddedee9bc48c03a0
+      ODOO_BASE_IMAGE: docker.m.daocloud.io/library/odoo:17.0@sha256:f88f646a0f5fc0b225995ee28953d9ce7367cc731b1756765114691fb97d18e5
+      COMPOSE_PROJECT_NAME: sc-demo-${{ github.run_id }}
+      DB_NAME: sc_demo_${{ github.run_id }}
+      CODEX_MODE: gate
+      SCENARIO: ${{ inputs.scenario || '' }}
+      STEP: ${{ inputs.step || 'all' }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout from Gitee
+        run: |
+          set -euo pipefail
+          GITEE_KNOWN_HOSTS="${RUNNER_TEMP}/gitee_known_hosts"
+          umask 077
+          printf '%s\n' \
+            'gitee.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEKxHSJ7084RmkJ4YdEi5tngynE8aZe2uEoVVsB/OvYN' \
+            > "${GITEE_KNOWN_HOSTS}"
+          fingerprint="$(ssh-keygen -lf "${GITEE_KNOWN_HOSTS}" -E sha256 | awk '{print $2}')"
+          test "${fingerprint}" = 'SHA256:+ULzij2u99B9eWYFTw1Q4ErYG/aepHLbu96PAUCoV88'
+          export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${GITEE_KNOWN_HOSTS} -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3"
+          umask 022
+          find "${GITHUB_WORKSPACE}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          git init "${GITHUB_WORKSPACE}"
+          cd "${GITHUB_WORKSPACE}"
+          git remote add origin "${CI_REMOTE_URL}"
+          for attempt in 1 2 3 4 5; do
+            if timeout 90 git fetch --no-tags origin \
+              "+refs/heads/${HEAD_REF}:refs/remotes/origin/${HEAD_REF}" && \
+              git cat-file -e "${HEAD_SHA}^{commit}" 2>/dev/null; then
+              git checkout --detach "${HEAD_SHA}"
+              git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+              exit 0
+            fi
+            sleep "$((attempt * 5))"
+          done
+          echo "Gitee checkout failed for ${HEAD_REF}/${HEAD_SHA}" >&2
+          exit 1
+
+      - name: Docker info
+        run: |
+          docker --version
+          docker compose version
+
+      - name: Generate ephemeral demo environment
+        run: |
+          set -euo pipefail
+          demo_password="$(openssl rand -hex 32)"
+          db_password="$(openssl rand -hex 32)"
+          admin_password="$(openssl rand -hex 32)"
+          jwt_secret="$(openssl rand -hex 32)"
+          bootstrap_secret="$(openssl rand -hex 32)"
+          for secret in \
+            "${demo_password}" \
+            "${db_password}" \
+            "${admin_password}" \
+            "${jwt_secret}" \
+            "${bootstrap_secret}"; do
+            echo "::add-mask::${secret}"
+          done
+
+          ci_env="${RUNNER_TEMP}/demo-${GITHUB_RUN_ID}.env"
+          umask 077
+          {
+            printf 'ENV=demo\n'
+            printf 'ENV_FILE=%s\n' "${ci_env}"
+            printf 'COMPOSE_PROJECT_NAME=%s\n' "${COMPOSE_PROJECT_NAME}"
+            printf 'DB_USER=odoo\n'
+            printf 'DB_PASSWORD=%s\n' "${db_password}"
+            printf 'DB_NAME=%s\n' "${DB_NAME}"
+            printf 'ADMIN_PASSWD=%s\n' "${admin_password}"
+            printf 'JWT_SECRET=%s\n' "${jwt_secret}"
+            printf 'SC_BOOTSTRAP_SECRET=%s\n' "${bootstrap_secret}"
+            printf 'SC_BOOTSTRAP_LOGIN=demo_ci\n'
+            printf 'SCENE_CHANNEL=stable\n'
+            printf 'SCENE_USE_PINNED=0\n'
+            printf 'SCENE_ROLLBACK=0\n'
+            printf 'ODOO_DBFILTER=^%s$\n' "${DB_NAME}"
+            printf 'DB_DATA=%s-db-data\n' "${COMPOSE_PROJECT_NAME}"
+            printf 'REDIS_DATA=%s-redis-data\n' "${COMPOSE_PROJECT_NAME}"
+            printf 'ODOO_DATA=%s-odoo-data\n' "${COMPOSE_PROJECT_NAME}"
+            printf 'SC_ENVIRONMENT=demo\n'
+            printf 'SC_ALLOW_DEMO_DATA=1\n'
+            printf 'SC_DEMO_USER_PASSWORD=%s\n' "${demo_password}"
+          } > "${ci_env}"
+
+          {
+            printf 'ENV=demo\n'
+            printf 'ENV_FILE=%s\n' "${ci_env}"
+            printf 'DB_USER=odoo\n'
+            printf 'DB_PASSWORD=%s\n' "${db_password}"
+            printf 'ADMIN_PASSWD=%s\n' "${admin_password}"
+            printf 'JWT_SECRET=%s\n' "${jwt_secret}"
+            printf 'SC_BOOTSTRAP_SECRET=%s\n' "${bootstrap_secret}"
+            printf 'SC_BOOTSTRAP_LOGIN=demo_ci\n'
+            printf 'SCENE_CHANNEL=stable\n'
+            printf 'SCENE_USE_PINNED=0\n'
+            printf 'SCENE_ROLLBACK=0\n'
+            printf 'ODOO_DBFILTER=^%s$\n' "${DB_NAME}"
+            printf 'DB_DATA=%s-db-data\n' "${COMPOSE_PROJECT_NAME}"
+            printf 'REDIS_DATA=%s-redis-data\n' "${COMPOSE_PROJECT_NAME}"
+            printf 'ODOO_DATA=%s-odoo-data\n' "${COMPOSE_PROJECT_NAME}"
+            printf 'SC_ENVIRONMENT=demo\n'
+            printf 'SC_ALLOW_DEMO_DATA=1\n'
+            printf 'SC_DEMO_USER_PASSWORD=%s\n' "${demo_password}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Verify professional runner Buildx
+        run: |
+          set -euo pipefail
+          docker buildx version
+          docker buildx inspect --bootstrap
+
+      - name: Calculate frontend build fingerprint
+        run: |
+          set -euo pipefail
+          artifact_dir="${RUNNER_TEMP}/frontend-artifact-${GITHUB_RUN_ID}"
+          docker buildx build \
+            --file Dockerfile \
+            --target frontend-artifact \
+            --output "type=local,dest=${artifact_dir}" \
+            --build-arg "APT_MIRROR=${APT_MIRROR}" \
+            --build-arg "NODE_BASE_IMAGE=${NODE_BASE_IMAGE}" \
+            .
+          recorded_hash="$(cat "${artifact_dir}/.build-sha256")"
+          calculated_hash="$(cd "${artifact_dir}" && LC_ALL=C find . -type f ! -name .build-sha256 -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}')"
+          test -n "${recorded_hash}"
+          test "${recorded_hash}" = "${calculated_hash}"
+          echo "FRONTEND_BUILD_SHA256=${recorded_hash}" >> "${GITHUB_ENV}"
+          echo "SOURCE_SHA=${HEAD_SHA}" >> "${GITHUB_ENV}"
+          find "${artifact_dir}" -mindepth 1 -delete
+          rmdir "${artifact_dir}"
+
+      - name: Build images
+        run: |
+          set -euo pipefail
+          docker compose build
+
+      - name: Start db & redis
+        run: |
+          docker compose up -d db redis
+          docker compose ps
+
+      - name: Wait for PostgreSQL
+        run: |
+          ready=0
+          for i in {1..60}; do
+            if docker compose exec -T db pg_isready -U odoo -d postgres >/dev/null 2>&1; then
+              echo "Postgres is ready"
+              ready=1
+              break
+            fi
+            echo "waiting postgres... ($i/60)"
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "Postgres not ready"
+            docker compose logs --no-color --tail=200 db
+            exit 1
+          fi
+
+      - name: Run demo.ci
+        run: |
+          set -euo pipefail
+          if [[ -n "${SCENARIO}" ]]; then
+            make demo.ci DB_NAME="${DB_NAME}" SCENARIO="${SCENARIO}" STEP="${STEP}"
+          else
+            make demo.ci DB_NAME="${DB_NAME}"
+          fi
+
+      - name: Dump logs on failure
+        if: failure()
+        run: |
+          docker compose ps
+          docker compose logs --no-color --tail=300
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose down -v --remove-orphans || true
+          if [[ -n "${ENV_FILE:-}" ]]; then
+            find "${ENV_FILE}" -maxdepth 0 -type f -delete
+          fi

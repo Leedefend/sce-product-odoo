@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <template id="sc_web_login_disable_footer" inherit_id="web.login" priority="1000">
+        <xpath expr="//t[@t-call='web.login_layout']" position="before">
+            <t t-set="disable_footer" t-value="True"/>
+            <t t-set="disable_database_manager" t-value="True"/>
+        </xpath>
+    </template>
+
+    <template id="sc_web_login_inherit" inherit_id="web.login">
+        <xpath expr="//form" position="before">
+            <t t-if="request.env['ir.config_parameter'].sudo().get_param('sc.login.custom_enabled', '1') in ('1','true','True')">
+                <t t-set="sc_login_env"
+                   t-value="request.env['ir.config_parameter'].sudo().get_param('sc.login.env', 'prod')"/>
+                <div class="sc-login-brand sc-auth-header">
+                    <img class="sc-login-brand-logo" src="/smart_construction_core/static/png/system-icon-1.png" alt="智能工程项目管理系统"/>
+                    <div class="sc-login-title">智能工程项目管理系统</div>
+                    <div class="sc-login-subtitle">为工程项目提供结构化、可演进的管理能力</div>
+                </div>
+                <t t-if="sc_login_env == 'demo'">
+                    <div class="sc-login-env-badge is-demo">DEMO 环境</div>
+                </t>
+            </t>
+        </xpath>
+        <xpath expr="//form" position="attributes">
+            <attribute name="class" add="sc-login-form sc-auth-body"/>
+        </xpath>
+        <xpath expr="//label[@for='login']" position="replace">
+            <label for="login" class="form-label">账号</label>
+        </xpath>
+        <xpath expr="//label[@for='password']" position="replace">
+            <label for="password" class="form-label">密码</label>
+        </xpath>
+        <xpath expr="//input[@name='login']" position="attributes">
+            <attribute name="placeholder">手机号/邮箱/用户名</attribute>
+        </xpath>
+        <xpath expr="//input[@name='password']" position="attributes">
+            <attribute name="placeholder">密码</attribute>
+        </xpath>
+        <xpath expr="//button[@type='submit' and hasclass('btn-primary')]" position="replace">
+            <button type="submit" class="btn btn-primary">登录</button>
+        </xpath>
+        <xpath expr="//button[@name='redirect' and hasclass('btn-link')]" position="replace">
+            <button type="submit" name="redirect" value="/web/become" class="btn btn-link btn-sm">以超级用户登录</button>
+        </xpath>
+        <xpath expr="//div[.//input[@name='db']]//label[@for='db']" position="replace">
+            <label for="db" class="col-form-label">数据库</label>
+        </xpath>
+        <xpath expr="//div[.//input[@name='db']]//a[@href='/web/database/selector' and hasclass('btn')]" position="replace">
+            <a role="button" href="/web/database/selector" class="btn btn-secondary">选择 <i class="fa fa-database" role="img" aria-label="数据库" title="数据库"></i></a>
+        </xpath>
+        <xpath expr="//p[hasclass('alert') and hasclass('alert-danger') and @t-if='error']" position="replace">
+            <p class="alert alert-danger" t-if="error" role="alert">
+                <t t-set="err" t-value="error"/>
+                <t t-if="err in ('Wrong login/password','Wrong login/password.')">账号或密码错误。</t>
+                <t t-elif="err == 'No account found for this login'">未找到该账号。</t>
+                <t t-elif="err == 'Multiple accounts found for this login'">该账号存在多个记录。</t>
+                <t t-else=""><t t-esc="err"/></t>
+            </p>
+        </xpath>
+        <xpath expr="//p[hasclass('alert') and hasclass('alert-success') and @t-if='message']" position="replace">
+            <p class="alert alert-success" t-if="message" role="status">
+                <t t-set="msg" t-value="message"/>
+                <t t-if="msg == 'Password reset instructions sent to your email'">重置密码邮件已发送，请查收邮箱。</t>
+                <t t-else=""><t t-esc="msg"/></t>
+            </p>
+        </xpath>
+        <xpath expr="//form" position="inside">
+            <div class="sc-login__footer sc-auth-footer mt-3">
+                <div class="sc-login-links" t-if="signup_enabled or reset_password_enabled">
+                    <a t-if="signup_enabled" href="/web/signup">注册账号</a>
+                    <a t-if="reset_password_enabled" href="/web/reset_password">忘记密码</a>
+                </div>
+                <div class="sc-login-author">开发者 · 数字禅房</div>
+            </div>
+        </xpath>
+        <xpath expr="//form//div[.//input[@name='db']]" position="attributes">
+            <attribute name="t-if">
+                not (
+                request.env['ir.config_parameter'].sudo().get_param('sc.login.custom_enabled', '1') in ('1','true','True')
+                and request.env['ir.config_parameter'].sudo().get_param('sc.login.env', 'prod') in ('demo','prod')
+                )
+            </attribute>
+        </xpath>
+
+        <xpath expr="//form//input[@name='redirect']" position="attributes">
+            <attribute name="t-att-value">
+                request.params.get('redirect')
+                or (
+                request.env['ir.config_parameter'].sudo().get_param('sc.login.custom_enabled', '1') in ('1','true','True')
+                and '/web#menu_id=%s&amp;action=%s' % (
+                    request.env.ref('smart_construction_core.menu_sc_root').id,
+                    request.env.ref('smart_construction_core.action_sc_project_workbench').id
+                )
+                )
+                or ''
+            </attribute>
+        </xpath>
+    </template>
+
+    <template id="sc_web_layout_branding" inherit_id="web.layout">
+        <xpath expr="//head/title" position="replace">
+            <title>智能工程项目管理系统</title>
+        </xpath>
+        <xpath expr="//head" position="inside">
+            <link rel="icon" type="image/png" href="/smart_construction_core/static/png/system-icon-1.png"/>
+            <link rel="shortcut icon" type="image/png" href="/smart_construction_core/static/png/system-icon-1.png"/>
+        </xpath>
+    </template>
+
+</odoo>

@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="0">
+        <record id="business_config_contract_project_project_form_structure_v1" model="ui.business.config.contract">
+            <field name="name">project_project_form_structure_v1</field>
+            <field name="model">project.project</field>
+            <field name="view_type">form</field>
+            <field name="priority">90</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval="{
+                'view_orchestration': {
+                    'views': {
+                        'form': {
+                            'sections': [
+                                {'title': '项目基本信息'},
+                                {'title': '业务关系与类型'},
+                                {'title': '参建单位与联系人'},
+                                {'title': '合同与工期'},
+                                {'title': '财税与账户'},
+                                {'title': '成本与进度'},
+                                {'title': '补充资料'},
+                                {'title': '来源核对'},
+                                {'title': '驾驶舱'}
+                            ],
+                            'fields': [
+                                {'name': 'name', 'sequence': 10},
+                                {'name': 'project_code', 'sequence': 20},
+                                {'name': 'short_name', 'sequence': 25},
+                                {'name': 'lifecycle_state', 'sequence': 30},
+                                {'name': 'partner_id', 'sequence': 40, 'string': '业主单位'},
+                                {'name': 'initiation_date', 'sequence': 50},
+                                {'name': 'project_type_id', 'sequence': 60},
+                                {'name': 'project_environment', 'sequence': 65},
+                                {'name': 'project_category_id', 'sequence': 70},
+                                {'name': 'specialty_type_name', 'sequence': 75},
+                                {'name': 'operation_strategy', 'sequence': 80},
+                                {'name': 'business_nature', 'sequence': 85},
+                                {'name': 'owner_contact', 'sequence': 90},
+                                {'name': 'location', 'sequence': 100},
+                                {'name': 'detail_address', 'sequence': 105},
+                                {'name': 'contract_no', 'sequence': 110},
+                                {'name': 'start_date', 'sequence': 120},
+                                {'name': 'end_date', 'sequence': 130},
+                                {'name': 'project_profile', 'sequence': 140},
+                                {'name': 'project_overview', 'sequence': 150},
+                                {'name': 'project_area', 'sequence': 160},
+                                {'name': 'manager_id', 'sequence': 210, 'string': '项目负责人'},
+                                {'name': 'cost_manager_id', 'sequence': 220},
+                                {'name': 'doc_manager_id', 'sequence': 230},
+                                {'name': 'responsibility_ids', 'sequence': 240, 'string': '项目责任分工'},
+                                {'name': 'collaborator_ids', 'sequence': 250, 'string': '项目协作成员'},
+                                {'name': 'contract_count', 'sequence': 310, 'visible': False},
+                                {'name': 'contract_income_total', 'sequence': 320, 'visible': False},
+                                {'name': 'contract_expense_total', 'sequence': 330, 'visible': False},
+                                {'name': 'contract_amount', 'sequence': 340, 'visible': False},
+                                {'name': 'subcontract_amount', 'sequence': 350, 'visible': False},
+                                {'name': 'dashboard_revenue_actual', 'sequence': 360, 'visible': False},
+                                {'name': 'dashboard_cost_actual', 'sequence': 370, 'visible': False},
+                                {'name': 'dashboard_profit_actual', 'sequence': 380, 'visible': False},
+                                {'name': 'dashboard_invoice_amount', 'sequence': 390, 'visible': False},
+                                {'name': 'dashboard_payment_in', 'sequence': 400, 'visible': False},
+                                {'name': 'dashboard_payment_out', 'sequence': 410, 'visible': False},
+                                {'name': 'dashboard_progress_rate', 'sequence': 420, 'visible': False},
+                                {'name': 'dashboard_document_completion', 'sequence': 430, 'visible': False},
+                                {'name': 'document_count', 'sequence': 510, 'visible': False},
+                                {'name': 'document_required_count', 'sequence': 520, 'visible': False},
+                                {'name': 'document_missing_count', 'sequence': 530, 'visible': False},
+                                {'name': 'analytic_account_id', 'sequence': 940},
+                                {'name': 'company_id', 'sequence': 9910, 'visible': False},
+                                {'name': 'message_needaction', 'sequence': 9920, 'visible': False},
+                                {'name': 'display_name', 'sequence': 9930, 'visible': False},
+                                {'name': 'label_tasks', 'sequence': 9940, 'visible': False},
+                                {'name': 'tag_ids', 'sequence': 9950, 'visible': False},
+                                {'name': 'task_ids', 'sequence': 9960, 'visible': False},
+                                {'name': 'contract_ids', 'sequence': 9970, 'visible': False},
+                                {'name': 'document_ids', 'sequence': 9980, 'visible': False},
+                                {'name': 'tender_bid_ids', 'sequence': 9990, 'visible': False}
+                            ]
+                        }
+                    }
+                }
+            }"/>
+        </record>
+
+        <record id="business_config_contract_tender_bid_registration_form_structure_v1" model="ui.business.config.contract">
+            <field name="name">tender_bid_registration_form_structure_v1</field>
+            <field name="model">tender.bid</field>
+            <field name="view_type">form</field>
+            <field name="priority">300</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval="{
+                'view_orchestration': {
+                    'views': {
+                        'form': {
+                            'sections': [
+                                {'title': '报名信息'},
+                                {'title': '投标金额与时间'},
+                                {'title': '投标清单'},
+                                {'title': '结果与来源'}
+                            ],
+                            'fields': [
+                                {'name': 'state', 'sequence': 10},
+                                {'name': 'name', 'sequence': 20, 'readonly': True},
+                                {'name': 'project_id', 'sequence': 30},
+                                {'name': 'tender_name', 'sequence': 40},
+                                {'name': 'owner_id', 'sequence': 50},
+                                {'name': 'tender_round', 'sequence': 60},
+                                {'name': 'operation_strategy', 'sequence': 70, 'readonly': True},
+                                {'name': 'deadline', 'sequence': 80},
+                                {'name': 'open_date', 'sequence': 90},
+                                {'name': 'bid_amount', 'sequence': 100},
+                                {'name': 'amount_total', 'sequence': 110, 'readonly': True},
+                                {'name': 'line_ids', 'sequence': 120},
+                                {'name': 'guarantee_total', 'sequence': 130, 'readonly': True},
+                                {'name': 'guarantee_outstanding', 'sequence': 140, 'readonly': True},
+                                {'name': 'contract_id', 'sequence': 980, 'visible': False},
+                                {'name': 'currency_id', 'sequence': 981, 'visible': False},
+                                {'name': 'tech_attachment_ids', 'sequence': 982, 'visible': False},
+                                {'name': 'biz_attachment_ids', 'sequence': 983, 'visible': False},
+                                {'name': 'doc_purchase_ids', 'sequence': 984, 'visible': False},
+                                {'name': 'survey_ids', 'sequence': 985, 'visible': False},
+                                {'name': 'review_ids', 'sequence': 986, 'visible': False},
+                                {'name': 'opening_ids', 'sequence': 987, 'visible': False},
+                                {'name': 'guarantee_ids', 'sequence': 988, 'visible': False},
+                                {'name': 'business_scope_key', 'sequence': 993, 'visible': False},
+                                {'name': 'business_direction', 'sequence': 994, 'visible': False},
+                                {'name': 'carrier_type', 'sequence': 995, 'visible': False},
+                                {'name': 'carrier_model', 'sequence': 996, 'visible': False},
+                                {'name': 'carrier_res_id', 'sequence': 997, 'visible': False}
+                            ]
+                        }
+                    }
+                }
+            }"/>
+        </record>
+
+        <record id="business_config_contract_tender_doc_purchase_form_structure_v1" model="ui.business.config.contract">
+            <field name="name">tender_doc_purchase_form_structure_v1</field>
+            <field name="model">tender.doc.purchase</field>
+            <field name="view_type">form</field>
+            <field name="priority">301</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval="{
+                'view_orchestration': {
+                    'views': {
+                        'form': {
+                            'sections': [
+                                {'title': '申请信息'},
+                                {'title': '费用与缴费'},
+                                {'title': '收款信息'},
+                                {'title': '备注与来源'}
+                            ],
+                            'fields': [
+                                {'name': 'state', 'sequence': 10},
+                                {'name': 'bid_id', 'sequence': 20},
+                                {'name': 'project_id', 'sequence': 30, 'readonly': True},
+                                {'name': 'applicant_id', 'sequence': 40},
+                                {'name': 'apply_date', 'sequence': 50},
+                                {'name': 'amount', 'sequence': 60},
+                                {'name': 'payment_method', 'sequence': 70},
+                                {'name': 'invoice_no', 'sequence': 80},
+                                {'name': 'receipt_partner_id', 'sequence': 90},
+                                {'name': 'receipt_payee_name', 'sequence': 100},
+                                {'name': 'receipt_bank_name', 'sequence': 110},
+                                {'name': 'receipt_bank_account', 'sequence': 120},
+                                {'name': 'remark', 'sequence': 130},
+                                {'name': 'receipt_partner_name', 'sequence': 905, 'readonly': True},
+                                {'name': 'currency_id', 'sequence': 980, 'visible': False},
+                                {'name': 'attachment_ids', 'sequence': 981, 'visible': False},
+                            ]
+                        }
+                    }
+                }
+            }"/>
+        </record>
+
+        <record id="business_config_contract_sc_financing_loan_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_financing_loan_form_sections_v1</field>
+            <field name="model">sc.financing.loan</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "贷款信息"}, {"title": "还款信息"}, {"title": "贷款账户"}, {"title": "银行"}, {"title": "期限"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_tax_deduction_registration_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_tax_deduction_registration_form_sections_v1</field>
+            <field name="model">sc.tax.deduction.registration</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "扣款信息"}, {"title": "扣款实缴信息"}, {"title": "扣款退回信息"}, {"title": "开票详情"}, {"title": "预缴税款详情"}, {"title": "抵扣登记信息"}, {"title": "抵扣详情"}, {"title": "发票信息"}, {"title": "材料信息"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_payment_execution_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_payment_execution_form_sections_v1</field>
+            <field name="model">sc.payment.execution</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "办理类型"}, {"title": "付款依据"}, {"title": "付款金额"}, {"title": "收款账户"}, {"title": "付款账户"}, {"title": "办理说明"}, {"title": "公司-承包人资金责任"}, {"title": "来源与系统追溯"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_payment_request_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">payment_request_form_sections_v1</field>
+            <field name="model">payment.request</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "办理类型"}, {"title": "项目与往来单位"}, {"title": "申请依据"}, {"title": "申请金额"}, {"title": "收款账户"}, {"title": "付款单位"}, {"title": "办理说明与附件"}, {"title": "申请明细"}, {"title": "执行与额度"}, {"title": "往来单位默认账户"}, {"title": "迁移来源"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_fund_account_operation_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_fund_account_operation_form_sections_v1</field>
+            <field name="model">sc.fund.account.operation</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "详情"}, {"title": "项目间借贷"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_fund_account_form_p1_fields_v1" model="ui.business.config.contract">
+            <field name="name">sc_fund_account_form_p1_fields_v1</field>
+            <field name="model">sc.fund.account</field>
+            <field name="view_type">form</field>
+            <field name="priority">21</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"fields": [{"name": "project_id", "sequence": 10}, {"name": "name", "sequence": 20}, {"name": "opening_balance", "sequence": 30}, {"name": "account_type", "sequence": 40}, {"name": "account_no", "sequence": 50}, {"name": "is_default", "sequence": 60}, {"name": "fixed_account", "sequence": 70}, {"name": "sequence", "sequence": 80}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_construction_diary_form_p1_fields_v1" model="ui.business.config.contract">
+            <field name="name">sc_construction_diary_form_p1_fields_v1</field>
+            <field name="model">sc.construction.diary</field>
+            <field name="view_type">form</field>
+            <field name="priority">21</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"fields": [{"name": "diary_document_no", "sequence": 10}, {"name": "diary_project_name", "sequence": 20}, {"name": "diary_construction_part", "sequence": 30}, {"name": "diary_manpower_count_display", "sequence": 40}, {"name": "diary_equipment_attendance", "sequence": 50}, {"name": "diary_temperature_display", "sequence": 60}, {"name": "diary_morning_weather_display", "sequence": 70}, {"name": "diary_afternoon_weather_display", "sequence": 80}, {"name": "diary_daily_construction_content_display", "sequence": 90}, {"name": "diary_operator_manager_display", "sequence": 100}, {"name": "quality_name", "sequence": 110}, {"name": "diary_construction_worker_display", "sequence": 120}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_receipt_income_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_receipt_income_form_sections_v1</field>
+            <field name="model">sc.receipt.income</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "工程款确认"}, {"title": "代扣代缴明细"}, {"title": "施工队明细"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_invoice_registration_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_invoice_registration_form_sections_v1</field>
+            <field name="model">sc.invoice.registration</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "发票标题"}, {"title": "受票方信息"}, {"title": "开票方信息"}, {"title": "本次开票信息"}, {"title": "相关数据"}, {"title": "开票详情"}, {"title": "发票实开详情"}, {"title": "发票金额"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_material_purchase_request_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_material_purchase_request_form_sections_v1</field>
+            <field name="model">sc.material.purchase.request</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "材料信息"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_material_inbound_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_material_inbound_form_sections_v1</field>
+            <field name="model">sc.material.inbound</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "材料信息"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_labor_request_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_labor_request_form_sections_v1</field>
+            <field name="model">sc.labor.request</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "施工单位"}, {"title": "合同信息"}, {"title": "工种信息"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_labor_usage_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_labor_usage_form_sections_v1</field>
+            <field name="model">sc.labor.usage</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "工种/表单信息"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_labor_settlement_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_labor_settlement_form_sections_v1</field>
+            <field name="model">sc.labor.settlement</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "汇总信息"}, {"title": "方单详情"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_subcontract_register_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_subcontract_register_form_sections_v1</field>
+            <field name="model">sc.subcontract.register</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "合同清单"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_subcontract_request_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_subcontract_request_form_sections_v1</field>
+            <field name="model">sc.subcontract.request</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "方单详情"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_subcontract_settlement_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_subcontract_settlement_form_sections_v1</field>
+            <field name="model">sc.subcontract.settlement</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "汇总信息"}, {"title": "方单详情"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_equipment_request_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_equipment_request_form_sections_v1</field>
+            <field name="model">sc.equipment.request</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "机械设备明细"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_equipment_usage_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_equipment_usage_form_sections_v1</field>
+            <field name="model">sc.equipment.usage</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "表单信息"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_equipment_settlement_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_equipment_settlement_form_sections_v1</field>
+            <field name="model">sc.equipment.settlement</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "机械设备租赁清单"}, {"title": "结算费用清单"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_material_rental_order_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_material_rental_order_form_sections_v1</field>
+            <field name="model">sc.material.rental.order</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "租赁材料清单"}]}}}}'/>
+        </record>
+        <record id="business_config_contract_sc_material_rental_settlement_form_sections_v1" model="ui.business.config.contract">
+            <field name="name">sc_material_rental_settlement_form_sections_v1</field>
+            <field name="model">sc.material.rental.settlement</field>
+            <field name="view_type">form</field>
+            <field name="priority">20</field>
+            <field name="company_id" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="status">published</field>
+            <field name="version_no">1</field>
+            <field name="contract_json" eval='{"view_orchestration": {"views": {"form": {"sections": [{"title": "结算材料租赁清单"}, {"title": "结算费用清单"}]}}}}'/>
+        </record>
+    </data>
+</odoo>

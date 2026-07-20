@@ -1,0 +1,26 @@
+{
+  "action": null,
+  "case": "auth_logout_intent_admin",
+  "contract_version": "v1",
+  "error": null,
+  "execute_error": null,
+  "execute_result": null,
+  "fallback": false,
+  "meta_fields": null,
+  "model": null,
+  "op": "intent.invoke",
+  "record": null,
+  "record_error": null,
+  "ui_contract": null,
+  "ui_contract_raw": {
+    "raw": [
+      {
+        "message": "logged out"
+      },
+      {}
+    ]
+  },
+  "user": "admin",
+  "user_fallback": null,
+  "view_type": null
+}

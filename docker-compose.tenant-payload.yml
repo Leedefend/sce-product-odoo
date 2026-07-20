@@ -1,0 +1,4 @@
+services:
+  odoo:
+    group_add:
+      - "${SC_TENANT_PAYLOAD_HOST_GID:?SC_TENANT_PAYLOAD_HOST_GID is required}"

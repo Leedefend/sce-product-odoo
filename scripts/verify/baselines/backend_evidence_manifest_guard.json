@@ -1,0 +1,20 @@
+{
+  "max_missing_count": 0,
+  "min_total_size_bytes": 2048,
+  "required_artifacts": [
+    "artifacts/backend/role_capability_floor_prod_like.json",
+    "artifacts/backend/contract_assembler_semantic_smoke.json",
+    "artifacts/backend/runtime_surface_dashboard_report.json",
+    "artifacts/backend/scene_capability_matrix_report.json",
+    "artifacts/backend/load_view_access_contract_guard.json",
+    "artifacts/backend/boundary_import_guard_report.json",
+    "artifacts/backend/backend_architecture_full_report.json",
+    "artifacts/backend/backend_architecture_full_report_guard.json",
+    "artifacts/backend/native_view_semantic_page_shape_guard.json",
+    "artifacts/backend/native_view_semantic_page_schema_guard.json",
+    "artifacts/business_capability_baseline_report.json",
+    "artifacts/contract/phase11_1_contract_evidence.json",
+    "artifacts/contract_governance_coverage.json",
+    "artifacts/scene_catalog_runtime_alignment_guard.json"
+  ]
+}

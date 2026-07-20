@@ -1,0 +1,27 @@
+{
+  "action": null,
+  "case": "load_contract_intent_admin",
+  "contract_version": "v1",
+  "error": {
+    "code": 404,
+    "message": "未知模型: project.project (db=sc_demo, module(project)=installed)"
+  },
+  "execute_error": null,
+  "execute_result": null,
+  "fallback": false,
+  "meta_fields": null,
+  "model": null,
+  "op": "intent.invoke",
+  "record": null,
+  "record_error": null,
+  "ui_contract": null,
+  "ui_contract_raw": {
+    "code": 404,
+    "data": null,
+    "message": "未知模型: project.project (db=sc_demo, module(project)=installed)",
+    "status": "error"
+  },
+  "user": "admin",
+  "user_fallback": null,
+  "view_type": null
+}

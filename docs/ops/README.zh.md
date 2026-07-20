@@ -1,0 +1,44 @@
+---
+capability_stage: P0.1
+status: active
+---
+# Ops 文档索引
+
+这里是运维与发布相关文档的入口。
+
+## 发布与生产
+- 版本索引：`docs/ops/releases/README.zh.md`
+- 菜单场景覆盖率证据（当前基线）：`docs/ops/releases/current/menu_scene_coverage_evidence.md`
+- 生产命令策略：`docs/ops/prod_command_policy.md`
+- 生产发布链路规范：`docs/ops/production_release_flow_standard_v1.md`
+- 生产环境正式部署规范：`docs/ops/production_deployment_runbook_v1.md`
+- 历史附件 custody marker 补齐手册：`docs/ops/legacy_attachment_custody_marker_runbook.md`
+- Release Notes：`docs/ops/release_notes_v0.3.0-stable.md`
+- Release Checklist：`docs/ops/release_checklist_v0.3.0-stable.md`
+- 能力阶段定义：`docs/architecture/capability_stages.zh.md`
+- 阶段索引：`docs/capabilities/README.zh.md`
+
+## 环境与数据库
+- Compose 环境单一事实源：`docs/ops/compose_env_sot.md`
+- 数据库策略与命名：`docs/ops/db_strategy.md`
+- Seed 生命周期：`docs/ops/seed_lifecycle.zh.md`
+
+## Runbook
+- 初始化一页版：`docs/ops/runbook_init_onepage.md`
+- 部署手册（zh）：`docs/ops/runbook_deploy_zh.md`
+- prod-sim 隔离验证：`docs/ops/runbook_prod_sim_isolation.md`
+- Reset & Verify：`docs/ops/reset_verify.md`
+- Razor flow（降噪初始化）：`docs/ops/db_init_razor_flow.md`
+- Odoo17 基线部署：`docs/ops/DEPLOY_ODDO17_BASELINE.md`
+
+## 验证与评分
+- P0 验证流程：`docs/ops/verify_p0.md`
+- 初始化评分表：`docs/ops/init_scorecard.md`
+- 导航对齐审计：`make audit.nav.alignment DB_NAME=sc_demo E2E_LOGIN=demo_pm E2E_PASSWORD=demo`
+  - 输出：`artifacts/audit/nav_alignment_report.latest.json`、`artifacts/audit/nav_alignment_report.latest.md`
+- 角色菜单差异审计：`make audit.nav.role_diff DB_NAME=sc_demo`
+  - 输出：`artifacts/audit/role_nav_diff.latest.json`、`artifacts/audit/role_nav_diff.latest.md`
+
+## 产品/UX 参考
+- 项目中心表达：`docs/ops/A1_project_center_expression.md`
+- TP 系列：`docs/ops/TP-01_project_center_mapping.md` 与 `docs/ops/TP-08_ui_contract.table.md`

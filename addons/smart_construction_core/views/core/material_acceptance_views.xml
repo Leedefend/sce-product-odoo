@@ -1,0 +1,891 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="action_sc_material_purchase_request" model="ir.actions.act_window">
+        <field name="name">采购申请</field>
+        <field name="res_model">sc.material.purchase.request</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('business_category_id.code', '=', 'material.purchase.request')]</field>
+        <field name="context">{'search_default_group_project': 1, 'default_business_category_code': 'material.purchase.request', 'current_business_category_code': 'material.purchase.request'}</field>
+    </record>
+
+    <record id="action_sc_material_acceptance" model="ir.actions.act_window">
+        <field name="name">材料进场验收</field>
+        <field name="res_model">sc.material.acceptance</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('business_category_id.code', '=', 'material.acceptance')]</field>
+        <field name="context">{'search_default_group_project': 1, 'default_business_category_code': 'material.acceptance', 'current_business_category_code': 'material.acceptance'}</field>
+    </record>
+
+    <record id="action_sc_material_inbound" model="ir.actions.act_window">
+        <field name="name">入库单</field>
+        <field name="res_model">sc.material.inbound</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('business_category_id.code', '=', 'material.inbound')]</field>
+        <field name="context">{'search_default_group_project': 1, 'default_business_category_code': 'material.inbound', 'current_business_category_code': 'material.inbound'}</field>
+    </record>
+
+    <record id="action_sc_material_inbound_handling" model="ir.actions.act_window">
+        <field name="name">入库办理</field>
+        <field name="res_model">sc.material.inbound</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('business_category_id.code', '=', 'material.inbound')]</field>
+        <field name="context">{'search_default_group_project': 1, 'default_business_category_code': 'material.inbound', 'current_business_category_code': 'material.inbound'}</field>
+    </record>
+
+    <record id="action_sc_material_outbound" model="ir.actions.act_window">
+        <field name="name">出库单</field>
+        <field name="res_model">sc.material.outbound</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('outbound_type', '=', 'issue'), ('business_category_id.code', '=', 'material.outbound')]</field>
+        <field name="context">{'search_default_group_project': 1, 'default_outbound_type': 'issue', 'default_business_category_code': 'material.outbound', 'current_business_category_code': 'material.outbound'}</field>
+    </record>
+
+    <record id="action_sc_material_return" model="ir.actions.act_window">
+        <field name="name">退库办理</field>
+        <field name="res_model">sc.material.outbound</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('outbound_type', '=', 'return'), ('business_category_id.code', '=', 'material.return')]</field>
+        <field name="context">{'search_default_group_project': 1, 'default_outbound_type': 'return', 'default_business_category_code': 'material.return', 'current_business_category_code': 'material.return'}</field>
+    </record>
+
+    <record id="action_sc_material_transfer" model="ir.actions.act_window">
+        <field name="name">材料调拨</field>
+        <field name="res_model">sc.material.outbound</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('outbound_type', '=', 'transfer'), ('business_category_id.code', '=', 'material.transfer')]</field>
+        <field name="context">{'search_default_group_project': 1, 'default_outbound_type': 'transfer', 'default_business_category_code': 'material.transfer', 'current_business_category_code': 'material.transfer'}</field>
+    </record>
+
+    <record id="action_sc_material_loss" model="ir.actions.act_window">
+        <field name="name">材料损耗</field>
+        <field name="res_model">sc.material.outbound</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('outbound_type', '=', 'loss'), ('business_category_id.code', '=', 'material.loss')]</field>
+        <field name="context">{'search_default_group_project': 1, 'default_outbound_type': 'loss', 'default_business_category_code': 'material.loss', 'current_business_category_code': 'material.loss'}</field>
+    </record>
+
+    <record id="action_sc_material_rfq" model="ir.actions.act_window">
+        <field name="name">询比价</field>
+        <field name="res_model">sc.material.rfq</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('business_category_id.code', '=', 'material.rfq')]</field>
+        <field name="context">{'search_default_group_project': 1, 'default_business_category_code': 'material.rfq', 'current_business_category_code': 'material.rfq'}</field>
+    </record>
+
+    <record id="action_sc_material_settlement" model="ir.actions.act_window">
+        <field name="name">材料结算</field>
+        <field name="res_model">sc.material.settlement</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('business_category_id.code', '=', 'material.settlement')]</field>
+        <field name="context">{'search_default_group_project': 1, 'default_business_category_code': 'material.settlement', 'current_business_category_code': 'material.settlement'}</field>
+    </record>
+
+    <record id="view_sc_material_settlement_line_search" model="ir.ui.view">
+        <field name="name">sc.material.settlement.line.search</field>
+        <field name="model">sc.material.settlement.line</field>
+        <field name="arch" type="xml">
+            <search string="材料结算明细表">
+                <field name="settlement_id"/>
+                <field name="project_id"/>
+                <field name="material_catalog_id"/>
+                <filter string="按项目" name="group_project" context="{'group_by': 'project_id'}"/>
+                <filter string="按材料" name="group_material_catalog" context="{'group_by': 'material_catalog_id'}"/>
+                <filter string="按结算单" name="group_settlement" context="{'group_by': 'settlement_id'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_sc_material_settlement_line_tree" model="ir.ui.view">
+        <field name="name">sc.material.settlement.line.tree</field>
+        <field name="model">sc.material.settlement.line</field>
+        <field name="arch" type="xml">
+            <tree string="材料结算明细表">
+                <field name="settlement_id"/>
+                <field name="project_id"/>
+                <field name="material_catalog_id"/>
+                <field name="product_id" invisible="1"/>
+                <field name="material_spec"/>
+                <field name="product_uom_id"/>
+                <field name="qty" sum="结算数量合计"/>
+                <field name="unit_price"/>
+                <field name="tax_rate"/>
+                <field name="amount_untaxed" sum="未税金额合计"/>
+                <field name="tax_amount" sum="税额合计"/>
+                <field name="amount_total" sum="含税金额合计"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_sc_material_settlement_line" model="ir.actions.act_window">
+        <field name="name">材料结算明细表</field>
+        <field name="res_model">sc.material.settlement.line</field>
+        <field name="view_mode">tree,pivot,graph</field>
+        <field name="search_view_id" ref="view_sc_material_settlement_line_search"/>
+        <field name="context">{'search_default_group_project': 1}</field>
+    </record>
+
+    <record id="view_sc_material_purchase_request_tree" model="ir.ui.view">
+        <field name="name">sc.material.purchase.request.tree</field>
+        <field name="model">sc.material.purchase.request</field>
+        <field name="arch" type="xml">
+            <tree string="采购申请" default_order="request_date desc">
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="business_category_id" optional="hide"/>
+                <field name="request_date"/>
+                <field name="required_date"/>
+                <field name="requester_id"/>
+                <field name="department_id"/>
+                <field name="supplier_id"/>
+                <field name="source_material_plan_id"/>
+                <field name="purpose"/>
+                <field name="sc_has_system_default"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_sc_material_purchase_request_form" model="ir.ui.view">
+        <field name="name">sc.material.purchase.request.form</field>
+        <field name="model">sc.material.purchase.request</field>
+        <field name="arch" type="xml">
+            <form string="采购申请">
+                <header>
+                    <button name="action_submit" string="提交" type="object" class="btn-primary" groups="smart_construction_core.group_sc_cap_material_user,smart_construction_core.group_sc_cap_material_manager" invisible="state != 'draft'"/>
+                    <button name="action_approve" string="确认申请" type="object" class="btn-primary" groups="smart_construction_core.group_sc_cap_material_manager,smart_construction_core.group_sc_cap_purchase_manager" invisible="state != 'submitted'"/>
+                    <button name="action_create_rfq" string="生成询价单" type="object" class="btn-secondary" groups="smart_construction_core.group_sc_cap_purchase_user,smart_construction_core.group_sc_cap_purchase_manager,smart_construction_core.group_sc_cap_material_manager" invisible="state != 'approved'"/>
+                    <button name="action_create_purchase_order" string="生成采购订单" type="object" class="btn-secondary" groups="smart_construction_core.group_sc_cap_purchase_manager,smart_construction_core.group_sc_cap_material_manager" invisible="state != 'approved'"/>
+                    <button name="action_reset_draft" string="退回草稿" type="object" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state != 'submitted'"/>
+                    <button name="action_cancel" string="取消" type="object" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state in ('approved', 'cancel')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,approved"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button class="oe_stat_button" type="object" name="action_view_rfqs" icon="fa-comments-o">
+                            <field name="rfq_count" widget="statinfo" string="询价单"/>
+                        </button>
+                        <button class="oe_stat_button" type="object" name="action_view_purchase_orders" icon="fa-shopping-cart">
+                            <field name="purchase_order_count" widget="statinfo" string="采购订单"/>
+                        </button>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="project_id"/>
+                            <field name="business_category_id" readonly="1"/>
+                            <field name="request_date"/>
+                            <field name="required_date"/>
+                            <field name="source_material_plan_id"/>
+                        </group>
+                        <group>
+                            <field name="requester_id"/>
+                            <field name="department_id"/>
+                            <field name="supplier_id"/>
+                            <field name="purpose"/>
+                        </group>
+                    </group>
+                    <group string="系统默认提示" invisible="not sc_has_system_default">
+                        <field name="sc_has_system_default" readonly="1"/>
+                        <field name="sc_system_default_fields" readonly="1"/>
+                        <field name="sc_system_default_note" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="申请明细">
+                            <field name="line_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="source_material_plan_line_id"/>
+                                    <field name="material_catalog_id" required="1"/>
+                                    <field name="product_id" invisible="1"/>
+                                    <field name="material_spec"/>
+                                    <field name="product_uom_id"/>
+                                    <field name="qty"/>
+                                    <field name="estimated_unit_price"/>
+                                    <field name="estimated_amount"/>
+                                    <field name="currency_id" invisible="1"/>
+                                    <field name="note"/>
+                                    <field name="sc_has_system_default"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="申请说明">
+                            <field name="note" nolabel="1"/>
+                        </page>
+                        <page string="来源追溯">
+                            <group>
+                                <field name="source_material_plan_id"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_sc_material_purchase_request_search" model="ir.ui.view">
+        <field name="name">sc.material.purchase.request.search</field>
+        <field name="model">sc.material.purchase.request</field>
+        <field name="arch" type="xml">
+            <search string="采购申请">
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="business_category_id"/>
+                <field name="requester_id"/>
+                <field name="department_id"/>
+                <filter string="草稿" name="draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="待确认" name="submitted" domain="[('state', '=', 'submitted')]"/>
+                <filter string="已确认" name="approved" domain="[('state', '=', 'approved')]"/>
+                <filter string="按项目" name="group_project" context="{'group_by': 'project_id'}"/>
+                <filter string="按业务分类" name="group_business_category" context="{'group_by': 'business_category_id'}"/>
+                <filter string="按申请人" name="group_requester" context="{'group_by': 'requester_id'}"/>
+                <filter string="按状态" name="group_state" context="{'group_by': 'state'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_sc_material_acceptance_tree" model="ir.ui.view">
+        <field name="name">sc.material.acceptance.tree</field>
+        <field name="model">sc.material.acceptance</field>
+        <field name="arch" type="xml">
+            <tree string="材料进场验收" default_order="acceptance_date desc">
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="business_category_id" optional="hide"/>
+                <field name="acceptance_date"/>
+                <field name="supplier_id"/>
+                <field name="purchase_request_id"/>
+                <field name="purchase_order_id"/>
+                <field name="acceptance_flow"/>
+                <field name="source_channel"/>
+                <field name="inspector_id"/>
+                <field name="sampling_required"/>
+                <field name="sc_has_system_default"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_sc_material_acceptance_form" model="ir.ui.view">
+        <field name="name">sc.material.acceptance.form</field>
+        <field name="model">sc.material.acceptance</field>
+        <field name="arch" type="xml">
+            <form string="材料进场验收">
+                <header>
+                    <button name="action_submit" string="提交" type="object" class="btn-primary" groups="smart_construction_core.group_sc_cap_material_user,smart_construction_core.group_sc_cap_material_manager" invisible="state != 'draft'"/>
+                    <button name="action_accept" string="验收通过" type="object" class="btn-primary" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state != 'submitted'"/>
+                    <button name="action_reject" string="验收不通过" type="object" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state != 'submitted'"/>
+                    <button name="action_reset_draft" string="退回草稿" type="object" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state not in ('submitted', 'rejected')"/>
+                    <button name="action_cancel" string="取消" type="object" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state in ('accepted', 'cancel')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,accepted,rejected"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="project_id"/>
+                            <field name="business_category_id" readonly="1"/>
+                            <field name="acceptance_date"/>
+                            <field name="supplier_id"/>
+                            <field name="purchase_request_id"/>
+                            <button name="action_load_purchase_request_lines" string="带入申请明细" type="object" class="btn-secondary" groups="smart_construction_core.group_sc_cap_material_user,smart_construction_core.group_sc_cap_material_manager"/>
+                            <field name="acceptance_flow"/>
+                            <field name="source_channel"/>
+                        </group>
+                        <group>
+                            <field name="purchase_order_id"/>
+                            <button name="action_load_purchase_order_lines" string="带入采购明细" type="object" class="btn-secondary" groups="smart_construction_core.group_sc_cap_material_user,smart_construction_core.group_sc_cap_material_manager"/>
+                            <field name="inspector_id"/>
+                            <field name="supervisor_inspector_id"/>
+                            <field name="owner_inspector_id"/>
+                            <field name="sampling_required"/>
+                            <field name="sampling_report_ref"/>
+                        </group>
+                    </group>
+                    <group string="系统默认提示" invisible="not sc_has_system_default">
+                        <field name="sc_has_system_default" readonly="1"/>
+                        <field name="sc_system_default_fields" readonly="1"/>
+                        <field name="sc_system_default_note" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="验收明细">
+                            <field name="line_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="purchase_request_line_id"/>
+                                    <field name="purchase_order_line_id"/>
+                                    <field name="material_catalog_id" required="1"/>
+                                    <field name="product_id" invisible="1"/>
+                                    <field name="material_spec"/>
+                                    <field name="product_uom_id"/>
+                                    <field name="planned_qty"/>
+                                    <field name="received_qty"/>
+                                    <field name="accepted_qty"/>
+                                    <field name="rejected_qty"/>
+                                    <field name="sampled_qty"/>
+                                    <field name="returned_qty"/>
+                                    <field name="result"/>
+                                    <field name="quality_status"/>
+                                    <field name="sc_has_system_default"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="验收说明">
+                            <group>
+                                <field name="note" nolabel="1"/>
+                                <field name="rejection_reason" nolabel="1"/>
+                            </group>
+                        </page>
+                        <page string="验收附件">
+                            <field name="attachment_ids" widget="many2many_binary"/>
+                        </page>
+                        <page string="来源追溯">
+                            <group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_sc_material_acceptance_search" model="ir.ui.view">
+        <field name="name">sc.material.acceptance.search</field>
+        <field name="model">sc.material.acceptance</field>
+        <field name="arch" type="xml">
+            <search string="材料进场验收">
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="business_category_id"/>
+                <field name="supplier_id"/>
+                <field name="purchase_request_id"/>
+                <field name="purchase_order_id"/>
+                <field name="acceptance_flow"/>
+                <field name="source_channel"/>
+                <filter string="草稿" name="draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="待验收" name="submitted" domain="[('state', '=', 'submitted')]"/>
+                <filter string="已通过" name="accepted" domain="[('state', '=', 'accepted')]"/>
+                <filter string="未通过" name="rejected" domain="[('state', '=', 'rejected')]"/>
+                <filter string="需要送检" name="sampling_required" domain="[('sampling_required', '=', True)]"/>
+                <filter string="按项目" name="group_project" context="{'group_by': 'project_id'}"/>
+                <filter string="按业务分类" name="group_business_category" context="{'group_by': 'business_category_id'}"/>
+                <filter string="按供应商" name="group_supplier" context="{'group_by': 'supplier_id'}"/>
+                <filter string="按验收流程" name="group_acceptance_flow" context="{'group_by': 'acceptance_flow'}"/>
+                <filter string="按状态" name="group_state" context="{'group_by': 'state'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_sc_material_inbound_tree" model="ir.ui.view">
+        <field name="name">sc.material.inbound.tree</field>
+        <field name="model">sc.material.inbound</field>
+        <field name="arch" type="xml">
+            <tree string="入库单" default_order="inbound_date desc">
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="business_category_id" optional="hide"/>
+                <field name="operation_strategy"/>
+                <field name="inbound_date"/>
+                <field name="material_name_summary"/>
+                <field name="material_spec_summary"/>
+                <field name="material_uom_summary"/>
+                <field name="total_qty" sum="入库数量合计"/>
+                <field name="unit_price_summary"/>
+                <field name="acceptance_id"/>
+                <field name="supplier_id"/>
+                <field name="warehouse_id"/>
+                <field name="dest_location_id"/>
+                <field name="keeper_id"/>
+                <field name="line_note_summary"/>
+                <field name="amount_total" sum="金额合计"/>
+                <field name="sc_has_system_default"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_sc_material_inbound_form" model="ir.ui.view">
+        <field name="name">sc.material.inbound.form</field>
+        <field name="model">sc.material.inbound</field>
+        <field name="arch" type="xml">
+            <form string="入库单">
+                <header>
+                    <button name="action_submit" string="提交" type="object" class="btn-primary" groups="smart_construction_core.group_sc_cap_material_user,smart_construction_core.group_sc_cap_material_manager" invisible="state != 'draft'"/>
+                    <button name="action_receive" string="确认入库" type="object" class="btn-primary" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state != 'submitted'"/>
+                    <button name="action_reset_draft" string="退回草稿" type="object" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state != 'submitted'"/>
+                    <button name="action_cancel" string="取消" type="object" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state in ('received', 'cancel')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,received"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="project_id"/>
+                            <field name="business_category_id" readonly="1"/>
+                            <field name="operation_strategy" readonly="1"/>
+                            <field name="inbound_date"/>
+                            <field name="acceptance_id"/>
+                            <button name="action_load_acceptance_lines" string="带入验收明细" type="object" class="btn-secondary" groups="smart_construction_core.group_sc_cap_material_user,smart_construction_core.group_sc_cap_material_manager"/>
+                        </group>
+                        <group>
+                            <field name="supplier_id"/>
+                            <field name="warehouse_id"/>
+                            <field name="dest_location_id"/>
+                            <field name="keeper_id"/>
+                            <field name="stock_picking_id"/>
+                            <field name="amount_total" readonly="1"/>
+                            <field name="tax_included_amount" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="系统默认提示" invisible="not sc_has_system_default">
+                        <field name="sc_has_system_default" readonly="1"/>
+                        <field name="sc_system_default_fields" readonly="1"/>
+                        <field name="sc_system_default_note" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="入库明细">
+                            <field name="line_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="acceptance_line_id"/>
+                                    <field name="material_catalog_id" required="1"/>
+                                    <field name="product_id" invisible="1"/>
+                                    <field name="material_spec"/>
+                                    <field name="product_uom_id"/>
+                                    <field name="qty"/>
+                                    <field name="unit_price"/>
+                                    <field name="amount" sum="金额合计"/>
+                                    <field name="note"/>
+                                    <field name="sc_has_system_default"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="入库说明">
+                            <field name="note" nolabel="1"/>
+                        </page>
+                        <page string="附件">
+                            <field name="attachment_ids" widget="many2many_binary" nolabel="1"/>
+                        </page>
+                        <page string="来源追溯">
+                            <group>
+                                <field name="source_transfer_outbound_id" readonly="1"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_sc_material_inbound_search" model="ir.ui.view">
+        <field name="name">sc.material.inbound.search</field>
+        <field name="model">sc.material.inbound</field>
+        <field name="arch" type="xml">
+            <search string="入库单">
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="business_category_id"/>
+                <field name="operation_strategy"/>
+                <field name="acceptance_id"/>
+                <field name="supplier_id"/>
+                <field name="warehouse_id"/>
+                <filter string="草稿" name="draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="待入库" name="submitted" domain="[('state', '=', 'submitted')]"/>
+                <filter string="已入库" name="received" domain="[('state', '=', 'received')]"/>
+                <filter string="公司直营" name="operation_direct" domain="[('operation_strategy', '=', 'direct')]"/>
+                <filter string="联营项目" name="operation_joint" domain="[('operation_strategy', '=', 'joint')]"/>
+                <filter string="按项目" name="group_project" context="{'group_by': 'project_id'}"/>
+                <filter string="按业务分类" name="group_business_category" context="{'group_by': 'business_category_id'}"/>
+                <filter string="按经营策略" name="group_operation_strategy" context="{'group_by': 'operation_strategy'}"/>
+                <filter string="按入库日期" name="group_inbound_date" context="{'group_by': 'inbound_date'}"/>
+                <filter string="按供应商" name="group_supplier" context="{'group_by': 'supplier_id'}"/>
+                <filter string="按仓库" name="group_warehouse" context="{'group_by': 'warehouse_id'}"/>
+                <filter string="按状态" name="group_state" context="{'group_by': 'state'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_sc_material_outbound_tree" model="ir.ui.view">
+        <field name="name">sc.material.outbound.tree</field>
+        <field name="model">sc.material.outbound</field>
+        <field name="arch" type="xml">
+            <tree string="出库单" default_order="outbound_date desc">
+                <field name="name" string="出库单号"/>
+                <field name="outbound_type"/>
+                <field name="project_id"/>
+                <field name="business_category_id" optional="hide"/>
+                <field name="outbound_date" string="出库日期"/>
+                <field name="warehouse_id" string="出库仓库"/>
+                <field name="source_location_id" string="出库库位"/>
+                <field name="purpose" string="领用用途"/>
+                <field name="amount_total" sum="出库金额合计"/>
+                <field name="receiver_id" string="领用单位"/>
+                <field name="receiver_user_id" string="领料人"/>
+                <field name="keeper_id"/>
+                <field name="sc_has_system_default"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_sc_material_outbound_form" model="ir.ui.view">
+        <field name="name">sc.material.outbound.form</field>
+        <field name="model">sc.material.outbound</field>
+        <field name="arch" type="xml">
+            <form string="出库单">
+                <header>
+                    <button name="action_submit" string="提交" type="object" class="btn-primary" groups="smart_construction_core.group_sc_cap_material_user,smart_construction_core.group_sc_cap_material_manager" invisible="state != 'draft'"/>
+                    <button name="action_issue" string="确认出库" type="object" class="btn-primary" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state != 'submitted'"/>
+                    <button name="action_reset_draft" string="退回草稿" type="object" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state != 'submitted'"/>
+                    <button name="action_cancel" string="取消" type="object" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state in ('issued', 'cancel')"/>
+                    <button name="action_open_transfer_inbound" string="查看调入入库" type="object" groups="smart_construction_core.group_sc_cap_material_read,smart_construction_core.group_sc_cap_material_user,smart_construction_core.group_sc_cap_material_manager" invisible="outbound_type != 'transfer' or not transfer_inbound_id"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,issued"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="outbound_type"/>
+                            <field name="project_id"/>
+                            <field name="business_category_id" readonly="1"/>
+                            <field name="outbound_date"/>
+                            <field name="purpose"/>
+                            <field name="validation_status" readonly="1" invisible="outbound_type != 'loss'"/>
+                            <field name="reject_reason" readonly="1" invisible="outbound_type != 'loss' or not reject_reason"/>
+                            <field name="amount_total" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="warehouse_id"/>
+                            <field name="source_location_id"/>
+                            <field name="dest_warehouse_id" invisible="outbound_type != 'transfer'"/>
+                            <field name="dest_location_id" invisible="outbound_type != 'transfer'"/>
+                            <field name="transfer_inbound_id" readonly="1" invisible="outbound_type != 'transfer'"/>
+                            <field name="receiver_id"/>
+                            <field name="receiver_user_id"/>
+                            <field name="keeper_id"/>
+                            <field name="stock_picking_id"/>
+                        </group>
+                    </group>
+                    <group string="系统默认提示" invisible="not sc_has_system_default">
+                        <field name="sc_has_system_default" readonly="1"/>
+                        <field name="sc_system_default_fields" readonly="1"/>
+                        <field name="sc_system_default_note" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="出库明细">
+                            <field name="line_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="material_catalog_id" required="1"/>
+                                    <field name="product_id" invisible="1"/>
+                                    <field name="material_spec"/>
+                                    <field name="product_uom_id"/>
+                                    <field name="qty"/>
+                                    <field name="unit_price"/>
+                                    <field name="amount" sum="出库金额合计"/>
+                                    <field name="note"/>
+                                    <field name="sc_has_system_default"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="出库说明">
+                            <field name="note" nolabel="1"/>
+                        </page>
+                        <page string="来源追溯">
+                            <group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_sc_material_outbound_search" model="ir.ui.view">
+        <field name="name">sc.material.outbound.search</field>
+        <field name="model">sc.material.outbound</field>
+        <field name="arch" type="xml">
+            <search string="出库单">
+                <field name="name"/>
+                <field name="outbound_type"/>
+                <field name="project_id"/>
+                <field name="business_category_id"/>
+                <field name="receiver_id"/>
+                <field name="warehouse_id"/>
+                <filter string="草稿" name="draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="待出库" name="submitted" domain="[('state', '=', 'submitted')]"/>
+                <filter string="已出库" name="issued" domain="[('state', '=', 'issued')]"/>
+                <filter string="领用出库" name="type_issue" domain="[('outbound_type', '=', 'issue')]"/>
+                <filter string="退库" name="type_return" domain="[('outbound_type', '=', 'return')]"/>
+                <filter string="调拨" name="type_transfer" domain="[('outbound_type', '=', 'transfer')]"/>
+                <filter string="损耗" name="type_loss" domain="[('outbound_type', '=', 'loss')]"/>
+                <filter string="按项目" name="group_project" context="{'group_by': 'project_id'}"/>
+                <filter string="按业务分类" name="group_business_category" context="{'group_by': 'business_category_id'}"/>
+                <filter string="按仓库" name="group_warehouse" context="{'group_by': 'warehouse_id'}"/>
+                <filter string="按出库类型" name="group_outbound_type" context="{'group_by': 'outbound_type'}"/>
+                <filter string="按状态" name="group_state" context="{'group_by': 'state'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_sc_material_rfq_tree" model="ir.ui.view">
+        <field name="name">sc.material.rfq.tree</field>
+        <field name="model">sc.material.rfq</field>
+        <field name="arch" type="xml">
+            <tree string="询比价" default_order="rfq_date desc">
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="business_category_id" optional="hide"/>
+                <field name="rfq_date"/>
+                <field name="due_date"/>
+                <field name="purchase_request_id"/>
+                <field name="source_material_plan_id"/>
+                <field name="contact_name"/>
+                <field name="contact_phone"/>
+                <field name="supplier_ids" widget="many2many_tags"/>
+                <field name="selected_supplier_id"/>
+                <field name="owner_id"/>
+                <field name="sc_has_system_default"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_sc_material_rfq_form" model="ir.ui.view">
+        <field name="name">sc.material.rfq.form</field>
+        <field name="model">sc.material.rfq</field>
+        <field name="arch" type="xml">
+            <form string="询比价">
+                <header>
+                    <button name="action_submit" string="发起询价" type="object" class="btn-primary" groups="smart_construction_core.group_sc_cap_purchase_user,smart_construction_core.group_sc_cap_purchase_manager,smart_construction_core.group_sc_cap_material_manager" invisible="state != 'draft'"/>
+                    <button name="action_select" string="确定报价" type="object" class="btn-primary" groups="smart_construction_core.group_sc_cap_purchase_manager,smart_construction_core.group_sc_cap_material_manager" invisible="state != 'submitted'"/>
+                    <button name="action_create_purchase_order" string="生成采购订单" type="object" class="btn-primary" groups="smart_construction_core.group_sc_cap_purchase_manager,smart_construction_core.group_sc_cap_material_manager" invisible="state == 'cancel'"/>
+                    <button name="action_reset_draft" string="退回草稿" type="object" groups="smart_construction_core.group_sc_cap_purchase_manager,smart_construction_core.group_sc_cap_material_manager" invisible="state != 'submitted'"/>
+                    <button name="action_cancel" string="取消" type="object" groups="smart_construction_core.group_sc_cap_purchase_manager,smart_construction_core.group_sc_cap_material_manager" invisible="state in ('selected', 'cancel')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,selected"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="project_id"/>
+                            <field name="business_category_id" readonly="1"/>
+                            <field name="purchase_request_id"/>
+                            <field name="source_material_plan_id"/>
+                            <field name="rfq_date"/>
+                        </group>
+                        <group>
+                            <field name="due_date"/>
+                            <field name="owner_id"/>
+                            <field name="contact_name"/>
+                            <field name="contact_phone"/>
+                            <field name="supplier_ids" widget="many2many_tags" readonly="1"/>
+                            <field name="selected_supplier_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="系统默认提示" invisible="not sc_has_system_default">
+                        <field name="sc_has_system_default" readonly="1"/>
+                        <field name="sc_system_default_fields" readonly="1"/>
+                        <field name="sc_system_default_note" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="报价明细">
+                            <field name="line_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="source_material_plan_line_id"/>
+                                    <field name="source_material_purchase_request_line_id"/>
+                                    <field name="supplier_id"/>
+                                    <field name="supplier_contact_name"/>
+                                    <field name="supplier_contact_phone"/>
+                                    <field name="quote_status"/>
+                                    <field name="material_catalog_id" required="1"/>
+                                    <field name="product_id" invisible="1"/>
+                                    <field name="material_spec"/>
+                                    <field name="product_uom_id"/>
+                                    <field name="qty"/>
+                                    <field name="currency_id" invisible="1"/>
+                                    <field name="unit_price"/>
+                                    <field name="amount"/>
+                                    <field name="tax_rate"/>
+                                    <field name="selected"/>
+                                    <field name="note"/>
+                                    <field name="sc_has_system_default"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="询价说明">
+                            <field name="note" nolabel="1"/>
+                        </page>
+                        <page string="附件">
+                            <field name="attachment_ids" widget="many2many_binary" nolabel="1"/>
+                        </page>
+                        <page string="来源追溯">
+                            <group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_sc_material_rfq_search" model="ir.ui.view">
+        <field name="name">sc.material.rfq.search</field>
+        <field name="model">sc.material.rfq</field>
+        <field name="arch" type="xml">
+            <search string="询比价">
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="business_category_id"/>
+                <field name="purchase_request_id"/>
+                <field name="source_material_plan_id"/>
+                <field name="selected_supplier_id"/>
+                <field name="contact_name"/>
+                <field name="contact_phone"/>
+                <field name="owner_id"/>
+                <field name="note"/>
+                <filter string="草稿" name="draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="已发起" name="submitted" domain="[('state', '=', 'submitted')]"/>
+                <filter string="已定价" name="selected" domain="[('state', '=', 'selected')]"/>
+                <filter string="按项目" name="group_project" context="{'group_by': 'project_id'}"/>
+                <filter string="按业务分类" name="group_business_category" context="{'group_by': 'business_category_id'}"/>
+                <filter string="按供应商" name="group_supplier" context="{'group_by': 'selected_supplier_id'}"/>
+                <filter string="按状态" name="group_state" context="{'group_by': 'state'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_sc_material_settlement_tree" model="ir.ui.view">
+        <field name="name">sc.material.settlement.tree</field>
+        <field name="model">sc.material.settlement</field>
+        <field name="arch" type="xml">
+            <tree string="材料结算" default_order="settlement_date desc">
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="business_category_id" optional="hide"/>
+                <field name="settlement_date"/>
+                <field name="supplier_id"/>
+                <field name="purchase_order_id"/>
+                <field name="amount_untaxed" sum="未税金额合计"/>
+                <field name="tax_amount" sum="税额合计"/>
+                <field name="amount_total" sum="结算金额合计"/>
+                <field name="currency_id" invisible="1"/>
+                <field name="payment_request_id" optional="show"/>
+                <field name="owner_id"/>
+                <field name="sc_has_system_default"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_sc_material_settlement_form" model="ir.ui.view">
+        <field name="name">sc.material.settlement.form</field>
+        <field name="model">sc.material.settlement</field>
+        <field name="arch" type="xml">
+            <form string="材料结算">
+                <header>
+                    <button name="action_submit" string="提交" type="object" class="btn-primary" groups="smart_construction_core.group_sc_cap_material_user,smart_construction_core.group_sc_cap_material_manager" invisible="state != 'draft'"/>
+                    <button name="action_confirm" string="确认结算" type="object" class="btn-primary" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state != 'submitted'"/>
+                    <button name="action_create_remaining_payment_request" string="生成剩余付款申请" type="object" class="btn-secondary" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state != 'confirmed'"/>
+                    <button name="action_reset_draft" string="退回草稿" type="object" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state != 'submitted'"/>
+                    <button name="action_cancel" string="取消" type="object" groups="smart_construction_core.group_sc_cap_material_manager" invisible="state in ('confirmed', 'cancel')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,confirmed"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_payment_request"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-money"
+                                invisible="payment_request_count == 0">
+                            <field name="payment_request_count" widget="statinfo" string="付款申请"/>
+                        </button>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="project_id"/>
+                            <field name="business_category_id" readonly="1"/>
+                            <field name="supplier_id"/>
+                            <field name="purchase_order_id"/>
+                        </group>
+                        <group>
+                            <field name="settlement_date"/>
+                            <field name="owner_id"/>
+                            <field name="payment_request_id" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="amount_untaxed"/>
+                        <field name="tax_amount"/>
+                        <field name="amount_total"/>
+                        <field name="payment_requested_amount" readonly="1"/>
+                        <field name="payment_paid_amount" readonly="1"/>
+                        <field name="payment_remaining_amount" readonly="1"/>
+                    </group>
+                    <group string="系统默认提示" invisible="not sc_has_system_default">
+                        <field name="sc_has_system_default" readonly="1"/>
+                        <field name="sc_system_default_fields" readonly="1"/>
+                        <field name="sc_system_default_note" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="结算明细">
+                            <field name="line_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="material_catalog_id" required="1"/>
+                                    <field name="product_id" invisible="1"/>
+                                    <field name="material_spec"/>
+                                    <field name="product_uom_id"/>
+                                    <field name="qty"/>
+                                    <field name="unit_price"/>
+                                    <field name="tax_rate"/>
+                                    <field name="amount_untaxed"/>
+                                    <field name="tax_amount"/>
+                                    <field name="amount_total"/>
+                                    <field name="note"/>
+                                    <field name="sc_has_system_default"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="结算说明">
+                            <field name="note" nolabel="1"/>
+                        </page>
+                        <page string="来源追溯">
+                            <group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_sc_material_settlement_search" model="ir.ui.view">
+        <field name="name">sc.material.settlement.search</field>
+        <field name="model">sc.material.settlement</field>
+        <field name="arch" type="xml">
+            <search string="材料结算">
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="business_category_id"/>
+                <field name="supplier_id"/>
+                <field name="purchase_order_id"/>
+                <filter string="草稿" name="draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="已提交" name="submitted" domain="[('state', '=', 'submitted')]"/>
+                <filter string="已确认" name="confirmed" domain="[('state', '=', 'confirmed')]"/>
+                <filter string="按项目" name="group_project" context="{'group_by': 'project_id'}"/>
+                <filter string="按业务分类" name="group_business_category" context="{'group_by': 'business_category_id'}"/>
+                <filter string="按供应商" name="group_supplier" context="{'group_by': 'supplier_id'}"/>
+                <filter string="按状态" name="group_state" context="{'group_by': 'state'}"/>
+            </search>
+        </field>
+    </record>
+</odoo>

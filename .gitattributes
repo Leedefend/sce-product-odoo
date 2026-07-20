@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.xml text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.vue text eol=lf
+artifacts/migration/** -text
+tmp/raw/** -text
+migration_assets/** -text

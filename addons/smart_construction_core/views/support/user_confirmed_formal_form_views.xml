@@ -1,0 +1,486 @@
+<odoo>
+    <record id="view_project_project_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">project.project.user.confirmed.form.fields</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="sc_partner_display_name" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_project_overview_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">project.project.overview.user.confirmed.form.fields</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="smart_construction_core.view_project_overview_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//div[field[@name='owner_id']]" position="after">
+                <div class="small text-muted mt-1">
+                    关联单位 <field name="sc_partner_display_name" readonly="1" nolabel="1" />
+                </div>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_tender_bid_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">tender.bid.user.confirmed.form.fields</field>
+        <field name="model">tender.bid</field>
+        <field name="inherit_id" ref="smart_construction_core.view_tender_bid_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="tender_bid_status_display" readonly="1" />
+                    <field name="tender_bid_document_no" readonly="1" />
+                    <field name="tender_bid_project_name" readonly="1" />
+                    <field name="tender_bid_registration_time" readonly="1" />
+                    <field name="tender_bid_push_result" readonly="1" />
+                    <field name="tender_bid_source_created_by" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_construction_contract_expense_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">construction.contract.expense.user.confirmed.form.fields</field>
+        <field name="model">construction.contract.expense</field>
+        <field name="inherit_id" ref="smart_construction_core.view_construction_contract_expense_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="expense_execution_contract_date" readonly="1" />
+                    <field name="expense_execution_counterparty" readonly="1" />
+                    <field name="expense_execution_title" readonly="1" />
+                    <field name="expense_execution_invoice_amount" readonly="1" />
+                    <field name="expense_execution_uninvoiced_amount" readonly="1" />
+                    <field name="expense_execution_paid_amount" readonly="1" />
+                    <field name="expense_execution_engineering_content" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_settlement_order_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">sc.settlement.order.user.confirmed.form.fields</field>
+        <field name="model">sc.settlement.order</field>
+        <field name="inherit_id" ref="smart_construction_core.view_sc_settlement_order_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据" invisible="not legacy_acceptance_label">
+                    <field name="settlement_acceptance_document_state" readonly="1" />
+                    <field name="settlement_acceptance_document_no" readonly="1" />
+                    <field name="settlement_acceptance_project_name" readonly="1" />
+                    <field name="settlement_acceptance_title" readonly="1" />
+                    <field name="settlement_acceptance_paid_amount" readonly="1" />
+                    <field name="settlement_acceptance_requested_amount" readonly="1" />
+                    <field name="settlement_acceptance_unrequested_amount" readonly="1" />
+                    <field name="settlement_acceptance_note" readonly="1" />
+                    <field name="settlement_acceptance_attachment" readonly="1" />
+                    <field name="settlement_acceptance_created_at" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_construction_diary_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">sc.construction.diary.user.confirmed.form.fields</field>
+        <field name="model">sc.construction.diary</field>
+        <field name="inherit_id" ref="smart_construction_core.view_sc_construction_diary_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="diary_status_display" readonly="1" />
+                    <field name="diary_project_name" readonly="1" />
+                    <field name="diary_document_no" readonly="1" />
+                    <field name="diary_date_display" readonly="1" />
+                    <field name="diary_construction_part" readonly="1" />
+                    <field name="diary_manpower_count_display" readonly="1" />
+                    <field name="diary_equipment_attendance" readonly="1" />
+                    <field name="diary_source_created_by" readonly="1" />
+                    <field name="diary_source_created_at" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_project_material_plan_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">project.material.plan.user.confirmed.form.fields</field>
+        <field name="model">project.material.plan</field>
+        <field name="inherit_id" ref="smart_construction_core.view_project_material_plan_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="material_plan_status_display" readonly="1" />
+                    <field name="material_plan_document_no" readonly="1" />
+                    <field name="material_plan_document_date" readonly="1" />
+                    <field name="material_plan_arrival_date" readonly="1" />
+                    <field name="material_plan_material_name" readonly="1" />
+                    <field name="material_plan_specification" readonly="1" />
+                    <field name="material_plan_unit" readonly="1" />
+                    <field name="material_plan_quantity" readonly="1" />
+                    <field name="material_plan_material_alias" readonly="1" />
+                    <field name="material_plan_note" readonly="1" />
+                    <field name="material_plan_project_name" readonly="1" />
+                    <field name="material_plan_source_created_by" readonly="1" />
+                    <field name="material_plan_source_created_at" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_labor_usage_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">sc.labor.usage.user.confirmed.form.fields</field>
+        <field name="model">sc.labor.usage</field>
+        <field name="inherit_id" ref="smart_construction_core.view_sc_labor_usage_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="labor_usage_status_display" readonly="1" />
+                    <field name="labor_usage_document_no" readonly="1" />
+                    <field name="labor_usage_project_name" readonly="1" />
+                    <field name="labor_usage_document_date" readonly="1" />
+                    <field name="labor_usage_title" readonly="1" />
+                    <field name="labor_usage_labor_team_name" readonly="1" />
+                    <field name="labor_usage_work_type" readonly="1" />
+                    <field name="labor_usage_construction_part" readonly="1" />
+                    <field name="labor_usage_quantity" readonly="1" />
+                    <field name="labor_usage_price_unit" readonly="1" />
+                    <field name="labor_usage_amount" readonly="1" />
+                    <field name="labor_usage_work_content" readonly="1" />
+                    <field name="labor_usage_attachment_text" readonly="1" />
+                    <field name="labor_usage_settlement_status" readonly="1" />
+                    <field name="labor_usage_note" readonly="1" />
+                    <field name="labor_usage_source_created_by" readonly="1" />
+                    <field name="labor_usage_source_created_at" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_subcontract_request_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">sc.subcontract.request.user.confirmed.form.fields</field>
+        <field name="model">sc.subcontract.request</field>
+        <field name="inherit_id" ref="smart_construction_core.view_sc_subcontract_request_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="subcontract_request_status_display" readonly="1" />
+                    <field name="subcontract_request_document_no" readonly="1" />
+                    <field name="subcontract_request_project_name" readonly="1" />
+                    <field name="subcontract_request_title" readonly="1" />
+                    <field name="subcontract_request_subcontractor" readonly="1" />
+                    <field name="subcontract_request_type_display" readonly="1" />
+                    <field name="subcontract_request_content" readonly="1" />
+                    <field name="subcontract_request_quantity_display" readonly="1" />
+                    <field name="subcontract_request_price_unit_display" readonly="1" />
+                    <field name="subcontract_request_amount_display" readonly="1" />
+                    <field name="subcontract_request_monthly_amount_display" readonly="1" />
+                    <field name="subcontract_request_note_display" readonly="1" />
+                    <field name="subcontract_request_attachment_text" readonly="1" />
+                    <field name="subcontract_request_source_created_by" readonly="1" />
+                    <field name="subcontract_request_source_created_at" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_equipment_usage_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">sc.equipment.usage.user.confirmed.form.fields</field>
+        <field name="model">sc.equipment.usage</field>
+        <field name="inherit_id" ref="smart_construction_core.view_sc_equipment_usage_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="state" readonly="1" />
+                    <field name="project_id" readonly="1" />
+                    <field name="name" readonly="1" />
+                    <field name="document_date" readonly="1" />
+                    <field name="supplier_id" readonly="1" />
+                    <field name="former_supplier_name" readonly="1" />
+                    <field name="equipment_name" readonly="1" />
+                    <field name="specification" readonly="1" />
+                    <field name="uom_text" readonly="1" />
+                    <field name="work_hours" readonly="1" />
+                    <field name="price_unit" readonly="1" />
+                    <field name="amount" readonly="1" />
+                    <field name="attachment_ids" readonly="1" widget="many2many_binary" />
+                    <field name="note" readonly="1" />
+                    <field name="source_created_by" readonly="1" />
+                    <field name="source_created_at" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_material_rfq_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">sc.material.rfq.user.confirmed.form.fields</field>
+        <field name="model">sc.material.rfq</field>
+        <field name="inherit_id" ref="smart_construction_core.view_sc_material_rfq_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="quote_status_display" readonly="1" />
+                    <field name="quote_document_no" readonly="1" />
+                    <field name="quote_supplier_name" readonly="1" />
+                    <field name="quote_inquiry_time" readonly="1" />
+                    <field name="quote_material_name" readonly="1" />
+                    <field name="quote_material_spec" readonly="1" />
+                    <field name="quote_quantity_display" readonly="1" />
+                    <field name="quote_tax_price_display" readonly="1" />
+                    <field name="quote_tax_amount_display" readonly="1" />
+                    <field name="quote_total_quantity_display" readonly="1" />
+                    <field name="quote_total_amount_display" readonly="1" />
+                    <field name="quote_note_display" readonly="1" />
+                    <field name="quote_attachment_text" readonly="1" />
+                    <field name="quote_selected_text" readonly="1" />
+                    <field name="quote_project_name" readonly="1" />
+                    <field name="quote_source_created_by" readonly="1" />
+                    <field name="quote_source_created_at" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_material_inbound_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">sc.material.inbound.user.confirmed.form.fields</field>
+        <field name="model">sc.material.inbound</field>
+        <field name="inherit_id" ref="smart_construction_core.view_sc_material_inbound_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="document_status" readonly="1" />
+                    <field name="inbound_date" readonly="1" />
+                    <field name="supplier_id" readonly="1" />
+                    <field name="material_name_summary" readonly="1" />
+                    <field name="material_spec_summary" readonly="1" />
+                    <field name="quantity_summary" readonly="1" />
+                    <field name="unit_price_summary" readonly="1" />
+                    <field name="tax_rate_text" readonly="1" />
+                    <field name="total_qty" readonly="1" />
+                    <field name="payment_status_text" readonly="1" />
+                    <field name="payment_paid_amount" readonly="1" />
+                    <field name="payment_unpaid_amount" readonly="1" />
+                    <field name="settlement_status_text" readonly="1" />
+                    <field name="settlement_settled_amount" readonly="1" />
+                    <field name="project_name_display" readonly="1" />
+                    <field name="line_note_summary" readonly="1" />
+                    <field name="attachment_ids" readonly="1" widget="many2many_binary" />
+                    <field name="source_created_by" readonly="1" />
+                    <field name="source_created_at" readonly="1" />
+                    <field name="buyer_name" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_hr_payroll_document_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">sc.hr.payroll.document.user.confirmed.form.fields</field>
+        <field name="model">sc.hr.payroll.document</field>
+        <field name="inherit_id" ref="smart_construction_core.view_sc_hr_payroll_document_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="payroll_document_salary_month" readonly="1" />
+                    <field name="payroll_document_net_salary" readonly="1" />
+                    <field name="payroll_document_gross_salary" readonly="1" />
+                    <field name="payroll_document_payment_status" readonly="1" />
+                    <field name="payroll_document_paid_amount" readonly="1" />
+                    <field name="payroll_document_unpaid_amount" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_tax_deduction_registration_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">sc.tax.deduction.registration.user.confirmed.form.fields</field>
+        <field name="model">sc.tax.deduction.registration</field>
+        <field name="inherit_id" ref="smart_construction_core.view_sc_tax_deduction_registration_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="deduction_bill_source_created_at" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_fund_account_operation_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">sc.fund.account.operation.user.confirmed.form.fields</field>
+        <field name="model">sc.fund.account.operation</field>
+        <field name="inherit_id" ref="smart_construction_core.view_sc_fund_account_operation_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="fund_operation_status_display" readonly="1" />
+                    <field name="fund_operation_project_name" readonly="1" />
+                    <field name="fund_operation_date_display" readonly="1" />
+                    <field name="fund_operation_account_no" readonly="1" />
+                    <field name="fund_operation_transfer_type" readonly="1" />
+                    <field name="fund_operation_reason_display" readonly="1" />
+                    <field name="fund_operation_source_created_by" readonly="1" />
+                    <field name="fund_operation_source_created_at" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_financing_loan_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">sc.financing.loan.user.confirmed.form.fields</field>
+        <field name="model">sc.financing.loan</field>
+        <field name="inherit_id" ref="smart_construction_core.view_sc_financing_loan_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="financing_loan_status_display" readonly="1" />
+                    <field name="financing_loan_document_no" readonly="1" />
+                    <field name="financing_loan_project_name" readonly="1" />
+                    <field name="financing_loan_borrower_name" readonly="1" />
+                    <field name="financing_loan_borrow_amount" readonly="1" />
+                    <field name="financing_loan_purpose_display" readonly="1" />
+                    <field name="financing_loan_term_display" readonly="1" />
+                    <field name="financing_loan_interest_display" readonly="1" />
+                    <field name="loan_bank_name" readonly="1" />
+                    <field name="loan_account" readonly="1" />
+                    <field name="financing_loan_date_display" readonly="1" />
+                    <field name="financing_loan_days_display" readonly="1" />
+                    <field name="financing_loan_annual_rate_display" readonly="1" />
+                    <field name="financing_loan_due_interest_display" readonly="1" />
+                    <field name="financing_loan_amount_display" readonly="1" />
+                    <field name="financing_loan_repayment_amount" readonly="1" />
+                    <field name="financing_loan_repayment_date" readonly="1" />
+                    <field name="financing_loan_unpaid_amount" readonly="1" />
+                    <field name="financing_loan_source_created_by" readonly="1" />
+                    <field name="financing_loan_source_created_at" readonly="1" />
+                    <field name="financing_loan_request_department" readonly="1" />
+                    <field name="financing_loan_request_time" readonly="1" />
+                    <field name="financing_loan_budget_included" readonly="1" />
+                    <field name="financing_loan_actual_loan_amount" readonly="1" />
+                    <field name="financing_loan_fund_usage_plan" readonly="1" />
+                    <field name="financing_loan_bank_name" readonly="1" />
+                    <field name="financing_loan_borrow_account" readonly="1" />
+                    <field name="financing_loan_approved_amount" readonly="1" />
+                    <field name="financing_loan_request_amount" readonly="1" />
+                    <field name="financing_loan_expected_return_time" readonly="1" />
+                    <field name="financing_loan_loan_type_display" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_payment_request_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">payment.request.user.confirmed.form.fields</field>
+        <field name="model">payment.request</field>
+        <field name="inherit_id" ref="smart_construction_core.view_payment_request_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="payer_unit_display" readonly="1" />
+                    <field name="actual_payee_unit_display" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_payment_execution_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">sc.payment.execution.user.confirmed.form.fields</field>
+        <field name="model">sc.payment.execution</field>
+        <field name="inherit_id" ref="smart_construction_core.view_sc_payment_execution_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="partner_payment_actual_payee_unit" readonly="1" />
+                    <field name="partner_payment_category_display" readonly="1" />
+                    <field name="partner_payment_content_display" readonly="1" />
+                    <field name="partner_payment_cost_type_display" readonly="1" />
+                    <field name="partner_payment_voucher_no" readonly="1" />
+                    <field name="partner_payment_source_text" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_tender_guarantee_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">tender.guarantee.user.confirmed.form.fields</field>
+        <field name="model">tender.guarantee</field>
+        <field name="inherit_id" ref="smart_construction_core.view_tender_guarantee_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="deposit_company_name" readonly="1" />
+                    <field name="deposit_document_no" readonly="1" />
+                    <field name="deposit_type_display" readonly="1" />
+                    <field name="deposit_bid_project_title" readonly="1" />
+                    <field name="deposit_payee_unit" readonly="1" />
+                    <field name="deposit_push_result" readonly="1" />
+                    <field name="deposit_return_date" readonly="1" />
+                    <field name="deposit_return_amount" readonly="1" />
+                    <field name="deposit_return_project" readonly="1" />
+                    <field name="deposit_return_document_no" readonly="1" />
+                    <field name="deposit_return_account" readonly="1" />
+                    <field name="deposit_project_name" readonly="1" />
+                    <field name="deposit_transfer_unit" readonly="1" />
+                    <field name="deposit_remittance_method" readonly="1" />
+                    <field name="deposit_receipt_account_name" readonly="1" />
+                    <field name="deposit_received_amount_display" readonly="1" />
+                    <field name="deposit_receipt_document_no" readonly="1" />
+                    <field name="deposit_unit_name" readonly="1" />
+                    <field name="deposit_refund_amount" readonly="1" />
+                    <field name="deposit_receipt_account_no" readonly="1" />
+                    <field name="deposit_receipt_bank_name" readonly="1" />
+                    <field name="deposit_refund_account_no" readonly="1" />
+                    <field name="deposit_refund_bank_name" readonly="1" />
+                    <field name="deposit_bid_project_name" readonly="1" />
+                    <field name="deposit_engineering_project_name" readonly="1" />
+                    <field name="deposit_amount_display" readonly="1" />
+                    <field name="deposit_payment_account" readonly="1" />
+                    <field name="deposit_need_return_text" readonly="1" />
+                    <field name="deposit_kingdee_document_no" readonly="1" />
+                    <field name="deposit_returned_amount_display" readonly="1" />
+                    <field name="deposit_unreturned_amount_display" readonly="1" />
+                    <field name="deposit_source_created_by" readonly="1" />
+                    <field name="deposit_source_created_at" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_office_admin_document_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">sc.office.admin.document.user.confirmed.form.fields</field>
+        <field name="model">sc.office.admin.document</field>
+        <field name="inherit_id" ref="smart_construction_core.view_sc_office_admin_document_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="office_admin_status_display" readonly="1" />
+                    <field name="office_admin_document_no" readonly="1" />
+                    <field name="office_admin_project_name" readonly="1" />
+                    <field name="office_admin_applicant_name" readonly="1" />
+                    <field name="office_admin_department_name" readonly="1" />
+                    <field name="office_admin_leave_time" readonly="1" />
+                    <field name="office_admin_cancel_time" readonly="1" />
+                    <field name="office_admin_leave_duration" readonly="1" />
+                    <field name="office_admin_leave_days" readonly="1" />
+                    <field name="office_admin_note_display" readonly="1" />
+                    <field name="office_admin_source_created_by" readonly="1" />
+                    <field name="office_admin_source_created_at" readonly="1" />
+                    <field name="seal_use_date" readonly="1" />
+                    <field name="seal_department_name" readonly="1" />
+                    <field name="seal_applicant_name" readonly="1" />
+                    <field name="seal_department_manager_sign" readonly="1" />
+                    <field name="seal_type_name" readonly="1" />
+                    <field name="seal_text" readonly="1" />
+                    <field name="seal_handler_sign" readonly="1" />
+                    <field name="seal_leader_sign" readonly="1" />
+                    <field name="seal_copy_count" readonly="1" />
+                    <field name="seal_return_date" readonly="1" />
+                    <field name="seal_contract_amount" readonly="1" />
+                    <field name="seal_contract_no" readonly="1" />
+                    <field name="seal_company_name" readonly="1" />
+                    <field name="seal_using_company_name" readonly="1" />
+                    <field name="seal_take_out_flag" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_document_admin_document_user_confirmed_form_fields" model="ir.ui.view">
+        <field name="name">sc.document.admin.document.user.confirmed.form.fields</field>
+        <field name="model">sc.document.admin.document</field>
+        <field name="inherit_id" ref="smart_construction_core.view_sc_document_admin_document_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="用户确认数据">
+                    <field name="document_admin_status_display" readonly="1" />
+                    <field name="document_admin_project_name" readonly="1" />
+                    <field name="document_admin_type_display" readonly="1" />
+                    <field name="document_admin_description_display" readonly="1" />
+                    <field name="document_admin_note_display" readonly="1" />
+                    <field name="document_admin_source_created_by" readonly="1" />
+                    <field name="document_admin_source_created_at" readonly="1" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

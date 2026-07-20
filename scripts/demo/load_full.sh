@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="${ROOT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+export ROOT_DIR
+
+# shellcheck source=../common/env.sh
+source "$ROOT_DIR/scripts/common/env.sh"
+# shellcheck source=../common/guard_prod.sh
+source "$ROOT_DIR/scripts/common/guard_prod.sh"
+# shellcheck source=../common/compose.sh
+source "$ROOT_DIR/scripts/common/compose.sh"
+source "$ROOT_DIR/scripts/common/demo_data_guard.sh"
+
+: "${DB_NAME:?DB_NAME is required}"
+
+guard_prod_forbid
+guard_demo_data_scope
+
+printf '[demo.load.full] db=%s\n' "$DB_NAME"
+
+DEMO_RESTART_AFTER_LOAD=0 bash "$ROOT_DIR/scripts/demo/load_all.sh"
+
+printf '[demo.load.full] seed demo_full\n'
+PROFILE=demo_full DB_NAME="$DB_NAME" bash "$ROOT_DIR/scripts/demo/run_seed.sh"
+
+if [ "${DEMO_RESTART_AFTER_LOAD:-1}" = "1" ]; then
+  printf '[demo.load.full] restart odoo to refresh ACL/menu caches\n'
+  compose_dev up -d --force-recreate "${ODOO_SERVICE:-odoo}"
+fi

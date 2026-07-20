@@ -1,0 +1,793 @@
+# -*- coding: utf-8 -*-
+# 统一契约读取（P0：menu → entry 指针；兼容 nav/model/view/action_open），只读意图
+import json, re, hashlib, time, logging
+from collections.abc import Mapping
+from typing import Any, Dict, Optional
+from odoo import api, SUPERUSER_ID
+from odoo.tools.safe_eval import safe_eval
+from ..core.base_handler import BaseIntentHandler
+from ..core.intent_execution_result import IntentExecutionResult
+from ..core.native_view_contract_projection import inject_primary_view_projection
+from ..core.request_params import parse_positive_int
+
+# ✅ 直接用你的统一服务与分发器
+from odoo.addons.smart_core.app_config_engine.services.contract_service import ContractService
+from odoo.addons.smart_core.app_config_engine.services.dispatchers.nav_dispatcher import NavDispatcher
+from odoo.addons.smart_core.app_config_engine.services.dispatchers.menu_dispatcher import MenuDispatcher
+from odoo.addons.smart_core.app_config_engine.services.dispatchers.action_dispatcher import ActionDispatcher
+from odoo.addons.smart_core.utils.contract_governance import (
+    apply_contract_governance,
+    resolve_contract_mode,
+    resolve_contract_surface,
+)
+from odoo.addons.smart_core.utils.extension_hooks import call_extension_hook_first
+
+_logger = logging.getLogger(__name__)
+
+CONTRACT_VERSION = "1.0.0"
+API_VERSION = "v1"
+
+VALID_VIEWS = {
+    "form","tree","kanban","search","pivot","graph","calendar","gantt","activity","dashboard"
+}
+_VIEW_MAP = {  # Odoo -> 前端别名
+    "tree":"list","form":"form","kanban":"kanban","graph":"graph","pivot":"pivot",
+    "calendar":"calendar","gantt":"gantt","search":"search","activity":"activity","dashboard":"dashboard",
+}
+_VIEW_INV = {v:k for k,v in _VIEW_MAP.items()}  # 前端别名 -> Odoo
+
+FRONTEND_BLOCKED_NATIVE_OPS = {"nav", "model", "view", "action_open", "menu"}
+INTERNAL_NATIVE_SOURCE_MODES = {
+    "backend_internal",
+    "asset_precompile",
+    "execute_guard",
+    "system_internal",
+}
+
+def _json(o): return json.dumps(o, ensure_ascii=False, default=str, separators=(",", ":"))
+
+def _normalize_meta(meta):
+    if not meta: return {}
+    if isinstance(meta, Mapping): return dict(meta)
+    if isinstance(meta, str):
+        s = meta.strip()
+        if s[:1] in "{[}":
+            try:
+                obj = json.loads(s);  return obj if isinstance(obj, Mapping) else {}
+            except Exception:
+                return {}
+        return {"flags":[s]}
+    if isinstance(meta, (list, tuple)):
+        if all(isinstance(it,(list,tuple)) and len(it)==2 for it in meta):
+            try: return dict(meta)
+            except Exception: pass
+        merged, flags = {}, []
+        for it in meta:
+            if isinstance(it, Mapping): merged.update(it)
+            elif isinstance(it, str): flags.append(it)
+            elif isinstance(it,(list,tuple)) and len(it)==1 and isinstance(it[0],str): flags.append(it[0])
+        return merged or ({"flags":flags} if flags else {})
+    return {}
+
+class UiContractHandler(BaseIntentHandler):
+    INTENT_TYPE = "ui.contract"
+    DESCRIPTION = "统一契约读取（nav/menu/view/model/action_open），只读，支持 ETag/304"
+    VERSION = "1.0.0"
+    ETAG_ENABLED = True
+    SOURCE_KIND = "odoo_native_ui_contract_projection"
+    SOURCE_AUTHORITIES = (
+        "ir.ui.view",
+        "ir.actions.act_window",
+        "ir.ui.menu",
+        "ir.model.fields",
+        "ir.model.access",
+        "ir.rule",
+    )
+
+    # ---------------- 参数挖掘器（兼容前端请求形状） ----------------
+    @staticmethod
+    def _as_dict(maybe) -> dict:
+        if isinstance(maybe, dict): return maybe
+        if isinstance(maybe, str):
+            s = maybe.strip()
+            if s and s[0] in "{[":
+                try:
+                    obj = json.loads(s);  return obj if isinstance(obj, dict) else {}
+                except Exception: return {}
+        return {}
+
+    def _collect_layers(self, p: dict):
+        layers = []
+        layers.append(self._as_dict(p))
+        for k in ("payload","params","data","args"):
+            layers.append(self._as_dict(p.get(k)))
+        try:
+            if self.request is not None:
+                jr = getattr(self.request, "jsonrequest", None)
+                if jr: layers.append(self._as_dict(jr))
+                rq = getattr(self.request, "params", None)
+                if rq:
+                    try: layers.append(dict(rq))
+                    except Exception: pass
+        except Exception:
+            pass
+        return [ly for ly in layers if isinstance(ly, dict) and ly]
+
+    def _dig(self, p: dict, key: str):
+        for layer in self._collect_layers(p):
+            if key in layer:
+                return layer.get(key)
+        return None
+
+    def _get_param(self, p: dict, *keys: str):
+        for k in keys:
+            v = self._dig(p, k)
+            if v is None: continue
+            if isinstance(v, str) and v.strip()=="": continue
+            return v
+        return None
+
+    # ---------------- 主入口 ----------------
+    def handle(self, payload: Optional[Dict[str, Any]] = None, ctx: Optional[Dict[str, Any]] = None):
+        p = payload or {}
+        mode_params: Dict[str, Any] = {}
+        for layer in self._collect_layers(p):
+            for key in ("contract_mode", "hud", "debug_hud", "contract_surface", "surface", "source_mode"):
+                if key in layer and key not in mode_params:
+                    mode_params[key] = layer.get(key)
+        contract_mode = resolve_contract_mode(mode_params)
+        contract_surface = resolve_contract_surface(mode_params, contract_mode=contract_mode)
+        source_mode = str(mode_params.get("source_mode") or "").strip()
+
+        # 智能推断 op/subject（兼容你的前端请求形状）
+        op = (self._get_param(p, "op", "subject") or "").strip().lower()
+        if not op:
+            has_menu   = self._get_param(p, "menu_id", "menuId", "id")
+            has_action = self._get_param(p, "action_id", "actionId")
+            has_model  = self._get_param(p, "model", "model_code", "modelCode")
+            if has_menu is not None:   op = "menu"
+            elif has_action is not None: op = "action_open"
+            elif has_model is not None:  op = "model"
+            else:
+                return self._err(400, "缺少 op/subject 或无法从参数推断（需要 menu_id / action_id / model）")
+
+        if self._should_block_frontend_native_op(op=op, source_mode=source_mode, contract_surface=contract_surface):
+            return self._err(410, "native ui.contract op is disabled for frontend delivery; use scene-ready contract")
+
+        # 上下文透传
+        ctx = (self.env.context or {}).copy()
+        lang = self._get_param(p, "lang"); tz = self._get_param(p, "tz")
+        user_lang = (getattr(self.env.user, "lang", None) or "").strip()
+        if lang:
+            ctx["lang"] = lang
+        elif user_lang:
+            ctx["lang"] = user_lang
+        if tz:   ctx["tz"] = tz
+        company_id = self._get_param(p, "company_id", "companyId")
+        company_id, company_error = parse_positive_int(company_id, allow_empty=True)
+        if company_error:
+            return self._err(400, "company_id 无效")
+        if company_id:
+            ctx["allowed_company_ids"] = [company_id]
+            ctx["company_id"] = company_id
+        operation_strategy = self._get_param(p, "operation_strategy", "operationStrategy")
+        if operation_strategy:
+            ctx["operation_strategy"] = str(operation_strategy).strip()
+
+        if_none_match = self._read_if_none_match(p)
+        force_refresh = str(self._get_param(p, "force_refresh") or "").lower() in ("1","true","yes")
+        t0 = time.time()
+
+        # 分派
+        if op == "nav":
+            res = self._op_nav(ctx)
+        elif op == "menu":
+            res = self._op_menu(p, ctx)
+        elif op == "model":
+            res = self._op_model(p, ctx)
+        elif op == "action_open":
+            res = self._op_action_open(p, ctx)
+        elif op == "view":
+            res = self._op_view(p, ctx)  # ✅ 新增/修复：走统一服务的 model 分派
+        else:
+            return self._err(400, f"unsupported op: {op}")
+
+        # 错误透传
+        if isinstance(res, dict) and res.get("ok") is False:
+            return res
+
+        data, meta = (res if isinstance(res, tuple) else (res or {}, {}))
+        data = self._shape_delivery_data(
+            data or {},
+            payload=p,
+            contract_mode=contract_mode,
+            contract_surface=contract_surface,
+            source_mode=source_mode,
+        )
+        data = _align_dynamic_column_labels(data)
+        meta = _normalize_meta(meta)
+        etag = self._make_etag(
+            meta=meta,
+            ctx=ctx,
+            op=op,
+            p=p,
+            contract_mode=contract_mode,
+            contract_surface=contract_surface,
+        )
+
+        if if_none_match and if_none_match == etag and not force_refresh:
+            return IntentExecutionResult(
+                ok=True,
+                data=None,
+                meta={
+                    "intent": self.INTENT_TYPE,
+                    "op": op,
+                    "etag": etag,
+                    "version": self.VERSION,
+                    "elapsed_ms": int((time.time() - t0) * 1000),
+                    "contract_version": CONTRACT_VERSION,
+                    "api_version": API_VERSION,
+                    "schema_version": "1.0.0",
+                    "contract_mode": contract_mode,
+                    "contract_surface": contract_surface,
+                    "source_kind": self.SOURCE_KIND,
+                    "source_authorities": list(self.SOURCE_AUTHORITIES),
+                },
+                code=304,
+            )
+
+        meta_out = dict(meta)
+        payload_schema_version = meta_out.pop("schema_version", None)
+        if payload_schema_version:
+            meta_out["payload_schema_version"] = payload_schema_version
+        meta_out.update({"intent": self.INTENT_TYPE, "op": op, "version": self.VERSION,
+                         "etag": etag, "elapsed_ms": int((time.time()-t0)*1000),
+                         "contract_version": CONTRACT_VERSION, "api_version": API_VERSION,
+                         "schema_version": "1.0.0",
+                         "contract_mode": contract_mode, "contract_surface": contract_surface})
+        meta_out.setdefault("response_schema_version", "1.0.0")
+        meta_out.setdefault("source_kind", self.SOURCE_KIND)
+        meta_out.setdefault("source_authorities", list(self.SOURCE_AUTHORITIES))
+        return IntentExecutionResult(ok=True, data=data or {}, meta=meta_out)
+
+    def _should_block_frontend_native_op(self, *, op: str, source_mode: str, contract_surface: str) -> bool:
+        if op not in FRONTEND_BLOCKED_NATIVE_OPS:
+            return False
+        if str(contract_surface or "").strip().lower() != "native":
+            return False
+        if source_mode in INTERNAL_NATIVE_SOURCE_MODES:
+            return False
+        return self.request is not None
+
+    def _build_dispatcher(self, ctx):
+        runtime_ctx = dict(ctx or {})
+        runtime_env = api.Environment(self.env.cr, self.env.user.id, runtime_ctx)
+        runtime_su_env = api.Environment(self.env.cr, SUPERUSER_ID, runtime_ctx)
+        return ActionDispatcher(runtime_env, runtime_su_env)
+
+    def _dispatch_model_contract(
+        self,
+        *,
+        model,
+        view_type,
+        ctx,
+        view_id=None,
+        action_id=None,
+        menu_id=None,
+        menu_xmlid="",
+        record_id=None,
+        render_profile="",
+    ):
+        payload = {
+            "subject": "model",
+            "model": model,
+            "view_type": _VIEW_INV.get(view_type, view_type),
+            "view_id": view_id,
+            "with_data": False,
+        }
+        if action_id:
+            payload["action_id"] = action_id
+        if menu_id:
+            payload["menu_id"] = menu_id
+        if menu_xmlid:
+            payload["menu_xmlid"] = menu_xmlid
+        if record_id:
+            payload["record_id"] = record_id
+        if render_profile in {"create", "edit", "readonly"}:
+            payload["render_profile"] = render_profile
+        return self._build_dispatcher(ctx).dispatch(payload)
+
+    def _finalize_projected_contract(
+        self,
+        *,
+        data,
+        view_type,
+        versions,
+        subject,
+        meta=None,
+    ):
+        fixed_data = self._finalize_data(data, subject=subject, meta=meta)
+        inject_primary_view_projection(fixed_data, requested_view_type=view_type)
+        hook_payload = call_extension_hook_first(
+            self.env,
+            "smart_core_finalize_projected_contract_data",
+            self.env,
+            fixed_data,
+            {
+                "view_type": view_type,
+                "subject": subject,
+                "versions": versions,
+                "meta": meta or {},
+            },
+        )
+        if isinstance(hook_payload, Mapping):
+            fixed_data = dict(hook_payload)
+        return fixed_data, {"schema_version": "view-contract-1", "version": format_versions_safe(versions)}
+
+    def _finalize_data(self, data, *, subject, meta=None):
+        cs = ContractService(self.env)
+        safe_data = self._drop_unknown_view_columns(data or {})
+        envelope = {"ok": True, "data": safe_data, "meta": {"subject": subject}}
+        if isinstance(meta, Mapping):
+            envelope["meta"].update(meta)
+        fixed = cs.finalize_contract(envelope)
+        if isinstance(fixed, Mapping):
+            out = fixed.get("data")
+            if isinstance(out, Mapping):
+                return dict(out)
+        return safe_data
+
+    def _drop_unknown_view_columns(self, data):
+        if not isinstance(data, Mapping):
+            return data or {}
+        out = dict(data)
+        fields = out.get("fields") if isinstance(out.get("fields"), Mapping) else {}
+        if not fields:
+            return out
+        views = out.get("views") if isinstance(out.get("views"), Mapping) else {}
+        if not views:
+            return out
+        fixed_views = dict(views)
+        changed = False
+        for view_key, view in views.items():
+            if not isinstance(view, Mapping):
+                continue
+            columns = view.get("columns")
+            if not isinstance(columns, list):
+                continue
+            filtered = [name for name in columns if str(name or "").strip() in fields]
+            if len(filtered) == len(columns):
+                continue
+            fixed_view = dict(view)
+            fixed_view["columns"] = filtered
+            fixed_views[view_key] = fixed_view
+            changed = True
+        if changed:
+            out["views"] = fixed_views
+        return out
+
+    def _shape_delivery_data(self, data, *, payload, contract_mode, contract_surface, source_mode):
+        cs = ContractService(self.env)
+        shape_fn = getattr(cs, "shape_handler_delivery_data", None)
+        if callable(shape_fn):
+            return shape_fn(
+                data,
+                payload=payload,
+                contract_mode=contract_mode,
+                contract_surface=contract_surface,
+                source_mode=source_mode,
+                inject_contract_mode=False,
+            )
+        return apply_contract_governance(data, contract_mode, inject_contract_mode=False)
+
+    # ---------------- op 实现 ----------------
+    def _op_nav(self, ctx):
+        data, versions = NavDispatcher(self.env, api.Environment(self.env.cr, self.env.user.id, ctx)).build_nav({
+            "subject": "nav",
+            "root_xmlid": self._get_param(self.params, "root_xmlid", "rootXmlid"),
+            "root_menu_id": self._get_param(self.params, "root_menu_id", "rootMenuId"),
+        })
+        fixed_data = self._finalize_data({"nav": data.get("nav")}, subject="nav", meta={"version": format_versions_safe(versions)})
+        return fixed_data or {"nav": data.get("nav")}, {"schema_version": "nav-1"}
+
+    def _op_menu(self, p, ctx):
+        raw_menu = self._get_param(p, "menu_id", "menuId", "id")
+        menu_id, menu_error = parse_positive_int(raw_menu)
+        if menu_error:
+            return self._err(400, "缺少或非法的 menu_id")
+
+        # 菜单/动作元数据读取使用 sudo，避免 ir.actions.* ACL 对普通交付角色造成误拦截。
+        Menu = self.env["ir.ui.menu"].sudo().with_context(ctx)
+        menu = Menu.browse(menu_id)
+        if not menu.exists():
+            return self._err(404, f"未知菜单: {menu_id}")
+
+        action = menu.action and self.env[menu.action._name].sudo().browse(menu.action.id) or None
+        if not action or action._name != "ir.actions.act_window":
+            data = {"subject":"menu","menu_id":menu_id,"action":None,"entry":None}
+            return data, {"schema_version":"menu-entry-1"}
+
+        model = action.res_model
+        primary_vm = (action.view_mode or "tree,form").split(",")[0].strip() or "tree"
+        norm_type = _VIEW_MAP.get(primary_vm, primary_vm)
+
+        view_id = action.view_id.id if action.view_id else None
+        if not view_id:
+            View = self.env["ir.ui.view"].sudo().with_context(ctx)
+            v = View.search([("model","=",model),("type","=",primary_vm)], limit=1, order="priority,id")
+            view_id = v.id or None
+
+        view_modes = [ _VIEW_MAP.get(x.strip(), x.strip()) for x in (action.view_mode or "tree,form").split(",") if x.strip() ]
+        # 收集各类视图 id
+        view_ids_by_type = {}
+        try:
+            View = self.env["ir.ui.view"].sudo().with_context(ctx)
+            for v in view_modes:
+                odoo_type = _VIEW_INV.get(v, v)
+                vv = View.search([("model","=",model),("type","=",odoo_type)], limit=1, order="priority,id")
+                view_ids_by_type[v] = vv.id or None
+        except Exception:
+            pass
+
+        data = {
+            "subject":"menu",
+            "menu_id":menu_id,
+            "action":{
+                "id": action.id,
+                "type":"ir.actions.act_window",
+                "res_model":model,
+                "view_mode":action.view_mode or "tree,form",
+                "view_modes": view_modes,
+                "context": _safe_eval_or(action.context, {}),
+                "domain": _safe_eval_or(action.domain, []),
+            },
+            "entry":{"model":model,"view_type":norm_type,"view_id":view_id},
+            "view_ids_by_type": view_ids_by_type,
+        }
+        meta = {"schema_version":"menu-entry-1","action_hash":action.id,
+                "entry_model":model,"entry_view_id":view_id}
+        return data, meta
+
+    def _op_model(self, p, ctx):
+        model = (self._get_param(p, "model", "model_code", "modelCode") or "").strip()
+        if not model:
+            return self._err(400, "缺少参数 model 或 model_code")
+        if model not in self.env:
+            return self._err(404, f"未知模型: {model}")
+
+        view_type = (self._get_param(p, "view_type", "viewType") or "form").strip().lower()
+        view_id = self._get_param(p, "view_id", "viewId")
+        raw_action = self._get_param(p, "action_id", "actionId")
+        raw_menu = self._get_param(p, "menu_id", "menuId", "id")
+        menu_xmlid = str(self._get_param(p, "menu_xmlid", "menuXmlid") or "").strip()
+        raw_record = self._get_param(p, "record_id", "recordId", "res_id", "resId")
+        scene_key = str(self._get_param(p, "scene_key", "sceneKey") or "").strip()
+        render_profile = str(
+            self._get_param(p, "render_profile", "renderProfile", "profile", "mode") or ""
+        ).strip().lower()
+        if render_profile in {"read", "view"}:
+            render_profile = "readonly"
+        if render_profile not in {"create", "edit", "readonly"}:
+            render_profile = ""
+        action_id, action_error = parse_positive_int(raw_action, allow_empty=True)
+        if action_error:
+            return self._err(400, "非法的 action_id")
+        menu_id, menu_error = parse_positive_int(raw_menu, allow_empty=True)
+        if menu_error:
+            return self._err(400, "非法的 menu_id")
+        record_id, record_error = parse_positive_int(raw_record, allow_empty=True)
+        if record_error:
+            return self._err(400, "非法的 record_id")
+
+        data, versions = self._dispatch_model_contract(
+            model=model,
+            view_type=view_type,
+            view_id=view_id,
+            action_id=action_id,
+            menu_id=menu_id,
+            menu_xmlid=menu_xmlid,
+            record_id=record_id,
+            render_profile=render_profile,
+            ctx=ctx,
+        )
+        if isinstance(data, dict):
+            if action_id:
+                data["action_id"] = action_id
+            if menu_id:
+                data["menu_id"] = menu_id
+            if menu_xmlid:
+                data["menu_xmlid"] = menu_xmlid
+            if scene_key:
+                data["scene_key"] = scene_key
+            head = data.get("head")
+            if isinstance(head, dict):
+                if action_id:
+                    head["action_id"] = action_id
+                if menu_id:
+                    head["menu_id"] = menu_id
+                if menu_xmlid:
+                    head["menu_xmlid"] = menu_xmlid
+                if scene_key:
+                    head["scene_key"] = scene_key
+                if render_profile:
+                    head["render_profile"] = render_profile
+                data["head"] = head
+        return self._finalize_projected_contract(
+            data=data,
+            view_type=view_type,
+            versions=versions,
+            subject="model",
+        )
+
+    def _op_view(self, p, ctx):
+        """前端传 subject:'view' 时，等价于按模型获取视图契约（无数据）"""
+        model = (self._get_param(p, "model") or "").strip()
+        if not model:
+            return self._err(400, "缺少参数 model")
+        if model not in self.env:
+            return self._err(404, f"未知模型: {model}")
+
+        view_type = (self._get_param(p, "view_type", "viewType") or "form").strip().lower()
+        view_id = self._get_param(p, "view_id", "viewId")
+
+        data, versions = self._dispatch_model_contract(model=model, view_type=view_type, view_id=view_id, ctx=ctx)
+        return self._finalize_projected_contract(
+            data=data,
+            view_type=view_type,
+            versions=versions,
+            subject="model",
+        )
+
+    def _op_action_open(self, p, ctx):
+        raw_act = self._get_param(p, "action_id", "actionId")
+        action_id, action_error = parse_positive_int(raw_act)
+        if action_error:
+            return self._err(400, "缺少或非法的 action_id")
+
+        raw_record = self._get_param(p, "record_id", "recordId", "res_id", "resId")
+        record_id, record_error = parse_positive_int(raw_record, allow_empty=True)
+        if record_error:
+            return self._err(400, "非法的 record_id")
+        requested_view_type = (self._get_param(p, "view_type", "viewType") or "").strip().lower()
+        render_profile = str(
+            self._get_param(p, "render_profile", "renderProfile", "profile", "mode") or ""
+        ).strip().lower()
+        if render_profile in {"read", "view"}:
+            render_profile = "readonly"
+        if render_profile not in {"create", "edit", "readonly"}:
+            render_profile = ""
+
+        # Detail/intake scene should prefer complete form contract surface.
+        prefer_form_contract = bool(
+            requested_view_type == "form"
+            or (record_id and record_id > 0)
+            or render_profile in {"create", "edit", "readonly"}
+        )
+        if prefer_form_contract:
+            action_ctx = dict(ctx or {})
+            action_ctx.setdefault("contract_action_id", action_id)
+            Action = self.env["ir.actions.act_window"].sudo().with_context(action_ctx)
+            action = Action.browse(action_id)
+            if action.exists() and action.res_model:
+                data, versions = self._dispatch_model_contract(
+                    model=action.res_model,
+                    view_type="form",
+                    action_id=action_id,
+                    record_id=record_id,
+                    render_profile=render_profile,
+                    ctx=action_ctx,
+                )
+                if isinstance(data, dict):
+                    data["action_id"] = action_id
+                    head = data.get("head")
+                    if isinstance(head, dict):
+                        head.setdefault("view_type", "form")
+                        head["action_id"] = action_id
+                        if not head.get("context") and action.context:
+                            head["context"] = _safe_eval_or(action.context, {})
+                        data["head"] = head
+                    _restrict_form_action_surface(data, render_profile=render_profile)
+                return self._finalize_projected_contract(
+                    data=data,
+                    view_type="form",
+                    versions=versions,
+                    subject="action.form",
+                    meta={"action_id": action_id},
+                )
+
+        # 统一服务的 action 分发
+        p2 = {"subject":"action","action_id": action_id, "with_data": False}
+        data, versions = self._build_dispatcher(ctx).dispatch(p2)
+        return self._finalize_projected_contract(
+            data=data,
+            view_type=requested_view_type or None,
+            versions=versions,
+            subject="action",
+            meta={"action_id": action_id},
+        )
+
+    # ---------------- 工具 ----------------
+    def _read_if_none_match(self, p) -> str:
+        hdr = ""
+        if self.request is not None:
+            try: hdr = (self.request.httprequest.headers.get("If-None-Match") or "").strip().strip('"')
+            except Exception: hdr = ""
+        param = self._get_param(p, "if_none_match", "ifNoneMatch")
+        param = (str(param or "")).strip().strip('"')
+        return hdr or param
+
+    def _make_etag(self, meta, ctx, op, p, contract_mode="user", contract_surface="user"):
+        meta = _normalize_meta(meta)
+        etag_src = _json({
+            "view_hash": meta.get("view_hash"),
+            "model_hash": meta.get("model_hash"),
+            "perm_key": meta.get("perm_key"),
+            "action_hash": meta.get("action_hash"),
+            "schema_version": meta.get("schema_version"),
+            "uid": self.env.user.id if getattr(self.env, "user", None) else None,
+            "company": getattr(getattr(self.env, "company", None), "id", None),
+            "lang": ctx.get("lang"),
+            "op": op,
+            "menu_id": self._get_param(p, "menu_id","menuId","id"),
+            "model": self._get_param(p, "model","model_code","modelCode"),
+            "action_id": self._get_param(p, "action_id","actionId"),
+            "contract_mode": contract_mode,
+            "contract_surface": contract_surface,
+            "contract_version": CONTRACT_VERSION,
+            "api_version": API_VERSION,
+        })
+        return hashlib.sha1(etag_src.encode("utf-8")).hexdigest()
+
+    def _err(self, code, msg):
+        return {
+            "ok": False,
+            "error": {"code": code, "message": msg},
+            "meta": {
+                "source_kind": self.SOURCE_KIND,
+                "source_authorities": list(self.SOURCE_AUTHORITIES),
+            },
+        }
+
+def _safe_eval_or(val, default):
+    try:
+        if isinstance(val, str):
+            return safe_eval(val) if val.strip() else default
+        return val if val is not None else default
+    except Exception:
+        return default
+
+
+def _align_dynamic_column_labels(data):
+    if not isinstance(data, dict):
+        return data
+    head = data.get("head") if isinstance(data.get("head"), dict) else {}
+    model_name = (
+        data.get("model")
+        or data.get("res_model")
+        or head.get("model")
+        or head.get("res_model")
+        or ""
+    )
+    views = data.get("views") if isinstance(data.get("views"), dict) else {}
+    tree = views.get("tree") if isinstance(views.get("tree"), dict) else None
+    if tree is None:
+        tree = views.get("list") if isinstance(views.get("list"), dict) else None
+    if not tree:
+        return data
+
+    schema_rows = tree.get("columns_schema")
+    if not isinstance(schema_rows, list):
+        return data
+
+    dynamic_labels = {}
+    dynamic_columns = []
+    for row in schema_rows:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name") or "").strip()
+        if not name.startswith("legacy_visible_"):
+            continue
+        label = str(row.get("label") or row.get("string") or "").strip()
+        if not label or label.lower().startswith("legacy visible "):
+            continue
+        dynamic_columns.append(name)
+        dynamic_labels[name] = label
+
+    if not dynamic_labels:
+        return data
+    fields_map = data.get("fields") if isinstance(data.get("fields"), dict) else {}
+    if fields_map:
+        fields_map = dict(fields_map)
+        for name, label in dynamic_labels.items():
+            field = fields_map.get(name)
+            if isinstance(field, dict):
+                descriptor = dict(field)
+                descriptor["string"] = label
+                descriptor["label"] = label
+                fields_map[name] = descriptor
+        data["fields"] = fields_map
+
+    list_profile = data.get("list_profile") if isinstance(data.get("list_profile"), dict) else {}
+    list_profile = dict(list_profile)
+    column_labels = list_profile.get("column_labels") if isinstance(list_profile.get("column_labels"), dict) else {}
+    column_labels = dict(column_labels)
+    column_labels.update(dynamic_labels)
+    list_profile["column_labels"] = column_labels
+
+    profile_columns = list_profile.get("columns")
+    if not isinstance(profile_columns, list) or not profile_columns:
+        tree_columns = tree.get("columns") if isinstance(tree.get("columns"), list) else []
+        list_profile["columns"] = [
+            str(name).strip()
+            for name in (tree_columns or dynamic_columns)
+            if str(name or "").strip()
+        ]
+    locked_columns = [
+        str(name).strip()
+        for name in (list_profile.get("columns") or dynamic_columns)
+        if str(name or "").strip()
+    ]
+    preference_policy = list_profile.get("preference_policy") if isinstance(list_profile.get("preference_policy"), dict) else {}
+    preference_policy = dict(preference_policy)
+    preference_policy.update(
+        {
+            "allow_visibility": True,
+            "allow_order": True,
+            "locked_columns": [],
+            "must_request_columns": locked_columns,
+        }
+    )
+    list_profile["preference_policy"] = preference_policy
+    data["list_profile"] = list_profile
+    return data
+
+
+def _normalize_render_profile_name(value):
+    raw = str(value or "").strip().lower()
+    if raw in {"read", "view"}:
+        return "readonly"
+    if raw in {"create", "edit", "readonly"}:
+        return raw
+    return ""
+
+
+def _is_form_compatible_action_row(row, render_profile=""):
+    if not isinstance(row, dict):
+        return False
+    selection = str(row.get("selection") or "none").strip().lower()
+    if selection != "none":
+        return False
+    profiles = row.get("visible_profiles")
+    if isinstance(profiles, (list, tuple)):
+        normalized = [str(item or "").strip().lower() for item in profiles if str(item or "").strip()]
+        if render_profile and normalized and render_profile not in normalized:
+            return False
+    level = str(row.get("level") or "").strip().lower()
+    return level in {"header", "smart", "sidebar", "footer"}
+
+
+def _restrict_form_action_surface(data, render_profile=""):
+    if not isinstance(data, dict):
+        return data
+    profile = _normalize_render_profile_name(render_profile)
+    buttons = data.get("buttons")
+    if isinstance(buttons, list):
+        data["buttons"] = [
+            dict(row)
+            for row in buttons
+            if _is_form_compatible_action_row(row, profile)
+        ]
+    toolbar = data.get("toolbar")
+    if isinstance(toolbar, dict):
+        data["toolbar"] = {"header": [], "sidebar": [], "footer": []}
+    action_groups = data.get("action_groups")
+    if isinstance(action_groups, list):
+        data["action_groups"] = []
+    return data
+
+def format_versions_safe(v):
+    try:
+        from odoo.addons.smart_core.app_config_engine.utils.misc import format_versions
+        return format_versions(v)
+    except Exception:
+        return v

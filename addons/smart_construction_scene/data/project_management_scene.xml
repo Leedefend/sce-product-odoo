@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="0">
+        <record id="sc_scene_version_project_management_v2" model="sc.scene.version">
+            <field name="scene_id" ref="sc_scene_project_management"/>
+            <field name="version">v2</field>
+            <field name="source">system</field>
+            <field name="payload_json" eval="{
+                'code': 'project.management',
+                'name': '项目驾驶舱',
+                'version': 'v2',
+                'page': {
+                    'key': 'project.management.dashboard',
+                    'title': '项目驾驶舱',
+                    'subtitle': '项目经营与执行一体化场景',
+                    'page_type': 'dashboard',
+                    'layout_mode': 'dashboard'
+                },
+                'layout': {'kind': 'workspace', 'sidebar': 'fixed', 'header': 'full'},
+                'target': {
+                    'route': '/s/project.management',
+                    'menu_xmlid': 'smart_construction_core.menu_sc_project_management_scene',
+                    'action_xmlid': 'smart_construction_core.action_project_dashboard'
+                },
+                'related_scenes': [
+                    'projects.intake',
+                    'projects.list',
+                    'projects.ledger'
+                ],
+                'action_specs': {
+                    'open_intake': {
+                        'label': '发起项目立项',
+                        'intent': 'ui.contract'
+                    },
+                    'open_project_list': {
+                        'label': '查看项目列表',
+                        'intent': 'ui.contract'
+                    },
+                    'open_project_ledger': {
+                        'label': '查看项目台账',
+                        'intent': 'ui.contract'
+                    }
+                },
+                'role_variants': {
+                    'pm': {
+                        'default_actions': ['open_project_ledger', 'open_project_list'],
+                        'focus_zones': ['zone.metrics', 'zone.progress']
+                    },
+                    'executive': {
+                        'default_actions': ['open_project_list', 'open_intake'],
+                        'focus_zones': ['zone.header', 'zone.finance', 'zone.risk']
+                    }
+                },
+                'data_sources': {
+                    'dashboard_metrics': {'source_type': 'computed', 'provider': 'project.dashboard.metrics'},
+                    'risk_alerts': {'source_type': 'computed', 'provider': 'project.dashboard.risk'}
+                },
+                'product_policy': {
+                    'role_based': True,
+                    'primary_action': 'open_project_ledger',
+                    'stage': 'wave1'
+                },
+                'zones': [
+                    {
+                        'key': 'zone.header',
+                        'title': '项目头部信息',
+                        'zone_type': 'hero',
+                        'display_mode': 'stack',
+                        'priority': 100,
+                        'blocks': [
+                            {
+                                'key': 'block.project.header',
+                                'block_type': 'record_summary',
+                                'capability_key': 'project.dashboard.enter'
+                            }
+                        ]
+                    },
+                    {
+                        'key': 'zone.metrics',
+                        'title': '关键指标',
+                        'zone_type': 'primary',
+                        'display_mode': 'grid',
+                        'priority': 90,
+                        'blocks': [
+                            {
+                                'key': 'block.project.metrics',
+                                'block_type': 'metric_row',
+                                'capability_key': 'project.dashboard.enter'
+                            }
+                        ]
+                    },
+                    {
+                        'key': 'zone.progress',
+                        'title': '项目进度',
+                        'zone_type': 'primary',
+                        'display_mode': 'stack',
+                        'priority': 80,
+                        'blocks': [
+                            {
+                                'key': 'block.project.progress',
+                                'block_type': 'progress_summary',
+                                'capability_key': 'cost.progress.report'
+                            }
+                        ]
+                    },
+                    {
+                        'key': 'zone.contract',
+                        'title': '合同执行',
+                        'zone_type': 'secondary',
+                        'display_mode': 'stack',
+                        'priority': 70,
+                        'blocks': [
+                            {
+                                'key': 'block.project.contract',
+                                'block_type': 'record_table',
+                                'capability_key': 'contract.center.open'
+                            }
+                        ]
+                    },
+                    {
+                        'key': 'zone.cost',
+                        'title': '成本控制',
+                        'zone_type': 'secondary',
+                        'display_mode': 'stack',
+                        'priority': 60,
+                        'blocks': [
+                            {
+                                'key': 'block.project.cost',
+                                'block_type': 'record_summary',
+                                'capability_key': 'cost.ledger.open'
+                            }
+                        ]
+                    },
+                    {
+                        'key': 'zone.finance',
+                        'title': '资金情况',
+                        'zone_type': 'secondary',
+                        'display_mode': 'stack',
+                        'priority': 50,
+                        'blocks': [
+                            {
+                                'key': 'block.project.finance',
+                                'block_type': 'record_table',
+                                'capability_key': 'finance.payment_request.list'
+                            }
+                        ]
+                    },
+                    {
+                        'key': 'zone.risk',
+                        'title': '风险提醒',
+                        'zone_type': 'supporting',
+                        'display_mode': 'stack',
+                        'priority': 40,
+                        'blocks': [
+                            {
+                                'key': 'block.project.risk',
+                                'block_type': 'alert_panel',
+                                'capability_key': 'project.risk.list'
+                            }
+                        ]
+                    }
+                ],
+                'tiles': []
+            }"/>
+        </record>
+
+        <!-- Activate this scene version explicitly to avoid fallback ambiguity. -->
+        <record id="sc_scene_project_management" model="sc.scene" forcecreate="0">
+            <field name="active_version_id" ref="sc_scene_version_project_management_v2"/>
+        </record>
+    </data>
+</odoo>

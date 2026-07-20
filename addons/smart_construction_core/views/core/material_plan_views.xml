@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- 列表 -->
+    <record id="view_project_material_plan_tree" model="ir.ui.view">
+        <field name="name">project.material.plan.tree</field>
+        <field name="model">project.material.plan</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="business_category_id" optional="hide"/>
+                <field name="material_name_summary"/>
+                <field name="material_spec_summary"/>
+                <field name="material_uom_summary"/>
+                <field name="date_plan"/>
+                <field name="total_plan_qty" sum="计划数量合计"/>
+                <field name="total_bill_qty" sum="清单数量合计"/>
+                <field name="total_unplanned_qty" sum="未计划数量合计"/>
+                <field name="line_note_summary"/>
+                <field name="line_attachment_count" sum="附件合计"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- 表单 -->
+    <record id="view_project_material_plan_form" model="ir.ui.view">
+        <field name="name">project.material.plan.form</field>
+        <field name="model">project.material.plan</field>
+        <field name="arch" type="xml">
+            <form string="物资计划">
+                <header>
+                    <button name="action_submit"
+                            type="object"
+                            string="提交审批"
+                            class="oe_highlight"
+                            groups="smart_construction_core.group_sc_cap_business_initiator,smart_construction_core.group_sc_cap_material_user"
+                            invisible="state != 'draft' or validation_status in ('waiting', 'pending', 'validated')"/>
+                    <button name="validate_tier"
+                            type="object"
+                            string="审批通过"
+                            class="btn-primary"
+                            invisible="not can_review or validation_status not in ('waiting', 'pending')"/>
+                    <button name="reject_tier"
+                            type="object"
+                            string="审批驳回"
+                            invisible="not can_review or validation_status not in ('waiting', 'pending')"/>
+                    <button name="%(action_material_plan_to_rfq_wizard)d"
+                            type="action"
+                            string="生成询价单"
+                            class="btn-secondary"
+                            groups="smart_construction_core.group_sc_cap_material_user,smart_construction_core.group_sc_cap_material_manager"
+                            invisible="state != 'approved'"/>
+                    <button name="action_create_purchase_request"
+                            type="object"
+                            string="生成采购申请"
+                            class="btn-secondary"
+                            groups="smart_construction_core.group_sc_cap_material_user,smart_construction_core.group_sc_cap_material_manager"
+                            invisible="state != 'approved'"/>
+                    <button name="action_done"
+                            type="object"
+                            string="完成"
+                            class="btn-secondary"
+                            groups="smart_construction_core.group_sc_cap_material_manager"
+                            invisible="state != 'approved'"/>
+                    <button name="action_cancel"
+                            type="object"
+                            string="取消"
+                            class="btn-secondary"
+                            groups="smart_construction_core.group_sc_cap_material_manager"
+                            invisible="state in ['done','cancel']"/>
+                    <field name="validation_status" invisible="1"/>
+                    <field name="can_review" invisible="1"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submit,approved,done,cancel"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button class="oe_stat_button" type="object" name="action_view_purchase_orders" icon="fa-shopping-cart">
+                            <field name="purchase_order_count" widget="statinfo" string="采购单"/>
+                        </button>
+                        <button class="oe_stat_button" type="object" name="action_view_purchase_requests" icon="fa-file-text-o">
+                            <field name="purchase_request_count" widget="statinfo" string="采购申请"/>
+                        </button>
+                        <button class="oe_stat_button" type="object" name="action_view_purchase_lines" icon="fa-list">
+                            <field name="purchase_line_count" widget="statinfo" string="采购明细"/>
+                        </button>
+                    </div>
+                    <group>
+                        <field name="name" readonly="1"/>
+                        <field name="project_id" required="1"/>
+                        <field name="business_category_id" readonly="1"/>
+                        <field name="date_plan"/>
+                    </group>
+                    <group>
+                        <field name="submitted_by" readonly="1"/>
+                        <field name="submitted_at" readonly="1"/>
+                        <field name="approved_by" readonly="1"/>
+                        <field name="approved_at" readonly="1"/>
+                        <field name="reject_reason" readonly="1" modifiers='{"invisible": [["reject_reason","=",false]]}'/>
+                    </group>
+                    <notebook>
+                        <page string="明细">
+                            <field name="state" invisible="1"/>
+                            <field name="line_ids" context="{}"
+                                   modifiers='{"readonly": [["state","!=","draft"]]}'>
+                                <tree editable="bottom" create="1" delete="1">
+                                    <field name="material_catalog_id" required="1"/>
+                                    <field name="product_id" invisible="1"/>
+                                    <field name="material_name"/>
+                                    <field name="spec"/>
+                                    <field name="spec_model"/>
+                                    <field name="quantity"/>
+                                    <field name="bill_qty"/>
+                                    <field name="unplanned_qty"/>
+                                    <field name="uom_id"/>
+                                    <field name="material_uom_text"/>
+                                    <field name="vendor_id"/>
+                                    <field name="note"/>
+                                    <field name="attachment_ids" widget="many2many_binary"/>
+                                </tree>
+                                <form string="明细">
+                                    <group>
+                                        <field name="material_catalog_id" required="1"/>
+                                        <field name="product_id" invisible="1"/>
+                                        <field name="material_name" readonly="1"/>
+                                        <field name="spec"/>
+                                        <field name="spec_model" readonly="1"/>
+                                        <field name="quantity"/>
+                                        <field name="bill_qty"/>
+                                        <field name="unplanned_qty" readonly="1"/>
+                                        <field name="uom_id"/>
+                                        <field name="material_uom_text"/>
+                                        <field name="vendor_id"/>
+                                        <field name="note"/>
+                                        <field name="attachment_ids" widget="many2many_binary"/>
+                                    </group>
+                                </form>
+                            </field>
+                        </page>
+                        <page string="备注">
+                            <field name="reject_reason" readonly="1" invisible="not reject_reason"/>
+                        </page>
+                        <page string="附件">
+                            <field name="attachment_ids" widget="many2many_binary"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_project_material_plan_search" model="ir.ui.view">
+        <field name="name">project.material.plan.search</field>
+        <field name="model">project.material.plan</field>
+        <field name="arch" type="xml">
+            <search string="物资计划">
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="business_category_id"/>
+                <field name="submitted_by"/>
+                <filter string="按项目" name="group_project" context="{'group_by': 'project_id'}"/>
+                <filter string="按业务分类" name="group_business_category" context="{'group_by': 'business_category_id'}"/>
+                <filter string="按状态" name="group_state" context="{'group_by': 'state'}"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- 动作 -->
+    <record id="action_project_material_plan" model="ir.actions.act_window">
+        <field name="name">物资计划</field>
+        <field name="res_model">project.material.plan</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_project_material_plan_search"/>
+        <field name="domain">[('business_category_id.code', '=', 'material.plan')]</field>
+        <field name="context">{'search_default_active_rows': 1, 'default_business_category_code': 'material.plan', 'current_business_category_code': 'material.plan'}</field>
+        <field name="groups_id" eval="[(4, ref('smart_construction_core.group_sc_cap_business_initiator')), (4, ref('smart_construction_core.group_sc_cap_material_user')), (4, ref('smart_construction_core.group_sc_cap_material_manager'))]"/>
+    </record>
+
+    <record id="action_project_material_plan_my" model="ir.actions.act_window">
+        <field name="name">我的物资计划</field>
+        <field name="res_model">project.material.plan</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_project_material_plan_search"/>
+        <field name="domain">['&amp;', ('business_category_id.code', '=', 'material.plan'), '|', ('create_uid', '=', uid), ('submitted_by', '=', uid)]</field>
+        <field name="context">{'default_business_category_code': 'material.plan', 'current_business_category_code': 'material.plan'}</field>
+        <field name="groups_id" eval="[(4, ref('smart_construction_core.group_sc_cap_business_initiator')), (4, ref('smart_construction_core.group_sc_cap_material_user')), (4, ref('smart_construction_core.group_sc_cap_material_manager'))]"/>
+    </record>
+
+</odoo>

@@ -1,0 +1,237 @@
+# -*- coding: utf-8 -*-
+from __future__ import annotations
+
+# Shared reason-code constants for Phase 10 interaction contracts.
+SOURCE_KIND = "reason_code_metadata_registry"
+SOURCE_AUTHORITIES = ("core_reason_codes", "legacy_business_reason_provider")
+NO_BUSINESS_FACT_AUTHORITY = True
+LEGACY_BUSINESS_REASON_SOURCE_KIND = "legacy_business_reason_metadata_provider"
+_LEGACY_BUSINESS_REASON_META_REGISTRY: dict[str, dict] = {}
+
+REASON_OK = "OK"
+REASON_DONE = "DONE"
+REASON_PARTIAL_FAILED = "PARTIAL_FAILED"
+REASON_PERMISSION_DENIED = "PERMISSION_DENIED"
+REASON_NOT_FOUND = "NOT_FOUND"
+REASON_INVALID_ID = "INVALID_ID"
+REASON_UNSUPPORTED_SOURCE = "UNSUPPORTED_SOURCE"
+REASON_USER_ERROR = "USER_ERROR"
+REASON_INTERNAL_ERROR = "INTERNAL_ERROR"
+REASON_ACCESS_RESTRICTED = "ACCESS_RESTRICTED"
+REASON_CONFLICT = "CONFLICT"
+REASON_WRITE_FAILED = "WRITE_FAILED"
+REASON_IDEMPOTENCY_CONFLICT = "IDEMPOTENCY_CONFLICT"
+REASON_REPLAY_WINDOW_EXPIRED = "REPLAY_WINDOW_EXPIRED"
+REASON_PROJECT_SCOPE_DENIED = "PROJECT_SCOPE_DENIED"
+REASON_RECORD_VERSION_CONFLICT = "RECORD_VERSION_CONFLICT"
+REASON_MISSING_PARAMS = "MISSING_PARAMS"
+REASON_UNSUPPORTED_BUTTON_TYPE = "UNSUPPORTED_BUTTON_TYPE"
+REASON_METHOD_NOT_CALLABLE = "METHOD_NOT_CALLABLE"
+REASON_DRY_RUN = "DRY_RUN"
+REASON_BUSINESS_RULE_FAILED = "BUSINESS_RULE_FAILED"
+REASON_SYSTEM_ERROR = "SYSTEM_ERROR"
+REASON_NO_WORK_ITEMS = "NO_WORK_ITEMS"
+REASON_FILTER_NO_MATCH = "FILTER_NO_MATCH"
+REASON_ACTIVITY_PENDING = "ACTIVITY_PENDING"
+REASON_TIER_REVIEW_PENDING = "TIER_REVIEW_PENDING"
+REASON_WORKFLOW_PENDING = "WORKFLOW_PENDING"
+REASON_TASK_ASSIGNED = "TASK_ASSIGNED"
+REASON_PROJECT_HEALTH_RISK = "PROJECT_HEALTH_RISK"
+REASON_PROJECT_HEALTH_WARN = "PROJECT_HEALTH_WARN"
+REASON_RESPONSIBLE_OWNER = "RESPONSIBLE_OWNER"
+REASON_MENTIONED = "MENTIONED"
+REASON_FOLLOWING = "FOLLOWING"
+REASON_ONCHANGE_WARNING = "ONCHANGE_WARNING"
+REASON_ONCHANGE_WARNING_UNKNOWN = "ONCHANGE_WARNING_UNKNOWN"
+REASON_ROW_REQUIRED_MISSING = "ROW_REQUIRED_MISSING"
+REASON_ROW_DOMAIN_RESTRICTED = "ROW_DOMAIN_RESTRICTED"
+REASON_ROW_VALUE_INVALID = "ROW_VALUE_INVALID"
+REASON_ROW_PERMISSION_DENIED = "ROW_PERMISSION_DENIED"
+REASON_ROW_CONFLICT = "ROW_CONFLICT"
+REASON_DELETE_POLICY_DENIED = "DELETE_POLICY_DENIED"
+REASON_READONLY_PROJECTION_MUTATION_DENIED = "READONLY_PROJECTION_MUTATION_DENIED"
+REASON_PAYMENT_ATTACHMENTS_REQUIRED = "PAYMENT_ATTACHMENTS_REQUIRED"
+REASON_PAYMENT_SETTLEMENT_NOT_READY = "P0_PAYMENT_SETTLEMENT_NOT_READY"
+REASON_PAYMENT_FUNDING_NOT_READY = "P0_PAYMENT_FUNDING_NOT_READY"
+REASON_PAYMENT_FUNDING_BASELINE_INVALID = "P0_PAYMENT_FUNDING_BASELINE_INVALID"
+REASON_PAYMENT_FUNDING_CAP_EXCEEDED = "P0_PAYMENT_FUNDING_CAP_EXCEEDED"
+REASON_PAYMENT_NOT_FULLY_PAID = "P0_PAYMENT_NOT_FULLY_PAID"
+
+ONCHANGE_REASON_CODE_SET = {
+    REASON_ONCHANGE_WARNING,
+    REASON_ONCHANGE_WARNING_UNKNOWN,
+    REASON_ROW_REQUIRED_MISSING,
+    REASON_ROW_DOMAIN_RESTRICTED,
+    REASON_ROW_VALUE_INVALID,
+    REASON_ROW_PERMISSION_DENIED,
+    REASON_ROW_CONFLICT,
+}
+
+
+def normalize_onchange_reason_code(raw: str) -> str:
+    text = str(raw or "").strip().upper().replace("-", "_")
+    if not text:
+        return REASON_ONCHANGE_WARNING
+    if text in ONCHANGE_REASON_CODE_SET:
+        return text
+    return REASON_ONCHANGE_WARNING_UNKNOWN
+
+
+def source_authority_contract():
+    return {
+        "kind": SOURCE_KIND,
+        "authorities": list(SOURCE_AUTHORITIES),
+        "projection_only": True,
+        "no_business_fact_authority": NO_BUSINESS_FACT_AUTHORITY,
+        "legacy_business_reason_provider": LEGACY_BUSINESS_REASON_SOURCE_KIND,
+    }
+
+
+def legacy_business_reason_source_authority_contract():
+    return {
+        "kind": LEGACY_BUSINESS_REASON_SOURCE_KIND,
+        "authorities": ["compatibility_constants", "industry_extension_reason_codes"],
+        "projection_only": True,
+        "no_business_fact_authority": True,
+        "legacy_compatibility": True,
+    }
+
+
+def register_legacy_business_reason_meta(reason_code: str, meta: dict) -> None:
+    code = str(reason_code or "").strip().upper()
+    if not code or not isinstance(meta, dict):
+        return
+    normalized = dict(meta)
+    normalized["retryable"] = bool(normalized.get("retryable"))
+    normalized["error_category"] = str(normalized.get("error_category") or "").strip()
+    normalized["suggested_action"] = str(normalized.get("suggested_action") or "").strip()
+    normalized["source_authority"] = legacy_business_reason_source_authority_contract()
+    _LEGACY_BUSINESS_REASON_META_REGISTRY[code] = normalized
+
+
+def legacy_business_reason_meta_mapping():
+    return {code: dict(meta) for code, meta in _LEGACY_BUSINESS_REASON_META_REGISTRY.items()}
+
+
+def failure_meta_for_reason(reason_code: str):
+    code = str(reason_code or "").strip().upper()
+    mapping = {
+        REASON_NOT_FOUND: {
+            "retryable": False,
+            "error_category": "not_found",
+            "suggested_action": "refresh_list",
+        },
+        REASON_CONFLICT: {
+            "retryable": True,
+            "error_category": "conflict",
+            "suggested_action": "reload_then_retry",
+        },
+        REASON_IDEMPOTENCY_CONFLICT: {
+            "retryable": False,
+            "error_category": "conflict",
+            "suggested_action": "use_new_request_id",
+        },
+        REASON_REPLAY_WINDOW_EXPIRED: {
+            "retryable": True,
+            "error_category": "conflict",
+            "suggested_action": "retry",
+        },
+        REASON_PERMISSION_DENIED: {
+            "retryable": False,
+            "error_category": "permission",
+            "suggested_action": "request_access",
+        },
+        REASON_DELETE_POLICY_DENIED: {
+            "retryable": False,
+            "error_category": "permission",
+            "suggested_action": "check_delete_policy",
+        },
+        REASON_READONLY_PROJECTION_MUTATION_DENIED: {
+            "retryable": False,
+            "error_category": "permission",
+            "suggested_action": "open_readonly_record",
+        },
+        REASON_WRITE_FAILED: {
+            "retryable": True,
+            "error_category": "transient",
+            "suggested_action": "retry",
+        },
+        REASON_INVALID_ID: {
+            "retryable": False,
+            "error_category": "validation",
+            "suggested_action": "fix_input",
+        },
+        REASON_UNSUPPORTED_SOURCE: {
+            "retryable": False,
+            "error_category": "validation",
+            "suggested_action": "fix_input",
+        },
+        REASON_USER_ERROR: {
+            "retryable": False,
+            "error_category": "validation",
+            "suggested_action": "fix_input",
+        },
+        REASON_INTERNAL_ERROR: {
+            "retryable": True,
+            "error_category": "transient",
+            "suggested_action": "retry",
+        },
+        REASON_MISSING_PARAMS: {
+            "retryable": False,
+            "error_category": "validation",
+            "suggested_action": "fix_input",
+        },
+        REASON_UNSUPPORTED_BUTTON_TYPE: {
+            "retryable": False,
+            "error_category": "validation",
+            "suggested_action": "fix_input",
+        },
+        REASON_METHOD_NOT_CALLABLE: {
+            "retryable": False,
+            "error_category": "validation",
+            "suggested_action": "contact_admin",
+        },
+        REASON_DRY_RUN: {
+            "retryable": True,
+            "error_category": "noop",
+            "suggested_action": "execute",
+        },
+        REASON_BUSINESS_RULE_FAILED: {
+            "retryable": False,
+            "error_category": "validation",
+            "suggested_action": "check_prerequisites",
+        },
+        REASON_SYSTEM_ERROR: {
+            "retryable": True,
+            "error_category": "transient",
+            "suggested_action": "retry",
+        },
+        REASON_NO_WORK_ITEMS: {
+            "retryable": False,
+            "error_category": "empty",
+            "suggested_action": "none",
+        },
+        REASON_FILTER_NO_MATCH: {
+            "retryable": False,
+            "error_category": "empty",
+            "suggested_action": "clear_filters",
+        },
+    }
+    legacy_mapping = legacy_business_reason_meta_mapping()
+    return dict(mapping.get(code) or legacy_mapping.get(code) or {"retryable": False, "error_category": "", "suggested_action": ""})
+
+
+def capability_suggested_action(*, reason_code: str, state: str) -> str:
+    code = str(reason_code or "").strip().upper()
+    current_state = str(state or "").strip().upper()
+    if current_state == "PREVIEW":
+        return "wait_release"
+    mapping = {
+        REASON_PERMISSION_DENIED: "request_access",
+        "FEATURE_DISABLED": "enable_feature_flag",
+        "ENTITLEMENT_UNAVAILABLE": "upgrade_subscription",
+        "ROLE_SCOPE_MISMATCH": "switch_role_or_scope",
+        "CAPABILITY_SCOPE_MISMATCH": "switch_role_or_scope",
+        REASON_ACCESS_RESTRICTED: "check_prerequisites",
+    }
+    return mapping.get(code, "contact_admin")

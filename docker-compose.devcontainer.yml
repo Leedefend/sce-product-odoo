@@ -1,0 +1,18 @@
+services:
+  sc-dev:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile.dev
+    command: ["bash", "-lc", "sleep infinity"]
+    user: "odoo"
+    volumes:
+      - .:/workspaces/sc-backend-odoo:cached
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "1001"
+    working_dir: /workspaces/sc-backend-odoo
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started

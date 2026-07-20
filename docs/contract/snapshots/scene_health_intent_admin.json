@@ -1,0 +1,43 @@
+{
+  "action": null,
+  "case": "scene_health_intent_admin",
+  "contract_version": "v1",
+  "error": null,
+  "execute_error": null,
+  "execute_result": null,
+  "fallback": false,
+  "meta_fields": null,
+  "model": null,
+  "op": "intent.invoke",
+  "record": null,
+  "record_error": null,
+  "ui_contract": null,
+  "ui_contract_raw": {
+    "auto_degrade": {
+      "action_taken": "none",
+      "reason_codes": [],
+      "triggered": false
+    },
+    "company_id": null,
+    "contract_ref": null,
+    "last_updated_at": "2026-04-23 10:37:21",
+    "query": {
+      "limit": 50,
+      "mode": "summary",
+      "offset": 0,
+      "since": null
+    },
+    "rollback_active": false,
+    "scene_channel": null,
+    "scene_version": null,
+    "schema_version": null,
+    "summary": {
+      "critical_drift_warn_count": 0,
+      "critical_resolve_errors_count": 0,
+      "non_critical_debt_count": 0
+    }
+  },
+  "user": "admin",
+  "user_fallback": null,
+  "view_type": null
+}

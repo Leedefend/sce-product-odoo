@@ -1,0 +1,178 @@
+# -*- coding: utf-8 -*-
+# smart_core/core/intent_router.py
+from odoo.http import request
+from odoo import api, SUPERUSER_ID
+import logging
+from typing import Optional, Type, Dict, Any, Tuple
+import odoo
+from .base_handler import BaseIntentHandler
+from .handler_registry import HANDLER_REGISTRY  # import 时已完成注册
+from .extension_loader import load_extensions
+from .http_result_policy import result_is_success
+from .request_identity import request_uid
+
+_logger = logging.getLogger(__name__)
+SOURCE_KIND = "intent_router_runtime_dispatch"
+SOURCE_AUTHORITIES = ("handler_registry", "extension_loader", "odoo.env", "odoo.registry")
+NO_BUSINESS_FACT_AUTHORITY = True
+
+
+def source_authority_contract() -> Dict[str, Any]:
+    return {
+        "kind": SOURCE_KIND,
+        "authorities": list(SOURCE_AUTHORITIES),
+        "projection_only": True,
+        "write_proxy": True,
+        "no_business_fact_authority": NO_BUSINESS_FACT_AUTHORITY,
+        "runtime_carrier": "intent_router",
+    }
+
+# ---------- 工具：健壮解析 intent 名 ----------
+def _normalize_intent_key(s: str) -> str:
+    s = (s or "").strip()
+    return s
+
+def resolve_handler(intent: str) -> Optional[Type[BaseIntentHandler]]:
+    key = _normalize_intent_key(intent)
+    if not key:
+        return None
+    # 直接命中
+    h = HANDLER_REGISTRY.get(key)
+    if h:
+        return h
+    # 宽容：小写再试一次（注册表若用小写 key）
+    h = HANDLER_REGISTRY.get(key.lower())
+    if h:
+        return h
+    return None
+
+# ---------- 工具：按 db/context 构造 env/su_env ----------
+def _build_envs(params: Dict[str, Any], add_ctx: Dict[str, Any]) -> Tuple[api.Environment, api.Environment, Any]:
+    """
+    返回 (env, su_env, extra_cursor)
+    - 如果切换了 DB，会新开 cursor，调用方必须在 finally 里 cr.close()
+    - 如果没切库，extra_cursor 为 None
+    """
+    import logging
+    _logger = logging.getLogger(__name__)
+    
+    target_db = (params or {}).get("db") or (params or {}).get("_login_routing_db") or request.env.cr.dbname
+    cur_db = request.env.cr.dbname
+    
+    # 调试：打印数据库信息
+    _logger.debug("[intent_router][debug] _build_envs target_db: %s", target_db)
+    _logger.debug("[intent_router][debug] _build_envs cur_db: %s", cur_db)
+    _logger.debug("[intent_router][debug] _build_envs request.env.cr.dbname: %s", request.env.cr.dbname)
+
+    # 合并上下文：以传入的 add_ctx 覆盖 request.env.context
+    base_ctx = dict(request.env.context or {})
+    if add_ctx:
+        base_ctx.update(add_ctx)
+
+    if target_db == cur_db:
+        env = api.Environment(
+            request.env.cr,
+            request_uid(request, default=getattr(request.env, "uid", None)),
+            base_ctx,
+        )
+        su_env = api.Environment(env.cr, SUPERUSER_ID, dict(env.context))
+        return env, su_env, None
+
+    # 切库：新开 registry+cursor
+    reg = odoo.registry(target_db)
+    try:
+        reg.check_signaling()  # ← 关键：捕捉 install/update 导致的注册表变化
+    except Exception:
+        # 不致命，继续
+        pass
+
+    cr = reg.cursor()
+    try:
+        env = api.Environment(cr, request_uid(request, default=getattr(request.env, "uid", None)), base_ctx)
+        su_env = api.Environment(cr, SUPERUSER_ID, dict(env.context))
+        return env, su_env, cr
+    except Exception:
+        cr.close()
+        raise
+def _dispatch(intent: str, params: dict, context: dict):
+    """
+    统一分发：显式依据 params.db 选择环境，合并 context，实例化 Handler 并调用。
+    """
+    import logging
+    _logger = logging.getLogger(__name__)
+    
+    # 调试：打印参数
+    _logger.debug("[intent_router][debug] _dispatch called with intent: %s", intent)
+    _logger.debug("[intent_router][debug] params: %s", params)
+    _logger.debug("[intent_router][debug] params.get('db'): %s", params.get('db'))
+    
+    handler_cls = resolve_handler(intent)
+    if not handler_cls:
+        return {"ok": False, "error": {"code": 404, "message": f"Unknown intent: {intent}"}}
+
+    # 1) 构造 env / su_env（必要时切库）
+    env, su_env, extra_cr = _build_envs(params or {}, context or {})
+    dispatch_succeeded = False
+    dispatch_result = None
+    try:
+        payload_envelope = {"intent": intent, "params": params or {}, "context": context or {}}
+        # 2) 实例化 handler，注入 env/su_env/context/params
+        handler = handler_cls(env=env, su_env=su_env, request=request, context=context or {}, payload=payload_envelope)
+        # 兼容旧字段
+        try:
+            setattr(handler, "params", params or {})
+            setattr(handler, "payload", payload_envelope)
+        except Exception:
+            pass
+        # 兼容：部分旧代码会直接访问 registry/cr/uid
+        if not getattr(handler, "registry", None):
+            handler.registry = env.registry
+        if not getattr(handler, "cr", None):
+            handler.cr = env.cr
+        if not getattr(handler, "uid", None):
+            handler.uid = env.uid
+
+        # 3) 统一把参数传给 run（BaseIntentHandler.run 会转调 handle(payload, ctx)）
+        result = handler.run(
+            payload=payload_envelope,
+            ctx=context or {},
+        )
+        dispatch_result = result
+        dispatch_succeeded = result_is_success(result)
+        return result
+    finally:
+        # 若新开了 cursor：成功请求要提交，否则关闭时会隐式回滚。
+        if extra_cr is not None:
+            try:
+                if dispatch_succeeded:
+                    _logger.info("[intent_router] commit extra cursor intent=%s db=%s", intent, env.cr.dbname)
+                    extra_cr.commit()
+                else:
+                    _logger.info("[intent_router] rollback extra cursor intent=%s db=%s", intent, env.cr.dbname)
+                    extra_cr.rollback()
+                extra_cr.close()
+            except Exception:
+                _logger.exception("[intent] close cursor failed (db=%s)", env.cr.dbname)
+
+def route_intent_payload(payload: dict, ctx) -> dict:
+    """
+    控制器调用的统一入口。
+    payload: { "intent": "...", "params": {...}, "context": {...}, "meta": {...} }
+    """
+    # Load extension modules once (if configured)
+    try:
+        load_extensions(request.env, HANDLER_REGISTRY)
+    except Exception:
+        _logger.exception("[intent_router] extension loader failed")
+
+    intent = (payload or {}).get("intent") or ""
+    params = (payload or {}).get("params") or {}
+    context = (payload or {}).get("context") or {}
+    # 小日志帮助定位 DB 实际选择
+    try:
+        db = params.get("db") or request.env.cr.dbname
+        _logger.debug("[intent_router] intent=%s db=%s params.keys=%s",
+                      intent, db, ",".join(sorted(params.keys())) if params else "-")
+    except Exception:
+        pass
+    return _dispatch(intent, params, context)

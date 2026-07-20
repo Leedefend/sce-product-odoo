@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="action_sc_project_list" model="ir.actions.act_window">
+        <field name="name">项目台账</field>
+        <field name="res_model">project.project</field>
+        <field name="view_mode">tree,kanban,form</field>
+        <field name="domain">[]</field>
+        <field name="context">{}</field>
+        <field name="groups_id" eval="[(4, ref('smart_construction_core.group_sc_cap_project_read'))]"/>
+    </record>
+</odoo>

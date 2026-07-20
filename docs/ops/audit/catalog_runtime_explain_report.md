@@ -1,0 +1,81 @@
+# Catalog Runtime Explain Report
+
+- catalog_scene_count: 5
+- runtime_scene_count: 66
+- source_catalog_count: 3
+- source_derived_count: 0
+- source_system_count: 21
+- source_fallback_count: 42
+- unknown_source_count: 0
+- catalog_runtime_coverage_ratio: 0.045455
+- ruleset_version: v1
+- error_count: 0
+
+## Runtime Scene Source Mapping
+
+- construction.diary -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- construction.execution -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- construction.plan -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- construction.plan_report -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- contract.center -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- contracts.workspace -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- cost.analysis -> system [system-runtime-prefix-cost] (runtime system scene outside contract snapshot subset)
+- cost.budget_alloc -> system [system-runtime-prefix-cost] (runtime system scene outside contract snapshot subset)
+- cost.cost_compare -> system [system-runtime-prefix-cost] (runtime system scene outside contract snapshot subset)
+- cost.profit_compare -> system [system-runtime-prefix-cost] (runtime system scene outside contract snapshot subset)
+- cost.project_boq -> system [system-runtime-prefix-cost] (runtime system scene outside contract snapshot subset)
+- cost.project_budget -> system [system-runtime-prefix-cost] (runtime system scene outside contract snapshot subset)
+- cost.project_cost_ledger -> system [system-runtime-prefix-cost] (runtime system scene outside contract snapshot subset)
+- cost.project_progress -> system [system-runtime-prefix-cost] (runtime system scene outside contract snapshot subset)
+- data.dictionary -> system [system-runtime-prefix-data] (runtime system scene outside contract snapshot subset)
+- equipment.management -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- equipment.request -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- equipment.settlement -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- equipment.usage -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- finance.center -> system [system-runtime-prefix-finance] (runtime system scene outside contract snapshot subset)
+- finance.operating_metrics -> system [system-runtime-prefix-finance] (runtime system scene outside contract snapshot subset)
+- finance.payment_ledger -> system [system-runtime-prefix-finance] (runtime system scene outside contract snapshot subset)
+- finance.payment_requests -> system [system-runtime-prefix-finance] (runtime system scene outside contract snapshot subset)
+- finance.settlement_orders -> system [system-runtime-prefix-finance] (runtime system scene outside contract snapshot subset)
+- finance.treasury_ledger -> system [system-runtime-prefix-finance] (runtime system scene outside contract snapshot subset)
+- finance.workspace -> system [system-runtime-prefix-finance] (runtime system scene outside contract snapshot subset)
+- labor.attendance -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- labor.management -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- labor.request -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- labor.settlement -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- material.acceptance -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- material.catalog -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- material.center -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- material.inbound -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- material.outbound -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- material.price_library -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- material.procurement -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- material.rental -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- material.rental_order -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- material.rental_settlement -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- material.rfq -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- material.settlement -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- my_work.workspace -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- portal.capability_matrix -> system [system-runtime-prefix-portal] (runtime system scene outside contract snapshot subset)
+- portal.dashboard -> system [system-runtime-prefix-portal] (runtime system scene outside contract snapshot subset)
+- portal.lifecycle -> system [system-runtime-prefix-portal] (runtime system scene outside contract snapshot subset)
+- project.management -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- projects.dashboard -> system [system-runtime-prefix-projects] (runtime system scene outside contract snapshot subset)
+- projects.execution -> system [system-runtime-prefix-projects] (runtime system scene outside contract snapshot subset)
+- projects.intake -> catalog [catalog-exact] (listed in scene_catalog export)
+- projects.ledger -> catalog [catalog-exact] (listed in scene_catalog export)
+- projects.list -> catalog [catalog-exact] (listed in scene_catalog export)
+- quality.center -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- quality.recheck -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- quality.rectification -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- risk.center -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- risk.monitor -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- safety.center -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- safety.recheck -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- safety.rectification -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- subcontract.management -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- subcontract.register -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- subcontract.request -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- subcontract.settlement -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- task.center -> fallback [fallback-default] (runtime fallback/legacy naming path)
+- workspace.home -> fallback [fallback-default] (runtime fallback/legacy naming path)

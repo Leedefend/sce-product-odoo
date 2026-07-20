@@ -1,0 +1,962 @@
+# Verification Entry Points
+
+## Core Gates
+- `make gate.full`
+  - Default strict mode includes Phase 9.8 guards.
+  - Default path now includes strict R3 runtime gate (`gate.scene.r3.runtime.strict`).
+  - Use `SC_GATE_STRICT=0` to skip Phase 9.8 enforcement.
+  - Use `SC_SCENE_OBS_STRICT=1` to additionally enforce strict scene observability evidence during gate runs.
+  - Default gate path includes `verify.portal.scene_observability_gate_smoke.container` (structure + preflight smoke + smoke chain).
+  - Contract preflight now runs baseline freeze guard by default (`BASELINE_FREEZE_ENFORCE=1`).
+  - Contract preflight now enables strict advanced-view semantic smoke by default (`CONTRACT_PREFLIGHT_STRICT_VIEW_TYPES=1`).
+    - Includes `verify.contract.view_type_semantic.strict.smoke` (`VIEW_TYPE_SMOKE_MIN_MODELS=2`).
+    - Temporary rollback for unstable branches:
+      - `make verify.contract.preflight CONTRACT_PREFLIGHT_STRICT_VIEW_TYPES=0`
+  - Contract preflight includes scene runtime boundary gate:
+    - `make verify.scene.runtime_boundary.gate`
+  - Contract preflight includes legacy contract bundle checks:
+    - `make verify.scene.legacy.bundle`
+  - Contract preflight can be run as a single scene contract path gate:
+    - `make verify.scene.contract_path.gate`
+  - Full legacy endpoint aggregate (includes endpoint usage guard):
+    - `make verify.scene.legacy.all`
+    - legacy endpoint `/api/scenes/my` is deprecated; successor is `/api/v1/intent` with `intent=app.init`; sunset date `2026-04-30`.
+  - Any docs mentioning `/api/scenes/my` must include deprecated + successor migration semantics; enforced by:
+    - `make verify.scene.legacy_docs.guard`
+
+- `make verify.scene.r3.runtime.quick`
+  - One-shot daily acceptance for scene productization runtime quality.
+  - Runs strict gate (`verify.scene.r3.runtime.strict`) and prints dashboard `Summary + Gate Result`.
+  - Fast check before `gate.full`, and can be used as daily team smoke command.
+- `make verify.business_form.productization.audit`
+  - Audits formal business form productization risk from the published business
+    operation matrix and runtime form-structure evidence.
+  - Uses `docs/product/formal_business_form_productization_standard_v1.md`
+    as the product and architecture standard.
+  - Highlights high-density P1 form candidates for the next productized form
+    sample batch.
+  - Emits:
+    - `artifacts/backend/business_form_productization_audit.json`
+    - `artifacts/backend/business_form_productization_audit.md`
+- `make verify.business_form.productization.standard.guard`
+  - Verifies the form productization standard keeps product-layer
+    responsibilities, field classification, entry semantics, density rules,
+    state/action rules, attachment rules, and audit wiring intact.
+- `make verify.view.orchestration_product_boundary_guard`
+  - Verifies P1 product-release form contracts keep the backend orchestration
+    boundary intact.
+  - Product-release contracts may declare fields, sections, and
+    `composition_mode=entry_semantic_surface`, but must not replace the native
+    parser and orchestrator with a full hand-written form layout tree.
+- `make verify.app_config_engine.boundary_guard`
+  - Verifies `addons/smart_core/app_config_engine` remains runtime contract
+    plumbing for `/api/contract/get`, not a product-form authority layer.
+  - Keeps the HTTP controller thin, enforces no-business-fact authority markers,
+    checks native parse/view-orchestration ownership wording, and prevents
+    industry-module references from silently expanding in the platform engine.
+- `make verify.lowcode_config.boundary.guard`
+  - Static low-code platform boundary gate for the productized configuration
+    surface before runtime/browser acceptance.
+  - Aggregates the low-code capability inventory, `smart_core` platform
+    boundary, `app_config_engine` runtime plumbing boundary, product
+    view-orchestration boundary, and full view-orchestration contract boundary,
+    then runs `lowcode_config_boundary_guard.py`.
+  - Locks the customer baseline manifest
+    `lowcode_customer_config_baseline_manifest.v1` to the
+    `smart_construction_custom` install path, including module data files,
+    post-init hooks, XML function entries, source markers, and source-status
+    backfill.
+- `make verify.lowcode_config.customer_module_asset.release_hardening.guard`
+  - Verifies the customer low-code module asset pipeline remains wired into
+    formal product release readiness.
+  - Checks the Makefile release target, v2.0.0 checklist, evidence manifest,
+    and `lowcode_customer_config_baseline_manifest.v1` agree on the candidate,
+    draft, acceptance-template, dry-run apply, safety-test, and replay chain.
+- `make verify.lowcode_config.runtime_boundary.guard`
+  - Runtime low-code boundary gate for live Odoo databases after module
+    install/upgrade.
+  - Runs with `LOWCODE_CONFIG_RUNTIME_SOURCE_STATUS_STRICT=1`, verifies
+    protected configuration menu recovery entries, rejects ordinary business
+    user access to global low-code configuration entries, and checks
+    `ui.business.config.contract` source-status custody.
+- `make verify.business_config.snapshot`
+  - Exports the live `ui.business.config.contract` baseline to
+    `artifacts/backend/business_config_contract_snapshot.json`.
+  - Supports `BUSINESS_CONFIG_SNAPSHOT_COMPARE_PATH` for cross-environment
+    comparison, so local, daily-dev, prod-sim, and production configuration
+    state can be checked without relying on untracked manual database edits.
+- `make verify.smart_core.boundary_guard`
+  - Verifies `addons/smart_core` remains the platform kernel, not an industry
+    business fact module.
+  - Checks the Smart Core boundary document, required top-level directories,
+    manifest dependencies, app-config-engine local boundary, and zero industry
+    defaults in production platform code.
+
+## Architecture Guard Aliases
+- `make verify.restricted`
+  - Canonical restricted release-readiness entry for daily development and test-tier acceptance.
+  - Delegates to `verify.product.delivery.mainline` with `CI_SCENE_DELIVERY_PROFILE=restricted`, so the restricted gate stays aligned with the current product delivery mainline instead of duplicating verification logic.
+  - Runs frontend gate first, then restricted scene delivery readiness, action closure, module capability smoke, backend contract closure, and governance truth.
+  - Emits the same mainline artifacts:
+    - `artifacts/backend/delivery_mainline_run_summary.json`
+    - `artifacts/backend/delivery_mainline_run_summary.md`
+- `make verify.boundary.guard`
+  - Aggregates scene runtime boundary + legacy contract path checks.
+- `make verify.docs.product_boundary`
+  - Runs the product-boundary guard unit tests first, then checks the live repository catalog.
+  - Verifies `docs/product/formal_product_boundary_v1.md` is structurally complete.
+  - Checks every `addons/*/__manifest__.py` module appears in the formal product boundary module table.
+  - Checks the same addon module is not listed more than once.
+  - Checks each module row has an explicit formal product layer assignment such as `P0`, `P1`, or `P1/P4`.
+  - Checks P0-P4 product layer names match the canonical formal product names.
+  - Checks P0-P4 product layers, required boundary sections, and delivery acceptance terms remain present.
+  - Emits report:
+    - `artifacts/docs/product_boundary_catalog_guard.json`
+- `make verify.user_module.product_boundary`
+  - Verifies the P2 user module keeps user data baseline, user preferences, and replay hooks as separate carriers.
+  - Ensures `smart_construction_custom` loads user data baseline before user preference contracts.
+  - Ensures the low-code customer configuration baseline manifest is carried by the user module, owned by `smart_construction_custom`, and covers replayable menu preferences, form preferences, and user data baseline surfaces.
+  - Ensures the real legacy user master payload is carried by the user module and loaded only through an idempotent loader.
+  - Ensures the user module carries a locked user-visible historical business data baseline manifest, covering all 11 productized business families plus post-asset replay/write/projection closure targets.
+  - Ensures the baseline manifest pins the private external asset package lock and exposes `user_module.history_business_baseline.restore` as the official restore entry.
+  - Rejects treating the original 23 migration asset packages as the full user data baseline.
+  - Ensures P1 industry modules do not carry P2 real-user data payloads such as `legacy_user_sc_*` or `user_master_v1.xml`.
+  - Ensures form preference initializers do not perform hidden data dictionary creation or partner backfill.
+- `make verify.industry_module.product_boundary`
+  - Verifies `smart_construction_*` module manifests reference only existing assets.
+  - Fails if XML/CSV assets are left undeclared without an explicit boundary reason.
+  - Keeps demo, historical acceptance, and real-user payload files out of production manifests.
+  - Ensures the carried real-user master payload remains behind the idempotent user baseline loader.
+  - Runs `scripts/verify/test_industry_module_product_boundary_guard.py` before the guard to pin core regression cases.
+  - Rejects production manifest `demo` entries, bare runtime `pass`, and bare runtime `NotImplementedError`.
+  - Ensures app delivery fallbacks remain explicitly marked as delivery-navigation fallbacks with no business-fact authority.
+- `make verify.non_demo_data_contamination`
+  - Default non-demo contamination audit for a selected `DB_NAME`.
+  - Demo databases such as `sc_demo` may return `SKIP`; release hardening must use `make verify.product.no_demo_data` instead.
+  - Copies runtime evidence back from the Odoo container for SKIP/PASS/FAIL:
+    - `artifacts/backend/non_demo_data_contamination_guard.json`
+    - `artifacts/backend/non_demo_data_contamination_guard.md`
+  - Runs `make verify.product.no_demo_data.schema.guard` after copying evidence.
+- `make verify.product.no_demo_data`
+  - Formal release hardening sub-gate used by `verify.product.surface.clean`.
+  - Forces no-demo mode even on development databases; demo databases may skip only when the command is not run with `PRODUCT_REQUIRE_NO_DEMO_DATA=1`.
+  - Fails when demo environment flags, `smart_construction_demo`, demo XMLIDs, or active demo-name business records remain.
+  - Copies runtime evidence back from the Odoo container even when the guard fails:
+    - `artifacts/backend/non_demo_data_contamination_guard.json`
+    - `artifacts/backend/non_demo_data_contamination_guard.md`
+- `make verify.product.no_demo_data.schema.guard`
+  - Verifies the no-demo contamination JSON/MD report shape.
+  - Enforces `ok/status/db_name/mode/require_no_demo_data/errors/demo_db_auto_skip/rules` fields in JSON and required Markdown summary tokens.
+- `make verify.production_menu.release_gate.guard.prod`
+  - Read-only production guard for the productized menu release gate.
+  - Verifies startup delivery identity resolves to `construction.standard`.
+  - Verifies `smart_core.platform_release_db` points at the current production database.
+  - Verifies active released snapshots exist for `construction.standard` and `construction.preview`.
+  - Verifies release-gate page counts match released product-policy menu counts and runtime gated navigation does not expose old `用户核对菜单` paths.
+- `make policy.restore.formal_product_menu`
+  - Write operation guarded by `PROD_DANGER=1`.
+  - Restores `construction.standard` and `construction.preview` product policies from `formal_business_product_menu_policy_v1.json`.
+  - Rewrites the active release snapshot page contracts from the formal product menu baseline, excluding user-acceptance/history verification menus.
+- `make verify.user_module.data_baseline.runtime_audit`
+  - Runtime acceptance after installing/upgrading `smart_construction_custom` on a target database.
+  - Replays the legacy user data baseline twice and verifies user count, XMLID count, and duplicate-login safety remain stable.
+  - Verifies the runtime user module summary includes the historical business visible-surface baseline contract, external package lock, and restore target.
+  - Emits `user_module_data_baseline_runtime_audit.json` under `MIGRATION_ARTIFACT_ROOT` or `/tmp/user_module_data_baseline/<db>`.
+- `make user_module.history_business_baseline.restore DB_NAME=<target_db>`
+  - Official P2 user-module restore entry for the locked historical business visible-surface baseline.
+  - Fetches the private external migration asset package, verifies it, runs continuity rehearsal, and stops by default.
+  - Set `USER_MODULE_HISTORY_BASELINE_APPLY=1` to replay into the target DB, refresh the user-visible business surface, and run the runtime audit.
+- `make verify.backend.guard`
+  - Compatibility alias for the backend boundary guard chain used by Codex verification workflows.
+- `make codex.snapshot.export`
+  - Compatibility alias for `make codex.snapshot`, preserving the documented snapshot-export command name while reusing the existing contract snapshot implementation.
+- `make verify.portal.smoke`
+  - Compatibility alias for `make verify.portal.fe_smoke.container`.
+- `make verify.scene.delivery.readiness`
+  - One-click strict acceptance for product delivery closure: first runs strict live `verify.scene.runtime_boundary.gate`, then executes final readiness threshold guard.
+  - Enables strict flags in one command: `SC_SCENE_REGISTRY_ASSET_SNAPSHOT_REQUIRE_LIVE=1`, `SC_SCENE_REGISTRY_ASSET_SNAPSHOT_ALLOW_STATE_FALLBACK_ON_LIVE_FAIL=1`, `SC_SCENE_SAMPLE_REGISTRY_DIFF_REQUIRE_SCENES=1`, `SC_SCENE_ACTION_STRATEGY_LIVE_MATRIX_REQUIRE_LIVE=1`, `SC_SCENE_ACTION_SURFACE_STRATEGY_PAYLOAD_REQUIRE_LIVE=1`, `SC_SCENE_READY_CONSUMPTION_TREND_REQUIRE_LIVE=1`, `SC_SCENE_READY_CONSUMPTION_TREND_REQUIRE_ENABLED=1`.
+  - Also enables `SC_SCENE_CONTRACT_V1_FIELD_SCHEMA_ALLOW_STATE_FALLBACK_ON_LIVE_FAIL=1` for explicit degraded fallback in restricted/no-network environments.
+  - Also enables `SC_SCENE_READY_STRICT_GAP_ALLOW_STATE_FALLBACK_ON_LIVE_FAIL=1` so strict-gap full-audit can consume last known state when live fetch is blocked.
+  - All strict flags are now defaulted via `:-1` and can be explicitly overridden per run (example: `SC_SCENE_READY_CONSUMPTION_TREND_REQUIRE_LIVE=0 make verify.scene.delivery.readiness`).
+- `make verify.scene.delivery.readiness.role_matrix`
+  - One-click strict acceptance with dual-role evidence: runs `verify.scene.base_contract_source_mix.role_matrix.guard` first, then runs `verify.scene.delivery.readiness`.
+  - Use as the default daily command when `pm/executive` role evidence is required.
+- `make verify.scene.delivery.readiness.role_company_matrix`
+  - One-click strict acceptance with role+company evidence: runs `verify.scene.delivery.readiness.role_matrix`, then `verify.delivery.journey.role_matrix.guard`, then company-matrix chain.
+  - Use as the default command for customer-trial readiness evidence (role surface + company surface).
+- `make ci.scene.delivery.readiness`
+  - Lightweight CI alias for `verify.scene.delivery.readiness.role_company_matrix`.
+  - Supports profile switch via `CI_SCENE_DELIVERY_PROFILE`:
+    - `strict` (default): keep strict live requirements.
+    - `restricted`: keeps strict chain but disables three live-only blockers (`SC_SCENE_READY_CONSUMPTION_TREND_REQUIRE_LIVE=0`, `SC_SCENE_ACTION_SURFACE_STRATEGY_PAYLOAD_REQUIRE_LIVE=0`, `SC_SCENE_ACTION_STRATEGY_LIVE_MATRIX_REQUIRE_LIVE=0`).
+  - Example:
+    - `CI_SCENE_DELIVERY_PROFILE=restricted make ci.scene.delivery.readiness`
+  - Automatically updates delivery scoreboard snapshot and per-profile status rows on both success/failure via:
+    - `scripts/verify/delivery_readiness_scoreboard_refresh.py`
+  - On failure, automatically prints concise failure brief from key reports via `scripts/verify/scene_delivery_failure_brief.py`.
+  - Failure brief now includes:
+    - `BLOCKER_FAILURES / PRECHECK_FAILURES` grouped output
+    - dedicated `multi_company_highlight` section (snapshot/preflight/evidence signals)
+    - `multi_company_next_actions` recommended command sequence for fast recovery.
+  - Also emits machine-readable summary:
+    - `artifacts/backend/scene_delivery_failure_brief.json`
+  - Failure path also prints compact key-field summary via:
+    - `scripts/verify/scene_delivery_failure_brief_summary.py`
+- `make refresh.delivery.readiness.scoreboard`
+  - Refreshes scoreboard snapshot metadata (`generated_at_utc/branch/commit_ref`) and keeps CI strict/restricted evidence rows in sync with stored profile state.
+  - Also synchronizes `Release Blocking Gaps` CI posture line from latest strict/restricted profile status.
+  - When strict profile is `FAIL`, the posture line auto-appends a restricted-profile recovery command.
+  - Aggregates latest mainline run summary into the same CI summary payload when available.
+  - Exposes single boolean `overall.ok` for pipeline gating (default policy: `mainline_or_restricted`).
+  - Policy override via env:
+    - `DELIVERY_READINESS_OVERALL_POLICY=mainline_or_restricted` (default)
+    - `DELIVERY_READINESS_OVERALL_POLICY=strict_only`
+    - `DELIVERY_READINESS_OVERALL_POLICY=restricted_only`
+    - `DELIVERY_READINESS_OVERALL_POLICY=mainline_only`
+    - `DELIVERY_READINESS_OVERALL_POLICY=strict_and_mainline`
+  - Quick entry (human-readable):
+    - `artifacts/backend/delivery_readiness_ci_summary.md`
+  - Emits machine-readable CI summary for pipeline dashboards:
+    - `artifacts/backend/delivery_readiness_ci_summary.json`
+- `make verify.product.delivery.mainline`
+  - One-command mainline seal-mode verification for daily iteration.
+  - Runs in order:
+    - `pnpm -C frontend gate`
+    - `CI_SCENE_DELIVERY_PROFILE=${CI_SCENE_DELIVERY_PROFILE:-restricted} SC_MULTI_COMPANY_EVIDENCE_STRICT=1 make ci.scene.delivery.readiness`
+    - `make verify.product.delivery.action_closure.smoke`
+    - `make verify.product.delivery.module_capability.smoke`
+    - `make verify.product.delivery.governance_truth`
+  - Default profile is `restricted`; set `CI_SCENE_DELIVERY_PROFILE=strict` in live-enabled runners.
+  - Prints final summary line from unified readiness payload:
+    - `[verify.product.delivery.mainline] overall_ok=<bool> policy=<policy>`
+  - Emits run summary artifacts:
+    - `artifacts/backend/delivery_mainline_run_summary.json`
+    - `artifacts/backend/delivery_mainline_run_summary.md`
+- `make verify.product.delivery.mainline.summary.schema.guard`
+  - Verifies delivery mainline JSON/MD summary shape.
+  - Enforces branch/commit/profile metadata, required step statuses, and `ok` consistency with all required steps.
+- `make verify.product.delivery.action_closure.smoke`
+  - Verifies action/search/workflow/validation closure signals for delivery high-frequency scenes.
+  - Current focus scenes:
+    - `finance.payment_requests`
+    - `projects.list`
+    - `cost.project_budget`
+  - Emits reports:
+    - `artifacts/backend/product_delivery_action_closure_report.json`
+    - `docs/ops/audit/product_delivery_action_closure_report.md`
+- `make verify.product.delivery.action_closure.schema.guard`
+  - Verifies product delivery action closure JSON/MD report shape and summary counts.
+- `make verify.product.delivery.module_capability.smoke`
+  - Verifies in-scope 10 delivery modules are declared in the module capability source and classifies runtime scene readiness separately.
+  - Backward-compatible alias: `make verify.product.delivery.module9.smoke`.
+  - Emits reports:
+    - `artifacts/backend/product_delivery_module9_smoke_report.json`
+    - `docs/ops/audit/product_delivery_module9_smoke_report.md`
+- `make verify.product.delivery.module_capability.schema.guard`
+  - Verifies product delivery module capability JSON/MD report shape and runtime count consistency.
+- `make verify.intent.canonical_alias.snapshot.schema.guard`
+  - Verifies the intent canonical/alias snapshot artifact shape.
+  - Enforces source identity, canonical/alias counts, unique sorted rows, and canonical self-reference rules.
+- `make verify.system.capability_baseline.report.schema.guard`
+  - Verifies the system capability baseline JSON/MD report shape.
+  - Enforces baseline metadata, summary/check count consistency, sorted checks, and required Markdown sections.
+- `make verify.backend.contract.closure.mainline.summary.schema.guard`
+  - Verifies the backend contract closure mainline summary artifact shape.
+  - Enforces step status consistency and required summary metadata.
+- `make verify.backend.contract.closure.snapshot.schema.guard`
+  - Verifies the backend contract closure snapshot artifact shape.
+  - Enforces meta intent and scene governance payload key lists are non-empty, sorted, and duplicate-free.
+- `make verify.platform.release_policy.runtime.schema.guard`
+  - Verifies the platform release-policy runtime probe JSON/MD shape.
+  - Enforces product coverage, policy/catalog counts, user/no-native/subset/admin delivery summaries, and failure consistency.
+- `make verify.bundle.installation.ready.schema.guard`
+  - Verifies the bundle installation readiness JSON/MD report shape.
+  - Enforces construction/owner bundle coverage, positive scene/capability counts, reversible disabled payload shape, and error/warning count consistency.
+- `make verify.platform.performance.smoke.schema.guard`
+  - Verifies the platform performance smoke JSON/MD report shape.
+  - Enforces expected intent coverage, row/summary iteration consistency, threshold field shape, and error/warning count consistency.
+- `make verify.dev.acceptance.release.schema.guard`
+  - Verifies the dev acceptance release probe JSON shape.
+  - Enforces mode/status metadata, backup/frontend/login block status consistency, and key frontend/login check field types.
+- `make verify.release.v2_0_0.checklist.guard`
+  - Verifies the v2.0.0 release checklist keeps required preflight, product hardening, dev acceptance, prod-sim, controlled-doc review, production safety, post-release, and stop-condition sections in the expected order, with key safety, evidence, preflight expansion lists, product readiness dependency lists, and hardening expansion prose locked by section.
+  - Enforces RC, formal-release, and dev-acceptance command blocks exactly.
+  - Enforces required release tag names, versioning/release-index review, and prod/prod-sim evidence separation language.
+- `make verify.release.v2_0_0.evidence_manifest.guard`
+  - Verifies the v2.0.0 evidence manifest keeps required gate section order, evidence table row content/order, current local verification status and nested artifact/shape-guard structure, schema guard rows, controlled-doc artifact coverage, evidence rules structure, and explicit prod-sim evidence directory validation.
+- `make verify.release.v2_0_0.control_docs.guard`
+  - Verifies the v2.0.0 release-control README, release notes, versioning guide, release indexes, verification catalog, and Makefile target phony declarations, dependencies, and guard recipes keep planned tag names, release boundaries, required gates, immutable RC guidance, and the current 10-module product delivery baseline.
+  - Cross-checks product release readiness Makefile dependencies against the release checklist hardening expansion.
+  - Cross-checks release notes minimum verification subgates against the v2.0.0 preflight Makefile dependencies.
+  - Cross-checks release-control README supporting gates against the v2.0.0 preflight Makefile dependencies.
+  - Verifies the release-control README supporting gates match the v2.0.0 preflight dependency set, including platform release policy runtime.
+  - Verifies the v2.0.0 Makefile release targets appear in expected phony order.
+  - Verifies the v2.0.0 Makefile release target definitions appear in expected order.
+  - Verifies the v2.0.0 release guard entries appear in expected order in this catalog.
+  - Enforces release-control section order, status, scope, boundary and gate command blocks, release document list, rollback list, release-index section order and planned entries, release-notes section order, intent, scope, tag plan, production boundary, known limits, acceptance command blocks, versioning section order, tag type, no-history-rewrite, tag pre-check, formal release line, and promotion order shape for the v2.0.0 control README and versioning guide.
+- `make verify.release.v2_0_0.governance.guard`
+  - Runs the v2.0.0 release-control docs, evidence manifest, checklist, and production release-flow guards as one governance closure target.
+- `PROD_SIM_ACCEPTANCE_ARTIFACT_DIR=<run_dir> make verify.release.v2_0_0.formal_evidence.schema.guard`
+  - Runs the v2.0.0 governance, bundle installation schema, platform performance schema, dev acceptance schema, and prod-sim acceptance evidence schema guards as the formal evidence shape closure target.
+  - Recorded sample artifact directories may validate schema shape only; final release signoff requires the recorded prod-sim acceptance run directory for that release candidate.
+- `make verify.release_v2_0_0.*`
+  - Compatibility aliases for the canonical `make verify.release.v2_0_0.*` targets; each alias forwards to exactly one canonical target and prints the canonical target name.
+- `PROD_SIM_ACCEPTANCE_ARTIFACT_DIR=<run_dir> make verify.prod.sim.acceptance.evidence.schema.guard`
+  - Verifies explicit prod-sim acceptance evidence under the recorded run directory.
+  - Requires strict LEGACY_SOURCE release acceptance JSON/MD and no-legacy replay acceptance JSON to target `sc_prod_sim`; no default run directory is inferred.
+- `make verify.production_deployment.record.guard`
+  - Verifies concrete production deployment records under `docs/ops/releases/current/production_deployment_*.md`, or a single record via `PRODUCTION_DEPLOYMENT_RECORD=<path>`.
+  - Enforces required sections, explicit `incremental package` / `full tree` / `hotfix` release type, sha256 evidence, production backup paths, post-deployment validation PASS rows, demo cleanup evidence, and explicit non-full-alignment wording when full-tree alignment is not checked.
+  - For full-tree releases, requires production Git authority evidence: `production_git_authority_guard: PASS`, `HEAD=origin/main=`, clean Git status, and the `.env.prod` `skip-worktree` exception.
+  - The deployment record template requires future full-tree releases to preserve the full `production_git_authority_guard` JSON evidence with `status`, `branch`, `head`, `remote_head`, `status_porcelain`, `remote_auth_ok`, and `env_file_skip_worktree`.
+  - If the record claims production and daily development are fully aligned, also requires `full tree` release type, zero full-tree diff, module-version target evidence, and module-version diff `PASS`.
+  - Rejects open-ended production record placeholders, including the common
+    three-letter placeholder, `待填写`, `| open |`, and ``| `open` |``.
+  - Requires `planned` / `retained` / `tracked` follow-up rows to include owner, cadence/deadline, and an explained `<status>: <meaning>` status.
+- `make verify.production_release.flow.guard`
+  - Verifies the production release-flow control plane is wired together across the flow standard, deployment record template, Makefile target, verify catalog, release checklist, release indexes, deployment runbook, and deployment record guard script.
+  - Enforces the release-flow document keeps environment responsibilities, alignment definitions, hard rules, package verification, production validation matrix, difference registration, and closure criteria in order.
+  - Enforces the production read-only business readiness gate is wired through Makefile, production command policy, deployment runbook, and release-flow validation matrix: `make verify.business_system.usability_readiness.prod`.
+  - Enforces the production read-only attachment custody gate is wired through Makefile, production command policy, deployment runbook, and release-flow validation matrix: `make history.attachment.custody.probe.prod`.
+  - Enforces the production attachment custody marker backfill entry remains explicitly guarded by `PROD_DANGER=1`: `make legacy_attachment.custody_marker.backfill.prod`.
+  - Enforces the production read-only attachment validation targets remain registered for attachment-scope releases.
+- `make verify.production_git.authority.guard`
+  - Verifies the production Git work tree authority baseline.
+  - Checks the work tree is on `main`, `HEAD` equals `origin/main`, `git status --porcelain` is clean, and the configured remote can read `main`.
+  - Does not use Odoo, Docker Compose, or `PROD_READONLY_VERIFY`; it is a host Git/worktree authority check controlled by `PRODUCTION_GIT_AUTHORITY_*` environment variables.
+  - In production, run with `PRODUCTION_GIT_AUTHORITY_REQUIRE_ENV_SKIP=1` so `.env.prod` must be explicitly protected by `skip-worktree`.
+  - A `remote_auth_ok=false` failure means the current commit may still be aligned through bundle/release package, but the server is not yet ready for standard autonomous `git fetch origin main` production upgrades.
+- `make verify.scene.product_delivery.readiness.guard`
+  - Enforces final product delivery readiness thresholds from `scripts/verify/baselines/scene_product_delivery_readiness_guard.json`.
+  - Writes reports: `artifacts/backend/scene_product_delivery_readiness_report.json` and `artifacts/backend/scene_product_delivery_readiness_report.md`.
+- `make verify.scene.contract_v1.field_schema.guard`
+  - Verifies `scene_ready_contract_v1` field-level schema closure (`top-level keys`, `scene row keys`, `meta keys`, `target openness`).
+  - Live fetch remains default; optional fallback is controlled by:
+    - `SC_SCENE_CONTRACT_V1_FIELD_SCHEMA_ALLOW_STATE_FALLBACK_ON_LIVE_FAIL=1`
+    - `SC_SCENE_CONTRACT_V1_FIELD_SCHEMA_STATE_FILE` (default `artifacts/backend/scene_contract_v1_field_schema_state.json`)
+    - `SC_SCENE_CONTRACT_V1_FIELD_SCHEMA_SNAPSHOT_STATE_FILE` (default `artifacts/backend/scene_registry_asset_snapshot_state.json`)
+- `make verify.scene.ready.strict_gap.full_audit`
+  - Audits strict-gap closure from `scene_ready_contract_v1` (`full/strict unresolved`, `source gaps`, required strict scene keys).
+  - Live fetch remains default; optional state fallback is controlled by:
+    - `SC_SCENE_READY_STRICT_GAP_ALLOW_STATE_FALLBACK_ON_LIVE_FAIL=1`
+    - `SC_SCENE_READY_STRICT_GAP_FULL_AUDIT_STATE_FILE` (default `artifacts/backend/scene_contract_v1_field_schema_state.json`)
+- `make verify.product.delivery.governance_truth`
+  - Verifies delivery governance truthfulness closure for seal-mode execution.
+  - Checks `docs/product/capability_gap_backlog_v1.md` has actionable rows, mandatory hard-gap keys, and non-empty evidence.
+  - Checks `docs/product/delivery/v1/delivery_readiness_scoreboard_v1.md` has valid snapshot metadata, 10-module table rows, and 4-journey rows.
+  - Checks `docs/ops/iterations/delivery_context_switch_log_v1.md` has no `active_commit: pending` drift points.
+  - Writes reports:
+    - `artifacts/backend/product_delivery_governance_truth_guard_report.json`
+    - `docs/ops/audit/product_delivery_governance_truth_guard_report.md`
+- `make verify.product.delivery.governance_truth.schema.guard`
+  - Verifies the governance truth JSON/MD report shape after the guard writes evidence.
+  - Enforces summary, snapshot, errors, and warnings fields and required Markdown report sections.
+- `make verify.scene.governance_payload.guard`
+  - Verifies `system.init/app.init` includes `scene_governance_v1` wiring and required payload keys/gates.
+  - Includes asset queue observability shape (`asset_queue.queue_size/added_count/popped_count/remaining_count`).
+  - Includes `scene_ready_consumption` summary shape derived from `scene_ready_contract_v1.meta.scene_type_consumption_metrics`.
+- `make verify.scene.asset_queue_trend.guard`
+  - Verifies asset queue trend baseline (`queue_size` upper bound + per-run growth cap) against `scripts/verify/baselines/scene_asset_queue_trend_guard.json`.
+- `make verify.scene.no_action_scene.guard`
+  - Enforces no-action regression policy from `scripts/verify/baselines/scene_no_action_scene_guard.json`.
+  - Requires `scene_registry_asset_snapshot_state` to satisfy `min_action_total` for all sampled scenes and `max_no_action_scene_count=0`.
+- `make verify.scene.provider_shape.guard`
+  - Runs provider shape guard as standalone blocker (`scene_orchestration_provider_shape_guard`).
+  - Also wired into `verify.scene.runtime_boundary.gate` as release-blocking check.
+- `make verify.scene.contract_v1.field_schema.guard`
+  - Enforces live `scene_ready_contract_v1` field-level schema requirements using `system.init` payload.
+  - Baseline: `scripts/verify/baselines/scene_contract_v1_field_schema_guard.json`.
+  - Also wired into `verify.scene.runtime_boundary.gate` as release-blocking check.
+- `make verify.scene.engine_migration.matrix.guard`
+  - Verifies 9-module entry scenes are on `scene_engine` asset mainline using module map + runtime snapshot state.
+  - Baseline: `scripts/verify/baselines/scene_engine_migration_matrix_guard.json`.
+  - Reports:
+    - `artifacts/backend/scene_engine_migration_matrix_report.json`
+    - `artifacts/backend/scene_engine_migration_matrix_report.md`
+  - Also wired into `verify.scene.runtime_boundary.gate` as release-blocking check.
+- `make verify.scene.source_fallback_burndown.guard`
+  - Verifies `runtime_fallback/runtime_minimal` burn-down trend from `scene_base_contract_source_mix_report`.
+  - Baseline: `scripts/verify/baselines/scene_source_fallback_burndown_guard.json`.
+  - Reports:
+    - `artifacts/backend/scene_source_fallback_burndown_report.json`
+    - `artifacts/backend/scene_source_fallback_burndown_report.md`
+  - State:
+    - `artifacts/backend/scene_source_fallback_burndown_state.json`
+  - Wired into `verify.scene.runtime_boundary.gate` as release-blocking check.
+- `make verify.scene.multi_company.evidence.guard`
+  - Verifies multi-company evidence accumulation from company-matrix report and persists historical observed company ids.
+  - Baseline: `scripts/verify/baselines/scene_multi_company_evidence_guard.json`.
+  - Reports:
+    - `artifacts/backend/scene_multi_company_evidence_report.json`
+    - `artifacts/backend/scene_multi_company_evidence_report.md`
+  - State:
+    - `artifacts/backend/scene_multi_company_evidence_state.json`
+  - Strict mode: `SC_MULTI_COMPANY_EVIDENCE_STRICT=1` enforces target company count as blocker.
+  - Wired into `verify.scene.delivery.readiness.role_company_matrix` chain.
+- `make verify.scene.company_snapshot.collect`
+  - Collects company-specific scene snapshot states by invoking `scene_registry_asset_snapshot_guard` per profile.
+  - Baseline: `scripts/verify/baselines/scene_company_snapshot_collect.json`.
+  - Reports:
+    - `artifacts/backend/scene_company_snapshot_collect_report.json`
+    - `artifacts/backend/scene_company_snapshot_collect_report.md`
+  - Default profiles write to:
+    - `artifacts/backend/scene_registry_asset_snapshot_state.company_primary.json`
+    - `artifacts/backend/scene_registry_asset_snapshot_state.company_secondary.json`
+  - Profile-level `login/password` is supported in baseline for deterministic company target sampling (current baseline: `primary=admin`, `secondary=demo_role_pm`).
+  - Wired into `verify.scene.delivery.readiness.role_company_matrix` before company matrix guard.
+  - `company_secondary` runtime snapshot target defaults to `E2E_LOGIN=ROLE_PM_LOGIN` and `E2E_COMPANY_ID=2` (override via `COMPANY_SECONDARY_LOGIN/COMPANY_SECONDARY_PASSWORD/COMPANY_SECONDARY_ID`).
+- `make verify.scene.company_access.preflight.guard`
+  - Verifies company target reachability using collected snapshot states (`requested/effective/allowed_company_ids`).
+  - Baseline: `scripts/verify/baselines/scene_company_access_preflight_guard.json`.
+  - Reports:
+    - `artifacts/backend/scene_company_access_preflight_report.json`
+    - `artifacts/backend/scene_company_access_preflight_report.md`
+  - Strict mode: `SC_COMPANY_ACCESS_PREFLIGHT_STRICT=1` upgrades target shortfall to blocker.
+  - Wired into `verify.scene.delivery.readiness.role_company_matrix` after company snapshot collection.
+
+## Ops Helpers
+- `make ops.scene.company_secondary.access`
+  - Repairs target user multi-company access for `company_id=2` (default target user: `ROLE_PM_LOGIN` / `demo_role_pm`).
+  - Runs in dry-run by default (`APPLY=0`) and prints before/after payload.
+  - Runs inside compose `odoo` container; requires docker socket permissions in current environment.
+  - Apply changes with:
+    - `make ops.scene.company_secondary.access APPLY=1`
+  - Override credentials/target:
+    - `ADMIN_LOGIN`, `ADMIN_PASSWD`, `TARGET_LOGIN`, `TARGET_COMPANY_ID`, `DB_NAME`, `E2E_BASE_URL`.
+- `make ops.scene.company_secondary.seed`
+  - Seeds/repairs company-2 accessibility prerequisites (company record + target user company assignment).
+  - Runs in dry-run by default (`APPLY=0`).
+  - Typical apply flow:
+    - `make ops.scene.company_secondary.seed APPLY=1 CREATE_COMPANY_IF_MISSING=1 CREATE_USER_IF_MISSING=1`
+    - `SC_COMPANY_ACCESS_PREFLIGHT_STRICT=1 make verify.scene.company_access.preflight.guard`
+  - Optional knobs:
+    - `TARGET_COMPANY_ID`, `TARGET_COMPANY_NAME`, `TARGET_LOGIN`, `TARGET_USER_NAME`, `TARGET_USER_PASSWORD`,
+      `SET_PRIMARY_COMPANY`, `CREATE_COMPANY_IF_MISSING`, `CREATE_USER_IF_MISSING`.
+- `make verify.delivery.journey.role_matrix.guard`
+  - Validates PM/Finance/Purchase/Executive journey required scenes against role snapshots.
+  - Baseline: `scripts/verify/baselines/delivery_journey_role_matrix_guard.json`.
+  - Artifacts:
+    - `artifacts/backend/delivery_journey_role_matrix_report.json`
+    - `artifacts/backend/delivery_journey_role_matrix_report.md`
+  - Persists latest trend snapshot to `artifacts/backend/scene_asset_queue_trend_state.json` for next-run delta checks.
+- `make verify.scene.base_contract_asset_coverage.guard`
+  - Verifies native/base contract asset binding wiring in `system.init` and enforces scene-ready coverage metric shape (`meta.base_contract_bound_scene_count`).
+  - Enforces threshold policy by `runtime_env` + `role_code` using baseline `scripts/verify/baselines/scene_base_contract_asset_coverage_guard.json`.
+  - Persists latest live metrics to `artifacts/backend/scene_base_contract_asset_coverage_state.json` for offline fallback checks.
+  - Use `SC_BASE_CONTRACT_ASSET_COVERAGE_REQUIRE_LIVE=1` to force live-fetch in strict mode.
+- `make verify.scene.base_contract_source_mix.guard`
+  - Verifies source-mix quality for scene base contracts (`asset/runtime_fallback/runtime_minimal/none`) from snapshot state.
+  - Enforces thresholds via baseline `scripts/verify/baselines/scene_base_contract_source_mix_guard.json`.
+  - Supports role-aware policies (`default + role.<role_code>`) using snapshot `role_code` (e.g. `role.executive`, `role.pm`).
+  - Artifacts:
+    - `artifacts/backend/scene_base_contract_source_mix_report.json`
+    - `artifacts/backend/scene_base_contract_source_mix_report.md`
+- `make verify.scene.base_contract_source_mix.role_matrix.guard`
+  - Captures strict live snapshot states for `executive` and `pm`, then enforces dual-role source-mix thresholds.
+  - Snapshot outputs:
+    - `artifacts/backend/scene_registry_asset_snapshot_state.executive.json`
+    - `artifacts/backend/scene_registry_asset_snapshot_state.pm.json`
+  - Role matrix baseline: `scripts/verify/baselines/scene_base_contract_source_mix_role_matrix_guard.json`.
+  - Role matrix artifacts:
+    - `artifacts/backend/scene_base_contract_source_mix_role_matrix_report.json`
+    - `artifacts/backend/scene_base_contract_source_mix_role_matrix_report.md`
+- `make verify.scene.orchestrator.input.schema.guard`
+  - Verifies orchestrator input-side schema symbols and required base-fact consume points.
+- `make verify.scene.orchestrator.output.schema.guard`
+  - Verifies orchestrator output-side schema keys and `system.init` scene-ready wiring.
+- `make verify.scene.orchestrator.base_fact_binding.guard`
+  - Verifies base contract asset binding chain from `system.init -> repository -> compiler -> scene_ready meta`.
+- `make verify.scene.orchestrator.industry_interface.guard`
+  - Verifies architecture specs for industry composition (`Profile + Policy + Provider`) and orchestrator IO interface sections.
+- `make verify.scene.orchestrator.merge_priority.guard`
+  - Verifies orchestrator merge-priority spec is present (platform/base/profile/policy/provider/permission), compiler exposes stage verdict trace fields, and a minimal runtime compile sample keeps stage ordering intact.
+- `make verify.scene.orchestrator.key_scene_compile.guard`
+  - Verifies key sample scenes (`projects.list/projects.intake/workspace.home`) keep stable compile closure from native/base contract inputs to Scene-ready surfaces.
+  - Enforces per-scene expectations (`scene_type`, `bound_block_count`, `action_surface`, `search/workflow/validation` surfaces) via baseline `scripts/verify/baselines/scene_orchestrator_key_scene_compile_guard.json`.
+- `make verify.frontend.no_base_contract_direct_consume.guard`
+  - Verifies frontend source does not directly consume `ui_base_contract/base_contract` tokens and keeps scene rendering on `Scene-ready Contract` path.
+- `make verify.frontend.scene_governance_consumption.guard`
+  - Verifies frontend governance surfaces (`AppShell HUD` / `SceneHealth`) render `scene_ready_consumption` summary from `scene_governance_v1`.
+- `make verify.scene.validation_recovery_strategy.guard`
+  - Verifies scene validation recovery strategy is externalized and runtime-wired (`strategy module + session init hook + ContractFormPage consumer`).
+  - Enforces schema baseline from `scripts/verify/baselines/scene_validation_recovery_strategy_schema_guard.json`.
+- `make verify.scene.validation_recovery_strategy.payload_path.guard`
+  - Verifies source-priority path for strategy payload is stable (`params -> ext_facts -> icp` in backend, `top-level -> ext_facts fallback` in frontend session).
+- `make verify.scene.validation_recovery_strategy.e2e_smoke.guard`
+  - Verifies end-to-end wiring stays intact (`system.init output -> session runtime apply -> ContractFormPage suggested action`).
+  - Enforces behavior baseline from `scripts/verify/baselines/scene_validation_recovery_strategy_behavior_smoke_guard.json` (`open_record/open_action/open_scene`).
+- `make verify.scene.ui_base_contract_canonicalizer.guard`
+  - Verifies backend UI base contract canonicalizer is wired into producer/repository and keeps required sub-contract facts (`views/fields/search/permissions/workflow/validator/actions`).
+- `make verify.scene.orchestrator.scene_type_surface.guard`
+  - Verifies Scene Orchestrator consumes base facts by scene type (`form/list/kanban/workspace`) and shapes `search/workflow/validation` surfaces accordingly.
+- `make verify.scene.orchestrator.action_surface.guard`
+  - Verifies Scene Orchestrator emits scene-typed action surface buckets (`primary/secondary/contextual`) with stable counts.
+  - Verifies permission/workflow runtime gate can filter non-executable actions before surface output.
+  - Verifies runtime strategy override (`default/by_role/by_company/by_company_role`) can re-bucket/hide actions deterministically.
+- `make verify.scene.action_surface_strategy.wiring.guard`
+  - Verifies `system.init` can output `scene_action_surface_strategy` (`params -> ext_facts -> icp`) and inject strategy/role/company runtime into scene compile path.
+- `make verify.scene.action_surface_strategy.schema.guard`
+  - Enforces schema baseline from `scripts/verify/baselines/scene_action_surface_strategy_schema_guard.json` and strategy key whitelist (`force_primary/secondary/contextual/hide`).
+- `make verify.scene.action_surface_strategy.payload.guard`
+  - Verifies `system.init` payload baseline for `scene_action_surface_strategy` using live sample normalization against `scripts/verify/baselines/scene_action_surface_strategy_payload_guard.json`.
+  - Enforces top-level key whitelist (`default/by_role/by_company/by_company_role`) and strategy key whitelist (`force_primary_keys/force_secondary_keys/force_contextual_keys/hide_keys`).
+- `make verify.scene.action_surface_strategy.priority.guard`
+  - Verifies deterministic conflict precedence for action strategy layers (`default -> by_company -> by_role -> by_company_role`) using baseline sample.
+- `make verify.scene.action_surface_strategy.live_matrix.guard`
+  - Verifies multi-case conflict matrix for action strategy overlays across `default/by_company/by_role/by_company_role` combinations.
+  - Baseline file: `scripts/verify/baselines/scene_action_surface_strategy_live_matrix_guard.json`.
+  - Includes optional `system.init` output-driven live case; use `SC_SCENE_ACTION_STRATEGY_LIVE_MATRIX_REQUIRE_LIVE=1` to enforce live fetch.
+- `make verify.scene.ready.scene_type_consumption_metrics.guard`
+  - Verifies `scene_ready_contract_v1.meta.scene_type_consumption_metrics` is emitted with per-`scene_type` consumption/nonempty rates.
+- `make verify.scene.ready.consumption_trend.guard`
+  - Verifies trend baseline for `scene_governance_v1.scene_ready_consumption` aggregate rates and scene count/type floor.
+  - Baseline file: `scripts/verify/baselines/scene_ready_consumption_trend_guard.json`; state file: `artifacts/backend/scene_ready_consumption_trend_state.json`.
+- `make verify.scene.governance_history_report.guard`
+  - Aggregates `scene_asset_queue_trend_state` + `scene_ready_consumption_trend_state` into governance history report.
+  - Emits `artifacts/backend/scene_governance_history_report.json` and `artifacts/backend/scene_governance_history_report.md`.
+  - Enforces cross-trend policy alignment and capture-time skew threshold via `scripts/verify/baselines/scene_governance_history_report_guard.json`.
+- `make verify.scene.governance_history_archive.guard`
+  - Archives `scene_governance_history_report` by commit hash + timestamp under `artifacts/backend/history/scene_governance/`.
+  - Persists rolling history samples in `artifacts/backend/history/scene_governance_history_samples.jsonl`.
+  - Maintains branch+commit index at `artifacts/backend/history/scene_governance_index.json` and `.md`.
+  - Emits diff summary to `artifacts/backend/scene_governance_history_diff_summary.json` and `.md`.
+  - Baseline: `scripts/verify/baselines/scene_governance_history_archive_guard.json`.
+- `make verify.scene.registry_asset_snapshot.guard`
+  - Verifies real runtime scene snapshot (`system.init -> scene_ready_contract_v1`) for key scene coverage and base-contract binding.
+  - Persists live/fallback snapshot to `artifacts/backend/scene_registry_asset_snapshot_state.json` using baseline `scripts/verify/baselines/scene_registry_asset_snapshot_guard.json`.
+  - Use `SC_SCENE_REGISTRY_ASSET_SNAPSHOT_REQUIRE_LIVE=1` to force live fetch mode.
+  - Live fetch resilience knobs:
+    - `SC_SCENE_REGISTRY_ASSET_SNAPSHOT_FETCH_RETRIES` (default `2`)
+    - `SC_SCENE_REGISTRY_ASSET_SNAPSHOT_FETCH_BACKOFF_SEC` (default `1`)
+  - Optional strict-live fallback switch (explicitly opt-in):
+    - `SC_SCENE_REGISTRY_ASSET_SNAPSHOT_ALLOW_STATE_FALLBACK_ON_LIVE_FAIL=1`
+    - when enabled and prior state exists, guard records warning instead of hard fail on live timeout.
+- `make verify.scene.sample_registry_diff.guard`
+  - Builds a diff report between sample compile baseline (`scene_orchestrator_key_scene_compile_guard`) and real registry snapshot state.
+  - Emits `artifacts/backend/scene_sample_registry_diff_report.json` and `artifacts/backend/scene_sample_registry_diff_report.md`.
+  - Baseline: `scripts/verify/baselines/scene_sample_registry_diff_guard.json`; use `SC_SCENE_SAMPLE_REGISTRY_DIFF_REQUIRE_SCENES=1` for strict scene-count mode.
+- `make verify.scene.sample_registry_diff_trend.guard`
+  - Enforces trend growth thresholds on consecutive diff reports (`missing_required_scene_count/unexpected_scene_count/unbound_matched_scene_count`).
+  - Baseline: `scripts/verify/baselines/scene_sample_registry_diff_trend_guard.json`; state file: `artifacts/backend/scene_sample_registry_diff_trend_state.json`.
+  - Supports role-aware policy (`default` + `role.<role_code>` threshold override).
+- `make verify.contract.snapshot`
+  - Snapshot-structure baseline gate for scene contract shape + ordering determinism smoke.
+- `make verify.mode.filter`
+  - Verifies user/hud mode isolation (`contract_mode` behavior).
+- `make verify.capability.schema`
+  - Verifies capability payload schema and scene/capability contract cohesion.
+- `make verify.scene.schema`
+  - Verifies scene definition semantics + scene contract schema shape.
+- `make verify.seed.demo.isolation`
+  - Verifies provider layer does not depend on demo/seed modules and user-mode contract output does not leak demo/showcase semantics.
+- `make verify.seed.demo.import_boundary.guard`
+  - Static import guard for runtime paths; blocks imports from `smart_construction_demo` / `smart_construction_seed` in smart_core/core/scene/portal modules.
+- `make verify.seed.demo.import_boundary.guard`
+  - Static import guard: blocks runtime module imports from `smart_construction_demo` / `smart_construction_seed` in smart_core/core/scene/portal paths.
+- `make verify.contract.ordering.smoke`
+  - Verifies scene/capability sequence determinism across repeated `system.init` calls.
+- `make verify.contract.catalog.determinism`
+  - Verifies contract catalog exports are deterministic across repeated generations.
+- `make verify.system_init.runtime_context.stability`
+  - Verifies `system.init` RuntimeContext stability across three paths:
+    - user mode
+    - hud mode
+    - hud mode with critical injected path (`scene_inject_critical_error=1`)
+  - Artifacts:
+    - `artifacts/backend/system_init_runtime_context_stability.json`
+    - `artifacts/backend/system_init_runtime_context_stability.md`
+- `make verify.contract.envelope`
+  - Aggregates envelope consistency checks (`ok/data/meta`) across intent and contract API paths.
+- `make verify.contract.envelope.guard`
+  - Explicit runtime envelope guard for `login/system.init/ui.contract` intent responses (`ok/data/meta`).
+- `make verify.baseline.policy_integrity.guard`
+  - Verifies required governance policy baseline JSON files exist and are valid objects.
+- `make verify.backend.architecture.full`
+  - One-command backend governance gate (smart_core/app_config_engine boundary + backend boundary + envelope + mode + scene/capability schema + seed/demo isolation + catalog/runtime alignment + prod-like role fixtures + assembler semantic smoke + runtime surface dashboard report + snapshot determinism + RuntimeContext stability + governance coverage + HUD trace smokes).
+  - Optional strict runtime-surface warning gate: `SC_RUNTIME_SURFACE_STRICT=1 make verify.backend.architecture.full`.
+  - Optional strict phase-next aggregate gate: `SC_PHASE_NEXT_STRICT=1 make verify.backend.architecture.full`.
+  - Always emits consolidated summary artifacts:
+    - `artifacts/backend/backend_architecture_full_report.json`
+    - `artifacts/backend/backend_architecture_full_report.md`
+- `make verify.platform.kernel.ready`
+  - Release-focused kernel closure gate (capability provider/registry + intent envelope smoke + write permission audit + auto-degrade smoke + scene drift smoke + ETag validation + intent/scene/capability audit reports).
+  - Includes backend evidence manifest guard for release-critical artifact integrity.
+- `make verify.backend.architecture.full.report`
+  - Generates consolidated backend architecture evidence summary from phase-next and governance artifacts.
+  - Includes business capability baseline check summary (`required_intent_count`, `required_role_count`, `catalog_runtime_ratio`).
+  - Includes platform core boundary contract checks (`smart_core_boundary_contract`, `app_config_engine_boundary_contract`).
+  - Output check list is sorted by check name for deterministic diff.
+- `make verify.backend.architecture.full.report.schema.guard`
+  - Schema guard for `backend_architecture_full_report.json` and required check-set coverage.
+  - Baseline: `scripts/verify/baselines/backend_architecture_full_report_schema_guard.json`.
+- `make verify.backend.architecture.full.report.guard`
+  - Baseline policy guard for full report health signals (check count, failed/warning budget, coverage ratio, alignment ratio).
+  - Baseline: `scripts/verify/baselines/backend_architecture_full_report_guard.json`.
+  - Enforces additional business capability floors from full report:
+    - `min_business_required_intent_count`
+    - `min_business_required_role_count`
+    - `min_business_catalog_runtime_ratio`
+  - Artifacts (`ARTIFACTS_DIR/backend`, fallback `artifacts/backend`):
+    - `backend_architecture_full_report_guard.json`
+    - `backend_architecture_full_report_guard.md`
+- `make verify.backend.architecture.full.report.guard.schema.guard`
+  - Schema guard for full-report guard artifact fields (`summary` + `observed`) and deterministic key coverage.
+  - Baseline: `scripts/verify/baselines/backend_architecture_full_report_guard_schema_guard.json`.
+- `make verify.backend.evidence.manifest`
+  - Generates deterministic backend evidence manifest (`path`/`exists`/`size_bytes`/`sha256`) for release-critical artifacts.
+  - Summary includes native-view semantic guard status:
+    - `summary.native_view_semantic_shape_ok`
+    - `summary.native_view_semantic_schema_ok`
+  - Baseline: `scripts/verify/baselines/backend_evidence_manifest_guard.json`.
+  - Artifacts (`ARTIFACTS_DIR/backend`, fallback `artifacts/backend`):
+    - `backend_evidence_manifest.json`
+    - `backend_evidence_manifest.md`
+- `make verify.backend.evidence.manifest.guard`
+  - Enforces evidence manifest policy (`required_artifacts`, missing budget, minimal total size, checksum format).
+- Manifest required artifacts include `artifacts/business_capability_baseline_report.json`.
+- `make verify.backend.evidence.manifest.schema.guard`
+  - Schema/determinism guard for manifest structure (summary consistency, sorted paths, size accounting).
+- `make verify.scene.catalog.runtime_alignment.guard`
+  - Verifies scene catalog export scope/size remains explainable against runtime `system.init` scene surface using baseline policy.
+  - Baseline: `scripts/verify/baselines/scene_catalog_runtime_alignment.json`.
+  - Artifacts:
+    - `artifacts/scene_catalog_runtime_alignment_guard.json`
+    - `artifacts/scene_catalog_runtime_alignment_guard.md`
+- `make verify.scene.catalog.source.guard`
+  - Verifies scene catalog source metadata invariants (`scene_catalog_scope` / `scene_catalog_semantics` / `scene_contract_scene_count`).
+  - Artifact:
+    - `artifacts/scene_catalog_source_guard.json`
+- `make verify.scene.catalog.governance.guard`
+  - Aggregates scene catalog governance checks:
+    - `verify.scene.catalog.source.guard`
+    - `verify.scene.catalog.runtime_alignment.guard`
+- `make verify.business.core_journey.guard`
+  - Verifies business-critical intent chain coverage from `intent_catalog` against baseline (`required_intents` + `min_test_refs`).
+  - Baseline: `scripts/verify/baselines/business_core_journey_guard.json`.
+  - Artifacts:
+    - `artifacts/business_core_journey_guard.json`
+    - `artifacts/business_core_journey_guard.md`
+- `make verify.role.capability_floor.guard`
+  - Verifies role capability floors from `scene_capability_contract_guard` samples against baseline (`required_roles` + `min_capabilities`).
+  - Baseline: `scripts/verify/baselines/role_capability_floor_guard.json`.
+  - Artifacts:
+    - `artifacts/role_capability_floor_guard.json`
+    - `artifacts/role_capability_floor_guard.md`
+- `make verify.role.capability_floor.prod_like`
+  - Creates/updates sanitized prod-like fixture users (>=6 roles, no demo dependency) and verifies per-role capability floors + key journey intents.
+  - Baseline: `scripts/verify/baselines/role_capability_floor_prod_like.json`.
+  - Artifacts (`ARTIFACTS_DIR/backend`, fallback `artifacts/backend`):
+    - `role_capability_floor_prod_like.json`
+    - `role_capability_floor_prod_like.md`
+- `make verify.role.capability_floor.prod_like.schema.guard`
+  - Schema/determinism guard for `role_capability_floor_prod_like.json` evidence structure.
+- `make verify.contract.assembler.semantic.smoke`
+  - Semantic smoke checks for contract assembler outputs (`system.init` + `ui.contract`) across pm/executive roles in user/hud modes.
+  - Baseline: `scripts/verify/baselines/contract_assembler_semantic_smoke.json`.
+  - Artifacts (`ARTIFACTS_DIR/backend`, fallback `artifacts/backend`):
+    - `contract_assembler_semantic_smoke.json`
+    - `contract_assembler_semantic_smoke.md`
+- `make verify.contract.assembler.semantic.schema.guard`
+  - Schema/determinism guard for `contract_assembler_semantic_smoke.json` evidence structure.
+- `make verify.runtime.surface.dashboard.report`
+  - Emits runtime scenes/capabilities dashboard vs catalog snapshot scope with threshold warnings (warning-only, non-blocking).
+  - Baseline: `scripts/verify/baselines/runtime_surface_dashboard_report.json`.
+  - Baseline snapshot (for diff): `scripts/verify/baselines/runtime_surface_dashboard_baseline_snapshot.json`.
+  - Artifacts (`ARTIFACTS_DIR/backend`, fallback `artifacts/backend`):
+    - `runtime_surface_dashboard_report.json`
+    - `runtime_surface_dashboard_report.md`
+- `make verify.runtime.surface.dashboard.schema.guard`
+  - Schema guard for runtime surface dashboard evidence structure and warning count consistency.
+- `make verify.runtime.surface.dashboard.strict.guard`
+  - Optional strict warning gate for runtime surface dashboard report.
+  - Uses `SC_RUNTIME_SURFACE_WARN_MAX` as warning threshold (default: `0`).
+- `make verify.phase_next.evidence.bundle`
+  - Aggregate target for phase-next evidence chain:
+    - prod-like role fixture evidence + schema guard
+    - contract assembler semantic smoke + schema guard
+    - runtime surface dashboard report + schema guard
+    - native view semantic page guard (`shape + schema`)
+    - unified page contract v2 aggregate guard, including runtime unit tests, mobile compact contract tests, frontend strict typecheck and static build
+- `make verify.phase_next.evidence.bundle.strict`
+  - Strict aggregate target:
+    - `verify.phase_next.evidence.bundle`
+    - `verify.runtime.surface.dashboard.strict.guard`
+    - `verify.backend.architecture.full.report.guard`
+    - `verify.backend.evidence.manifest.guard`
+- `make verify.native_view.semantic_page`
+  - Aggregated native-view contract guard:
+    - `verify.native_view.semantic_page.shape`
+    - `verify.native_view.semantic_page.schema`
+- `make verify.native_view.coverage.report`
+  - Generates native-view contract coverage report:
+    - `artifacts/backend/native_view_coverage_report.json`
+    - `artifacts/backend/native_view_coverage_report.md`
+- `make verify.native_view.samples.compare`
+  - Generates 8-case native-view sample compare report:
+    - `artifacts/backend/native_view_sample_compare_report.json`
+    - `artifacts/backend/native_view_sample_compare_report.md`
+- `make verify.native_view.ecosystem.readiness`
+  - Generates ecosystem readiness report (20+ sample target tracking):
+    - `artifacts/backend/native_view_ecosystem_readiness_report.json`
+    - `artifacts/backend/native_view_ecosystem_readiness_report.md`
+- `make verify.business.capability_baseline.guard`
+  - Aggregates business capability baselines:
+    - `verify.scene.catalog.runtime_alignment.guard`
+    - `verify.business.core_journey.guard`
+    - `verify.role.capability_floor.guard`
+    - `verify.business.capability_baseline.report.guard`
+  - Summary artifacts:
+    - `artifacts/business_capability_baseline_report.json`
+    - `artifacts/business_capability_baseline_report.md`
+- `make verify.business.capability_baseline.report.guard`
+  - Policy guard for business capability baseline summary (failed/error budgets + minimum intent/role/ratio floors).
+  - Baselines:
+    - `scripts/verify/baselines/business_capability_baseline_snapshot.json`
+    - `scripts/verify/baselines/business_capability_baseline_report_guard.json`
+- `make verify.business.capability_baseline.report.schema.guard`
+  - Schema/determinism guard for baseline report summary + delta fields and sorted check ordering.
+- `make verify.contract.evidence.guard`
+  - Exports and validates contract evidence bundle including runtime alignment, business capability baseline, prod-like role fixture floor, contract assembler semantic smoke, runtime surface dashboard summary, backend architecture full summary, and backend evidence manifest summary.
+  - Evidence now includes `native_view_semantic_guard` summary from:
+    - `artifacts/backend/native_view_semantic_page_shape_guard.json`
+    - `artifacts/backend/native_view_semantic_page_schema_guard.json`
+  - Baseline policy: `scripts/verify/baselines/contract_evidence_guard_baseline.json`.
+  - Business baseline floors in policy:
+    - `min_business_required_intent_count`
+    - `min_business_required_role_count`
+    - `min_business_catalog_runtime_ratio`
+- `make verify.contract.evidence.schema.guard`
+  - Schema guard for `phase11_1_contract_evidence.json` required sections and required section keys.
+  - Baseline: `scripts/verify/baselines/contract_evidence_schema_guard.json`.
+  - Artifacts:
+    - `artifacts/contract/phase11_1_contract_evidence.json`
+    - `artifacts/contract/phase11_1_contract_evidence.md`
+- `make verify.business.shape.guard`
+  - AST guard: blocks runtime shape assembly keys (`scenes/capabilities/layout/tiles`) in `smart_construction_core/handlers`.
+- `make verify.scene.provider.guard`
+  - Verifies SceneProvider runtime boundary policy from baseline (`scripts/verify/baselines/scene_provider_guard.json`):
+    - required provider symbols
+    - importer allowlist
+    - forbidden business/demo/seed imports in provider
+- `make verify.capability.provider.guard`
+  - Verifies CapabilityProvider runtime boundary policy from baseline (`scripts/verify/baselines/capability_provider_guard.json`):
+    - required provider symbols
+    - importer allowlist
+    - forbidden `smart_construction_*` imports in provider
+- `make verify.backend.boundary_guard`
+  - Verifies extension/controller runtime boundary policy from baseline (`scripts/verify/baselines/backend_boundary_guard.json`):
+    - extension hook write namespace allowlist (`data.ext_facts`)
+    - controller forbidden runtime route/import patterns
+    - system-init direct scene-registry import prohibition
+- `make verify.controller.delegate.guard`
+  - AST guard: route methods in `smart_construction_core/controllers` must not directly return runtime envelope/runtime-shape dicts (except governance allowlist controllers).
+- `make verify.controller.allowlist.routes.guard`
+  - AST guard: allowlist controllers (`frontend_api.py` / `scene_template_controller.py` / `pack_controller.py`) may expose only explicit approved route set.
+- `make verify.controller.route.policy.guard`
+  - AST guard: allowlist controller routes must keep approved policy (`type/auth/methods/csrf`, plus `cors=*` for `frontend_api.py`).
+- `make verify.controller.boundary.guard`
+  - Aggregates controller boundary checks (`delegate` + `allowlist routes` + `route policy`) and emits a summary artifact report.
+  - Includes baseline guard: `scripts/verify/baselines/controller_boundary_guard_baseline.json`.
+  - Artifacts:
+    - `artifacts/controller_delegate_guard.json`
+    - `artifacts/controller_allowlist_routes_guard.json`
+    - `artifacts/controller_route_policy_guard.json`
+    - `artifacts/controller_boundary_guard_report.json`
+    - `artifacts/controller_boundary_guard_report.md`
+- Guard coverage matrix:
+  - `docs/ops/verify/backend_architecture_guard_matrix.md`
+
+## Phase 9.8 Menu/Scene Coverage
+- `make verify.menu.scene_resolve.container`
+- `make verify.menu.scene_resolve.summary`
+- `make verify.menu.navigation_snapshot.container`
+  - Calls `/api/menu/navigation` and validates required `nav_explained.flat/tree` fields:
+    - `scene_key`
+    - `native_action_id`
+    - `native_model`
+    - `native_view_mode`
+    - `confidence`
+    - `compatibility_used`
+  - Writes:
+    - `artifacts/codex/menu-navigation-field-snapshot/<timestamp>/summary.json`
+    - `artifacts/codex/menu-navigation-field-snapshot/<timestamp>/nav_explained.json`
+- `make verify.menu.navigation_snapshot`
+  - Host-mode equivalent.
+  - Use `BASE_URL=http://127.0.0.1:8070` for the standard host Odoo port.
+  - If container-owned artifact directories block host writes, set a separate `ARTIFACTS_DIR`, for example `ARTIFACTS_DIR=artifacts/codex-host`.
+- `make verify.portal.scene_warnings_guard.container`
+- `make verify.portal.scene_warnings_limit.container`
+- `make verify.portal.act_url_missing_scene_report.container`
+- `make verify.phase_9_8.gate_summary`
+  - Aggregates latest menu/scene artifacts:
+    - `portal-menu-scene-resolve/*/menu_scene_resolve.json`
+    - `menu-navigation-field-snapshot/*/summary.json`
+    - `portal-scene-warnings/*/warnings.json`
+  - `gate.full` strict mode runs `verify.menu.navigation_snapshot.container` before this summary so the navigation field evidence is fresh.
+
+## Phase D/E Cross-Stack Envelope Coverage
+- `make verify.portal.envelope_smoke.container`
+  - Aggregates:
+    - `make verify.portal.scene_contract_smoke.container`
+    - `make verify.portal.my_work_smoke.container`
+    - `make verify.portal.execute_button_smoke.container`
+    - `make verify.portal.cross_stack_contract_smoke.container`
+  - Enforces intent envelope checks (`ok=true`) and `meta.trace_id` presence.
+
+## Scene Observability Strict Mode
+- Default smoke targets remain compatibility-friendly and may skip when governance/audit models are unavailable:
+  - `make verify.portal.scene_observability_preflight.refresh.container DB_NAME=<name>`
+  - `make verify.portal.scene_observability_preflight_smoke.container`
+  - `make verify.portal.scene_observability_preflight.latest`
+  - `make verify.portal.scene_governance_action_smoke.container`
+  - `make verify.portal.scene_auto_degrade_smoke.container`
+  - `make verify.portal.scene_auto_degrade_notify_smoke.container`
+  - `make verify.portal.scene_package_import_smoke.container`
+  - Aggregate:
+    - `make verify.portal.scene_observability_smoke.container`
+- Strict variants enforce governance/audit artifacts and fail fast when evidence is missing:
+  - `make verify.portal.scene_observability.structure_guard`
+  - Baseline update:
+    - `make verify.portal.scene_observability.structure_guard.update`
+  - `make verify.portal.scene_observability_preflight.container` (`SCENE_OBSERVABILITY_PREFLIGHT_STRICT=1`)
+  - `make verify.portal.scene_observability_preflight.report.strict`
+  - `make verify.portal.scene_governance_action_strict.container`
+  - `make verify.portal.scene_auto_degrade_strict.container`
+  - `make verify.portal.scene_auto_degrade_notify_strict.container`
+  - `make verify.portal.scene_package_import_strict.container`
+- One-command strict aggregate:
+  - `make verify.portal.scene_observability_strict.container`
+- Gate-friendly smoke aggregate (structure guard + preflight smoke + smoke chain):
+  - `make verify.portal.scene_observability_gate_smoke.container`
+- UI semantic suite strict variant:
+  - `make verify.portal.ui.v0_8.semantic.strict.container`
+
+## Demo Baseline
+- `make verify.demo`
+
+## Stage 3 Approval MVP
+- Cross-stack payment request approval smoke:
+  - `make verify.portal.payment_request_approval_smoke.container`
+  - Prepare step supports restart-only mode (skip module upgrade):
+    - `PAYMENT_APPROVAL_NEED_UPGRADE=0 make verify.portal.payment_request_approval_smoke.container`
+  - Shared prepare step can be skipped when already prepared:
+    - `PAYMENT_APPROVAL_SKIP_PREPARE=1 make verify.portal.payment_request_approval_smoke.container`
+  - Covers login -> `api.data` payment request discovery -> `payment.request.submit` -> `payment.request.approve`.
+  - Live path selection is action-surface aware:
+    - probes `payment.request.available_actions` and prefers records with executable actions
+    - reports `primary_action_key`, `allowed_actions`, and `blocked_reason_summary`
+    - reports `executable_actions` and `live_no_executable_actions`
+    - legacy key `live_no_allowed_actions` has been removed in N+2
+    - downstream parser should read only:
+      - `bool(summary.get("live_no_executable_actions", False))`
+  - Default credential source for this smoke is finance-role-first:
+    - `ROLE_FINANCE_LOGIN` / `ROLE_FINANCE_PASSWORD` (defaults: `demo_role_finance` / `demo`)
+    - falls back to `E2E_LOGIN` / `E2E_PASSWORD` only when role vars are unset.
+  - Optional env knobs:
+    - `PAYMENT_REQUEST_SMOKE_AUTO_CREATE=1` (default): auto-create minimal payment request + attachment when no live record is available.
+    - `PAYMENT_REQUEST_SMOKE_REQUIRE_LIVE=1`: fail if smoke cannot enter live-record path.
+- Cross-role handoff smoke (finance -> executive -> finance):
+  - `make verify.portal.payment_request_approval_handoff_smoke.container`
+  - Shared prepare step can be skipped when already prepared:
+    - `PAYMENT_APPROVAL_SKIP_PREPARE=1 make verify.portal.payment_request_approval_handoff_smoke.container`
+  - Verifies a delivery-grade handoff path:
+    - finance executes `payment.request.execute` with `submit`
+    - executive executes one allowed follow-up action (`approve` preferred, fallback `reject`)
+    - finance re-probes available actions and executes `done` when allowed
+  - Optional env knob:
+    - `PAYMENT_REQUEST_HANDOFF_EXEC_ACTION_ORDER=approve,reject` (default)
+- One-command sequential aggregate (single upgrade/restart + both smokes):
+  - `make verify.portal.payment_request_approval_all_smoke.container`
+  - Use this target in CI/local when running both approval smokes to avoid concurrent `mod.upgrade` conflicts on the same DB.
+  - Includes deprecated-field consumer audit at tail.
+    - Default: non-blocking (warn only if audit fails).
+    - Strict block mode:
+      - `PAYMENT_APPROVAL_FIELD_AUDIT_STRICT=1 make verify.portal.payment_request_approval_all_smoke.container`
+- Deprecated-field consumer audit (N+1 migration prep):
+  - `make verify.portal.payment_request_approval_field_consumer_audit`
+  - Reports:
+    - `artifacts/backend/payment_request_approval_field_consumer_audit.json`
+    - `artifacts/backend/payment_request_approval_field_consumer_audit.md`
+- Payment form delivery UX notes (frontend):
+  - Blocked actions can run `suggested_action` directly from form hint area.
+  - Action feedback shows trace/request evidence and supports one-click copy.
+  - Shortcuts:
+    - `Ctrl+Enter`: run primary allowed semantic action
+    - `Alt+R`: retry last semantic action
+  - Action-surface freshness is visible and can be manually refreshed in form.
+  - Action history supports reason-code filtering and per-entry evidence copy.
+  - Optional action-surface auto-refresh is available in form UX.
+  - Action feedback can be explicitly dismissed by user.
+
+## Baseline Semantics
+- Platform baseline (environment/bootstrap consistency)
+  - `make verify.platform_baseline`
+  - `make gate.platform_baseline`
+  - Legacy compatibility:
+    - `make verify.baseline` (same as platform baseline)
+    - `make gate.baseline` (same as platform baseline gate)
+- Business baseline (core+seed install + business usable checks)
+  - `make verify.business_baseline`
+  - `make gate.business_baseline`
+  - Legacy compatibility:
+    - `make verify.p0.flow` (same as business baseline verification)
+- One-command aggregate
+  - `make verify.baseline.all` (platform + business)
+  - `make gate.baseline.all` (platform gate + business gate)
+
+## smart_core Minimum Surface
+- Baseline document:
+  - `docs/ops/smart_core_platform_minimum_surface_v1.md`
+- Guard-A0 (legacy group sunset; REQUIRED_GROUPS must not reference legacy/industry groups):
+  - `make verify.smart_core.minimum_surface.legacy_group_guard`
+- Guard-A (minimum handler presence + alias surface):
+  - `make verify.smart_core.minimum_surface.handler_guard`
+- Guard-B (minimum contract/envelope chain):
+  - `make verify.smart_core.minimum_surface.contract_guard`
+- Smoke-C (owner-only startup chain):
+  - `make verify.smart_core.minimum_surface.owner_startup_smoke`
+- Regression-D (same-route residency behavior for app shell open):
+  - `make verify.smart_core.minimum_surface.same_route_guard`
+- Regression-E (minimum-surface app selection order independence):
+  - `make verify.smart_core.minimum_surface.order_regression_guard`
+- Regression-F (app.open fallback when first feature is not openable):
+  - `make verify.smart_core.minimum_surface.app_open_regression_guard`
+- Regression-G (platform-only nav isolation; sidebar must not leak industry scenes):
+  - `make verify.smart_core.minimum_surface.nav_isolation_guard`
+- Aggregate:
+  - `make verify.smart_core.minimum_surface`
+
+## Business Increment Preflight
+- Readiness report (non-blocking):
+  - `make verify.business.increment.readiness`
+  - optional profile: `BUSINESS_INCREMENT_PROFILE=base|strict`
+- Readiness brief (non-blocking):
+  - `make verify.business.increment.readiness.brief`
+- Readiness report (blocking):
+  - `make verify.business.increment.readiness.strict`
+- Readiness brief (blocking):
+  - `make verify.business.increment.readiness.brief.strict`
+- One-command preflight (refresh catalogs + scene shape + intent surface + readiness):
+  - `make verify.business.increment.preflight`
+- Strict preflight:
+  - `make verify.business.increment.preflight.strict`
+  - strict profile enforces `renderability_fully_renderable=true`, required core `intents` / `scene_keys`, required `test_refs` coverage, behavioral coverage completeness (`examples + request/response hints`), and reason-code coverage for selected side-effect intents.
+- Policy source:
+  - `scripts/verify/baselines/business_increment_readiness_policy.json`
+  - strict profile also emits warning when untested intents exceed `warning_untested_limit`.
+
+## Notes
+- Typical env: `DB_NAME=sc_demo E2E_LOGIN=svc_e2e_smoke E2E_PASSWORD=demo`.
+- Phase 9.8 warnings baseline can be adjusted via `SC_WARN_ACT_URL_LEGACY_MAX`.
+- Menu exemptions file: `docs/ops/verify/menu_scene_exemptions.yml`.
+- Menu scene resolve enforcement scope (default business namespace only):
+  - `MENU_SCENE_ENFORCE_PREFIXES=smart_construction_core.,smart_construction_demo.,smart_construction_portal.`
+  - Set `MENU_SCENE_ENFORCE_PREFIXES=` (empty) to enforce all namespaces (including Odoo technical menus).
+- Menu navigation field snapshot defaults:
+  - container mode uses `API_BASE=http://localhost:8069` and writes to `/mnt/artifacts/codex/menu-navigation-field-snapshot/<timestamp>`.
+  - host mode uses `BASE_URL`/`API_BASE` and defaults to `http://localhost:8070`.
+- Strict failure guide: `docs/ops/verify/scene_observability_troubleshooting.md`.
+- Baseline freeze guard:
+  - `make verify.baseline.freeze_guard`
+  - Temporary bypass in approved exception PR only:
+    - `BASELINE_FREEZE_ALLOW=1 make verify.baseline.freeze_guard`

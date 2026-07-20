@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+
+        <record id="view_payment_request_line_tree" model="ir.ui.view">
+            <field name="name">payment.request.line.tree</field>
+            <field name="model">payment.request.line</field>
+            <field name="arch" type="xml">
+                <tree string="付款申请明细" create="false" delete="false">
+                    <field name="request_id"/>
+                    <field name="sequence"/>
+                    <field name="project_id"/>
+                    <field name="partner_id"/>
+                    <field name="contract_id"/>
+                    <field name="settlement_id"/>
+                    <field name="source_document_no"/>
+                    <field name="source_line_type"/>
+                    <field name="source_counterparty_text"/>
+                    <field name="source_contract_no"/>
+                    <field name="amount" sum="明细金额合计"/>
+                    <field name="paid_before_amount" sum="历史已付合计"/>
+                    <field name="remaining_amount" sum="历史未付合计"/>
+                    <field name="current_pay_amount" sum="本次申请合计"/>
+                    <field name="attachment_count"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_payment_request_line_form" model="ir.ui.view">
+            <field name="name">payment.request.line.form</field>
+            <field name="model">payment.request.line</field>
+            <field name="arch" type="xml">
+                <form string="付款申请明细" create="false" delete="false">
+                    <sheet>
+                        <div class="oe_button_box" name="button_box">
+                            <button name="action_open_attachments"
+                                    string="附件"
+                                    type="object"
+                                    class="oe_stat_button"
+                                    icon="fa-paperclip">
+                                <field name="attachment_count" widget="statinfo"/>
+                            </button>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="request_id" readonly="1"/>
+                                <field name="sequence"/>
+                                <field name="project_id" readonly="1"/>
+                                <field name="partner_id" readonly="1"/>
+                                <field name="contract_id"/>
+                                <field name="settlement_id" readonly="1"/>
+                                <field name="source_document_no"/>
+                                <field name="source_line_type"/>
+                                <field name="source_counterparty_text"/>
+                                <field name="source_contract_no"/>
+                            </group>
+                        </group>
+                        <group string="历史来源">
+                            <field name="import_batch" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="amount"/>
+                            <field name="paid_before_amount"/>
+                            <field name="remaining_amount"/>
+                            <field name="current_pay_amount"/>
+                        </group>
+                        <group>
+                            <field name="note"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_payment_request_line_search" model="ir.ui.view">
+            <field name="name">payment.request.line.search</field>
+            <field name="model">payment.request.line</field>
+            <field name="arch" type="xml">
+                <search string="付款申请明细">
+                    <field name="request_id"/>
+                    <field name="project_id"/>
+                    <field name="partner_id"/>
+                    <field name="contract_id"/>
+                    <group expand="0" string="分组">
+                        <filter string="付款申请" name="group_by_request_id" context="{'group_by': 'request_id'}"/>
+                        <filter string="项目" name="group_by_project_id" context="{'group_by': 'project_id'}"/>
+                        <filter string="供应合同" name="group_by_contract_id" context="{'group_by': 'contract_id'}"/>
+                        <filter string="结算单" name="group_by_settlement_id" context="{'group_by': 'settlement_id'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_payment_request_line" model="ir.actions.act_window">
+            <field name="name">付款申请明细</field>
+            <field name="res_model">payment.request.line</field>
+            <field name="view_mode">tree,form</field>
+            <field name="search_view_id" ref="view_payment_request_line_search"/>
+            <field name="context">{'search_default_group_by_request_id': 1}</field>
+            <field name="groups_id" eval="[(6, 0, [
+                ref('smart_construction_core.group_sc_cap_finance_read'),
+                ref('smart_construction_core.group_sc_cap_finance_user'),
+                ref('smart_construction_core.group_sc_cap_finance_manager'),
+            ])]"/>
+        </record>
+
+        <menuitem id="menu_payment_request_line"
+                  name="付款申请明细"
+                  parent="smart_construction_core.menu_sc_finance_center"
+                  action="action_payment_request_line"
+                  sequence="26"
+                  groups="smart_construction_core.group_sc_cap_finance_read,smart_construction_core.group_sc_cap_finance_user,smart_construction_core.group_sc_cap_finance_manager"/>
+
+    </data>
+</odoo>

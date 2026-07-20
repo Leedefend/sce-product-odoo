@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "product_modules": [
+    "smart_construction_bootstrap",
+    "smart_core",
+    "smart_scene",
+    "smart_construction_core",
+    "smart_construction_portal",
+    "smart_construction_scene",
+    "smart_license_core",
+    "smart_owner_core",
+    "smart_owner_bundle",
+    "smart_construction_bundle",
+    "smart_construction_seed"
+  ],
+  "demo_modules": [
+    "smart_construction_bootstrap",
+    "smart_core",
+    "smart_scene",
+    "smart_construction_core",
+    "smart_construction_portal",
+    "smart_construction_scene",
+    "smart_license_core",
+    "smart_owner_core",
+    "smart_owner_bundle",
+    "smart_construction_bundle",
+    "smart_construction_seed",
+    "smart_construction_demo"
+  ],
+  "acceptance_modules": [
+    "smart_construction_bootstrap",
+    "smart_core",
+    "smart_scene",
+    "smart_construction_core",
+    "smart_construction_portal",
+    "smart_construction_scene",
+    "smart_license_core",
+    "smart_owner_core",
+    "smart_owner_bundle",
+    "smart_construction_bundle",
+    "smart_construction_seed",
+    "smart_construction_acceptance_fixture"
+  ],
+  "customer_extension_modules": [
+    "${SC_CUSTOMER_MODULE}"
+  ],
+  "customer_addons_root_env": "SC_CUSTOMER_ADDONS_ROOT",
+  "customer_module_env": "SC_CUSTOMER_MODULE",
+  "forbidden_implicit_modules": [
+    "smart_construction_demo",
+    "smart_construction_acceptance_fixture"
+  ]
+}

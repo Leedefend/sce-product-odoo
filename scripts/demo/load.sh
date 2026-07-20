@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="${ROOT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+export ROOT_DIR
+
+# shellcheck source=../common/env.sh
+source "$ROOT_DIR/scripts/common/env.sh"
+# shellcheck source=../common/guard_prod.sh
+source "$ROOT_DIR/scripts/common/guard_prod.sh"
+# shellcheck source=../common/compose.sh
+source "$ROOT_DIR/scripts/common/compose.sh"
+source "$ROOT_DIR/scripts/common/demo_data_guard.sh"
+
+: "${DB_NAME:?DB_NAME is required}"
+: "${SCENARIO:?SCENARIO is required. e.g. SCENARIO=s10_contract_payment}"
+
+guard_prod_forbid
+guard_demo_data_scope
+
+printf '[demo.load] db=%s scenario=%s step=%s\n' "$DB_NAME" "$SCENARIO" "${STEP:-}"
+
+compose_dev run --rm -T \
+  -e SC_ENVIRONMENT \
+  -e SC_ALLOW_DEMO_DATA \
+  -e SC_DEMO_USER_PASSWORD \
+  -e SCENARIO="$SCENARIO" \
+  -e STEP="${STEP:-}" \
+  --entrypoint /usr/bin/odoo odoo \
+  shell --config="$ODOO_CONF" \
+  -d "$DB_NAME" \
+  --db_host=db --db_port=5432 --db_user="$DB_USER" --db_password="$DB_PASSWORD" \
+  --addons-path=/usr/lib/python3/dist-packages/odoo/addons,/mnt/source-addons,/mnt/extra-addons,"$ADDONS_EXTERNAL_MOUNT" \
+  --no-http --workers=0 --max-cron-threads=0 \
+<<'PY'
+import os
+from odoo.addons.smart_construction_demo.tools.scenario_loader import load_scenario
+
+scenario = os.environ["SCENARIO"]
+step = os.environ.get("STEP") or None
+print("[demo.load] loading scenario:", scenario, "step:", step)
+load_scenario(env, scenario, mode="update", step=step)
+print("[demo.load] done")
+PY
+
+if [ "${DEMO_RESTART_AFTER_LOAD:-1}" = "1" ]; then
+  printf '[demo.load] restart odoo to refresh ACL/menu caches\n'
+  compose_dev up -d --force-recreate "${ODOO_SERVICE:-odoo}"
+fi

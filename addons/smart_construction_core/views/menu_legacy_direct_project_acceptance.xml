@@ -1,0 +1,5 @@
+<odoo>
+    <data>
+        <menuitem id="menu_sc_user_acceptance_root" name="用户验收" parent="smart_construction_core.menu_sc_root" sequence="85" />
+    </data>
+</odoo>

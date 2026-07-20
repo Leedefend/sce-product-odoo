@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source "$(dirname "$0")/../_lib/common.sh"
+
+ROOT_DIR="${ROOT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+PROD_SIM_MODULES="${PROD_SIM_MODULES:-$(python3 "$ROOT_DIR/scripts/ops/tenant_module_set.py" product)}"
+
+if [[ ",${PROD_SIM_MODULES}," == *",smart_construction_demo,"* && "${SC_ALLOW_DEMO_DATA:-}" != "1" ]]; then
+  echo "❌ prod-sim deploy refuses smart_construction_demo. Set SC_ALLOW_DEMO_DATA=1 only for an intentional demo rebuild." >&2
+  exit 2
+fi
+
+log "prod-sim deploy: build frontend (containerized)"
+docker run --rm \
+  -v "${ROOT_DIR}:/workspace" \
+  -w /workspace/frontend \
+  node:20-bookworm \
+  sh -lc "corepack enable && pnpm install --frozen-lockfile && VITE_API_BASE_URL= VITE_ODOO_DB=${DB_NAME} VITE_APP_ENV=prod-sim pnpm build"
+
+log "prod-sim deploy: validate compose manifest"
+# shellcheck disable=SC2086
+compose ${COMPOSE_FILES} config >/dev/null
+
+log "prod-sim deploy: start compose stack"
+# shellcheck disable=SC2086
+compose ${COMPOSE_FILES} up -d --build
+
+log "prod-sim deploy: current status"
+# shellcheck disable=SC2086
+compose ${COMPOSE_FILES} ps
+
+log "prod-sim deploy: install production module set"
+# shellcheck disable=SC2086
+compose ${COMPOSE_FILES} exec -T odoo odoo \
+  -d "${DB_NAME}" \
+  -c /var/lib/odoo/odoo.conf \
+  -i "${PROD_SIM_MODULES}" \
+  --load-language="${SC_RUNTIME_LANG:-zh_CN}" \
+  --without-demo=all \
+  --stop-after-init
+
+log "prod-sim deploy: apply extension module registry"
+DB_NAME="${DB_NAME}" COMPOSE_FILES="${COMPOSE_FILES}" scripts/ops/apply_extension_modules.sh
+
+log "prod-sim deploy: ensure runtime language baseline"
+DB_NAME="${DB_NAME}" COMPOSE_FILES="${COMPOSE_FILES}" SC_RUNTIME_LANG="${SC_RUNTIME_LANG:-zh_CN}" \
+  scripts/ops/odoo_shell_exec.sh < scripts/ops/ensure_runtime_language_baseline.py
+
+log "prod-sim deploy: restart odoo after module install"
+# shellcheck disable=SC2086
+compose ${COMPOSE_FILES} restart odoo
+
+log "prod-sim deploy: platform initialization preflight"
+DB_NAME="${DB_NAME}" COMPOSE_FILES="${COMPOSE_FILES}" scripts/verify/platform_init_preflight.sh
+
+log "prod-sim deploy: runtime language baseline probe"
+DB_NAME="${DB_NAME}" COMPOSE_FILES="${COMPOSE_FILES}" SC_RUNTIME_LANG="${SC_RUNTIME_LANG:-zh_CN}" \
+  scripts/ops/odoo_shell_exec.sh < scripts/verify/runtime_language_baseline_probe.py
+
+log "prod-sim deploy: ready (nginx :80 -> frontend, /api -> odoo)"

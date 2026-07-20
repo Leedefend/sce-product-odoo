@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Signup/Reset labels in Chinese -->
+    <template id="sc_auth_signup_fields_cn" inherit_id="auth_signup.fields">
+        <xpath expr="//label[@for='name']" position="replace">
+            <label for="name" class="form-label">姓名</label>
+        </xpath>
+        <xpath expr="//input[@name='name']" position="attributes">
+            <attribute name="placeholder">姓名</attribute>
+        </xpath>
+
+        <xpath expr="//label[@for='login']" position="replace">
+            <label for="login" class="form-label">邮箱</label>
+        </xpath>
+        <xpath expr="//input[@name='login']" position="attributes">
+            <attribute name="placeholder">邮箱</attribute>
+        </xpath>
+
+        <xpath expr="//label[@for='password']" position="replace">
+            <label for="password" class="form-label">密码</label>
+        </xpath>
+        <xpath expr="//input[@name='password']" position="attributes">
+            <attribute name="placeholder">密码</attribute>
+            <attribute name="autocomplete">new-password</attribute>
+        </xpath>
+
+        <xpath expr="//label[@for='confirm_password']" position="replace">
+            <label for="confirm_password" class="form-label">确认密码</label>
+        </xpath>
+        <xpath expr="//input[@name='confirm_password']" position="attributes">
+            <attribute name="placeholder">确认密码</attribute>
+            <attribute name="autocomplete">new-password</attribute>
+        </xpath>
+    </template>
+
+    <template id="sc_auth_signup_buttons_cn" inherit_id="auth_signup.signup">
+        <xpath expr="//form//a[contains(@href, '/web/login') or contains(@t-att-href, '/web/login') or contains(@t-attf-href, '/web/login')]" position="replace" optional="1">
+        </xpath>
+        <xpath expr="//form" position="attributes">
+            <attribute name="class" add=" sc-signup sc-auth-body"/>
+        </xpath>
+        <xpath expr="//form" position="before">
+            <div class="sc-login-brand sc-auth-header">
+                <img class="sc-login-brand-logo" src="/smart_construction_core/static/png/system-icon-1.png" alt="系统图标"/>
+                <h1 class="sc-login-title">智能工程项目管理系统</h1>
+                <p class="sc-login-subtitle">为工程项目提供结构化、可演进的管理能力</p>
+            </div>
+        </xpath>
+        <xpath expr="//button[@type='submit']" position="replace">
+            <button type="submit" class="btn btn-primary w-100">注册并进入系统</button>
+        </xpath>
+        <xpath expr="//p[hasclass('alert') and hasclass('alert-danger') and @t-if='error']" position="replace">
+            <p class="alert alert-danger" t-if="error" role="alert">
+                <t t-set="err" t-value="error"/>
+                <t t-if="err == 'Another user is already registered using this email address.'">该邮箱已注册，请直接登录或找回密码。</t>
+                <t t-elif="err == 'Invalid signup token'">激活链接已失效或已使用。</t>
+                <t t-elif="err == 'No account found for this login'">未找到该账号。</t>
+                <t t-elif="err == 'Multiple accounts found for this login'">该账号存在多个记录。</t>
+                <t t-else=""><t t-esc="err"/></t>
+            </p>
+        </xpath>
+        <xpath expr="//p[@t-if='error']" position="after" optional="1">
+            <p class="alert alert-warning" t-if="warning" role="alert">
+                <t t-esc="warning"/>
+            </p>
+        </xpath>
+        <xpath expr="//form" position="after">
+            <div class="sc-login__footer sc-auth-footer">
+                <div class="sc-login-links">
+                    <a href="/web/login">已有账号？返回登录</a>
+                </div>
+                <div class="sc-login-author">开发者 · 数字禅房</div>
+            </div>
+        </xpath>
+    </template>
+
+    <template id="sc_auth_signup_reset_cn" inherit_id="auth_signup.reset_password">
+        <xpath expr="//div[@t-if='message' and hasclass('oe_login_form')]" position="replace">
+            <div class="oe_login_form clearfix">
+                <p class="alert alert-success" role="status">重置密码邮件已发送，请查收邮箱。</p>
+            </div>
+        </xpath>
+        <xpath expr="//div[hasclass('oe_login_form')]" position="before" optional="1">
+            <t t-if="message">
+                <div class="sc-login-brand sc-auth-header">
+                    <img class="sc-login-brand-logo" src="/smart_construction_core/static/png/system-icon-1.png" alt="系统图标"/>
+                    <h1 class="sc-login-title">智能工程项目管理系统</h1>
+                    <p class="sc-login-subtitle">为工程项目提供结构化、可演进的管理能力</p>
+                </div>
+            </t>
+        </xpath>
+        <xpath expr="//form" position="before">
+            <t t-if="not message">
+                <div class="sc-login-brand sc-auth-header">
+                    <img class="sc-login-brand-logo" src="/smart_construction_core/static/png/system-icon-1.png" alt="系统图标"/>
+                    <h1 class="sc-login-title">智能工程项目管理系统</h1>
+                    <p class="sc-login-subtitle">为工程项目提供结构化、可演进的管理能力</p>
+                </div>
+            </t>
+        </xpath>
+        <xpath expr="//div[hasclass('oe_login_form')]" position="attributes" optional="1">
+            <attribute name="class" add=" sc-auth-body"/>
+        </xpath>
+        <xpath expr="//form" position="attributes">
+            <attribute name="class">oe_reset_password_form sc-auth-body sc-login-form</attribute>
+        </xpath>
+        <xpath expr="//label[@for='login']" position="replace">
+            <label for="login" class="form-label">邮箱</label>
+        </xpath>
+        <xpath expr="//input[@name='login']" position="attributes">
+            <attribute name="placeholder">邮箱</attribute>
+        </xpath>
+        <xpath expr="//button[@type='submit']" position="replace">
+            <button type="submit" class="btn btn-primary w-100">重置密码</button>
+        </xpath>
+        <xpath expr="//p[hasclass('alert') and hasclass('alert-danger') and @t-if='error']" position="replace">
+            <p class="alert alert-danger" t-if="error" role="alert">
+                <t t-set="err" t-value="error"/>
+                <t t-if="err == 'No account found for this login'">未找到该账号。</t>
+                <t t-elif="err == 'Multiple accounts found for this login'">该账号存在多个记录。</t>
+                <t t-elif="err == 'Invalid signup token'">激活链接已失效或已使用。</t>
+                <t t-else=""><t t-esc="err"/></t>
+            </p>
+        </xpath>
+        <xpath expr="//form" position="after">
+            <t t-if="not message">
+                <div class="sc-login__footer sc-auth-footer">
+                    <div class="sc-login-links">
+                        <a href="/web/login">返回登录</a>
+                    </div>
+                    <div class="sc-login-author">开发者 · 数字禅房</div>
+                </div>
+            </t>
+        </xpath>
+        <xpath expr="//div[hasclass('oe_login_form')]" position="after" optional="1">
+            <t t-if="message">
+                <div class="sc-login__footer sc-auth-footer">
+                    <div class="sc-login-links">
+                        <a href="/web/login">返回登录</a>
+                    </div>
+                    <div class="sc-login-author">开发者 · 数字禅房</div>
+                </div>
+            </t>
+        </xpath>
+    </template>
+</odoo>

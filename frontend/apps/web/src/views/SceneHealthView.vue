@@ -1,0 +1,577 @@
+<template>
+  <section class="scene-health">
+    <header v-if="pageSectionEnabled('header', true) && pageSectionTagIs('header', 'header')" class="header" :style="pageSectionStyle('header')">
+      <div>
+        <h2>{{ pageText('title', 'Scene Health Dashboard') }}</h2>
+        <p>{{ pageText('subtitle', '可视化查看场景健康状态与自动降级结果。') }}</p>
+      </div>
+      <div class="actions">
+        <label>
+          <span>Company</span>
+          <select v-model="companyIdText" @change="loadHealth">
+            <option value="">Current</option>
+            <option v-for="company in companies" :key="company.id" :value="String(company.id)">
+              {{ company.name }}
+            </option>
+          </select>
+        </label>
+        <button
+          v-for="action in headerActions"
+          :key="action.key"
+          class="secondary"
+          @click="executeHeaderAction(action.key)"
+        >
+          {{ action.label }}
+        </button>
+      </div>
+    </header>
+
+    <StatusPanel
+      v-if="pageSectionEnabled('status_loading', true) && pageSectionTagIs('status_loading', 'section') && loading"
+      :title="pageText('loading_title', 'Loading scene health...')"
+      variant="info"
+      :style="pageSectionStyle('status_loading')"
+    />
+    <StatusPanel
+      v-else-if="pageSectionEnabled('status_error', true) && pageSectionTagIs('status_error', 'section') && errorText"
+      :title="errorCopy.title"
+      :message="errorCopy.message"
+      :trace-id="statusError?.traceId || errorTraceId || undefined"
+      :error-code="statusError?.code"
+      :reason-code="statusError?.reasonCode"
+      :error-category="statusError?.errorCategory"
+      :error-details="statusError?.details"
+      :retryable="statusError?.retryable"
+      :hint="errorCopy.hint"
+      :suggested-action="statusError?.suggestedAction"
+      variant="error"
+      :on-retry="loadHealth"
+      :style="pageSectionStyle('status_error')"
+    />
+
+    <div
+      v-else-if="pageSectionEnabled('content', true) && pageSectionTagIs('content', 'div') && health"
+      class="content"
+      :style="pageSectionStyle('content')"
+    >
+      <article class="pill-row">
+        <span class="pill">channel: {{ health.scene_channel || '-' }}</span>
+        <span class="pill" :class="{ warn: health.rollback_active }">
+          rollback: {{ health.rollback_active ? 'active' : 'off' }}
+        </span>
+        <span class="pill">version: {{ health.scene_version || '-' }}</span>
+        <span class="pill">schema: {{ health.schema_version || '-' }}</span>
+      </article>
+
+      <section v-if="pageSectionEnabled('cards', true) && pageSectionTagIs('cards', 'section')" class="cards" :style="pageSectionStyle('cards')">
+        <article class="card danger">
+          <h3>Critical Resolve Errors</h3>
+          <p>{{ health.summary.critical_resolve_errors_count }}</p>
+        </article>
+        <article class="card danger">
+          <h3>Critical Drift Warn</h3>
+          <p>{{ health.summary.critical_drift_warn_count }}</p>
+        </article>
+        <article class="card">
+          <h3>Non-Critical Debt</h3>
+          <p>{{ health.summary.non_critical_debt_count }}</p>
+        </article>
+      </section>
+
+      <article v-if="pageSectionEnabled('meta', true) && pageSectionTagIs('meta', 'section')" class="meta" :style="pageSectionStyle('meta')">
+        <p><strong>contract_ref:</strong> {{ health.contract_ref || '-' }}</p>
+        <p><strong>trace_id:</strong> {{ health.trace_id || '-' }}</p>
+        <p><strong>updated_at:</strong> {{ health.last_updated_at || '-' }}</p>
+        <p><strong>auto_degrade:</strong> {{ autoDegradeLabel }}</p>
+        <p v-if="governanceTraceId"><strong>governance_trace:</strong> {{ governanceTraceId }}</p>
+      </article>
+
+      <article
+        v-if="pageSectionEnabled('governance_runtime', true) && pageSectionTagIs('governance_runtime', 'section') && governanceSnapshot"
+        class="meta"
+        :style="pageSectionStyle('governance_runtime')"
+      >
+        <p><strong>governance.scene_channel:</strong> {{ governanceSnapshot.scene_channel || '-' }}</p>
+        <p><strong>governance.runtime_source:</strong> {{ governanceSnapshot.runtime_source || '-' }}</p>
+        <p><strong>governance.gates:</strong> {{ governanceGatesLabel }}</p>
+        <p><strong>governance.reasons:</strong> {{ governanceReasonsLabel }}</p>
+        <p><strong>governance.scene_ready_consumption:</strong> {{ governanceConsumptionLabel }}</p>
+      </article>
+
+      <section v-if="pageSectionEnabled('governance', true) && pageSectionTagIs('governance', 'section')" class="governance" :style="pageSectionStyle('governance')">
+        <h3>Governance Actions</h3>
+        <div class="governance-grid">
+          <label>
+            <span>Target Channel</span>
+            <select v-model="targetChannel">
+              <option value="stable">stable</option>
+              <option value="beta">beta</option>
+              <option value="dev">dev</option>
+            </select>
+          </label>
+          <label class="reason">
+            <span>Reason (required)</span>
+            <input v-model="governanceReason" type="text" placeholder="input reason" />
+          </label>
+        </div>
+        <div class="governance-actions">
+          <button class="secondary" :disabled="governanceBusy" @click="runGovernance('set_channel')">Set Channel</button>
+          <button class="danger" :disabled="governanceBusy" @click="runGovernance('rollback')">Rollback</button>
+          <button class="secondary" :disabled="governanceBusy" @click="runGovernance('pin_stable')">Pin Stable</button>
+          <button class="secondary" :disabled="governanceBusy" @click="runGovernance('export_contract')">Export Contract</button>
+        </div>
+      </section>
+
+      <details
+        v-if="pageSectionEnabled('details_resolve_errors', true) && pageSectionTagIs('details_resolve_errors', 'details')"
+        :style="pageSectionStyle('details_resolve_errors')"
+        :open="pageSectionOpenDefault('details_resolve_errors', true)"
+      >
+        <summary>Resolve Errors ({{ health.details?.resolve_errors?.length || 0 }})</summary>
+        <pre>{{ JSON.stringify(health.details?.resolve_errors || [], null, 2) }}</pre>
+      </details>
+      <details
+        v-if="pageSectionEnabled('details_drift', true) && pageSectionTagIs('details_drift', 'details')"
+        :style="pageSectionStyle('details_drift')"
+        :open="pageSectionOpenDefault('details_drift', false)"
+      >
+        <summary>Drift ({{ health.details?.drift?.length || 0 }})</summary>
+        <pre>{{ JSON.stringify(health.details?.drift || [], null, 2) }}</pre>
+      </details>
+      <details
+        v-if="pageSectionEnabled('details_debt', true) && pageSectionTagIs('details_debt', 'details')"
+        :style="pageSectionStyle('details_debt')"
+        :open="pageSectionOpenDefault('details_debt', false)"
+      >
+        <summary>Debt ({{ health.details?.debt?.length || 0 }})</summary>
+        <pre>{{ JSON.stringify(health.details?.debt || [], null, 2) }}</pre>
+      </details>
+    </div>
+  </section>
+</template>
+
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import StatusPanel from '../components/StatusPanel.vue';
+import { intentRequest } from '../api/intents';
+import { buildStatusError, resolveErrorCopy, type StatusError } from '../composables/useStatus';
+import { usePageContract } from '../app/pageContract';
+import { executePageContractAction } from '../app/pageContractActionRuntime';
+import {
+  fetchSceneHealth,
+  governanceExportContract,
+  governancePinStable,
+  governanceRollback,
+  governanceSetChannel,
+} from '../api/scene';
+import type { SceneChannel, SceneHealthContract } from '../contracts/scene';
+import { useSessionStore } from '../stores/session';
+
+const loading = ref(false);
+const governanceBusy = ref(false);
+const health = ref<SceneHealthContract | null>(null);
+const errorText = ref('');
+const errorTraceId = ref('');
+const statusError = ref<StatusError | null>(null);
+const companyIdText = ref('');
+const companies = ref<Array<{ id: number; name: string }>>([]);
+const targetChannel = ref<SceneChannel>('stable');
+const governanceReason = ref('');
+const governanceTraceId = ref('');
+const router = useRouter();
+const session = useSessionStore();
+const pageContract = usePageContract('scene_health');
+const pageText = pageContract.text;
+const pageActionText = pageContract.actionText;
+const pageActionIntent = pageContract.actionIntent;
+const pageActionTarget = pageContract.actionTarget;
+const pageGlobalActions = pageContract.globalActions;
+const pageSectionEnabled = pageContract.sectionEnabled;
+const pageSectionStyle = pageContract.sectionStyle;
+const pageSectionOpenDefault = pageContract.sectionOpenDefault;
+const pageSectionTagIs = pageContract.sectionTagIs;
+const errorCopy = computed(() => resolveErrorCopy(statusError.value, errorText.value || pageText('error_fallback', 'health request failed')));
+const headerActions = computed(() => {
+  if (pageGlobalActions.value.length) return pageGlobalActions.value;
+  return [{ key: 'refresh_page', label: pageActionText('refresh_page', 'Refresh'), intent: 'api.data' }];
+});
+
+const autoDegradeLabel = computed(() => {
+  const value = health.value?.auto_degrade;
+  if (!value) return 'triggered=false';
+  const reasons = Array.isArray(value.reason_codes) && value.reason_codes.length ? value.reason_codes.join(',') : '-';
+  return `triggered=${Boolean(value.triggered)} action=${value.action_taken || '-'} reasons=${reasons}`;
+});
+
+const governanceSnapshot = computed(() => {
+  const value = session.sceneGovernanceV1;
+  return value && typeof value === 'object' ? value : null;
+});
+
+const governanceGatesLabel = computed(() => {
+  const gates = governanceSnapshot.value?.gates;
+  if (!gates || typeof gates !== 'object') return '-';
+  const row = gates as Record<string, unknown>;
+  return [
+    `orchestrator=${Boolean(row.orchestrator_applied)}`,
+    `governance=${Boolean(row.governance_applied)}`,
+    `delivery=${Boolean(row.delivery_policy_applied)}`,
+    `nav_policy_ok=${Boolean(row.nav_policy_validation_ok)}`,
+    `auto_degrade=${Boolean(row.auto_degrade_triggered)}`,
+  ].join(' | ');
+});
+
+const governanceReasonsLabel = computed(() => {
+  const reasons = governanceSnapshot.value?.reasons;
+  if (!reasons || typeof reasons !== 'object') return '-';
+  const row = reasons as Record<string, unknown>;
+  const autoCodes = Array.isArray(row.auto_degrade_reason_codes)
+    ? row.auto_degrade_reason_codes.map((item) => String(item || '')).filter(Boolean)
+    : [];
+  const resolveCodes = Array.isArray(row.resolve_error_codes)
+    ? row.resolve_error_codes.map((item) => String(item || '')).filter(Boolean)
+    : [];
+  const autoText = autoCodes.length ? autoCodes.join(',') : '-';
+  const resolveText = resolveCodes.length ? resolveCodes.join(',') : '-';
+  return `auto_degrade=[${autoText}] resolve_errors=[${resolveText}]`;
+});
+
+const governanceConsumptionLabel = computed(() => {
+  const consumption = governanceSnapshot.value?.scene_ready_consumption;
+  if (!consumption || typeof consumption !== 'object') return '-';
+  const row = consumption as Record<string, unknown>;
+  const enabled = Boolean(row.enabled);
+  const sceneTypes = Number(row.scene_type_count || 0);
+  const scenes = Number(row.scene_count || 0);
+  const aggregate = (row.aggregate && typeof row.aggregate === 'object')
+    ? (row.aggregate as Record<string, unknown>)
+    : {};
+  const baseRate = (aggregate.base_fact_consumption_rate && typeof aggregate.base_fact_consumption_rate === 'object')
+    ? (aggregate.base_fact_consumption_rate as Record<string, unknown>)
+    : {};
+  const surfaceRate = (aggregate.surface_nonempty_rate && typeof aggregate.surface_nonempty_rate === 'object')
+    ? (aggregate.surface_nonempty_rate as Record<string, unknown>)
+    : {};
+  const baseSearch = Number(baseRate.search || 0).toFixed(2);
+  const surfaceAction = Number(surfaceRate.action_surface || 0).toFixed(2);
+  return `enabled=${enabled} scene_types=${sceneTypes} scenes=${scenes} base.search=${baseSearch} surface.action=${surfaceAction}`;
+});
+
+function validateHealthContract(raw: unknown): SceneHealthContract {
+  if (!raw || typeof raw !== 'object') throw new Error('scene.health response missing');
+  const value = raw as Record<string, unknown>;
+  const requiredRoot = ['scene_channel', 'rollback_active', 'summary', 'details', 'trace_id'];
+  for (const key of requiredRoot) {
+    if (!(key in value)) {
+      throw new Error(`scene.health missing key: ${key}`);
+    }
+  }
+  const summary = value.summary as Record<string, unknown>;
+  if (
+    typeof summary?.critical_resolve_errors_count !== 'number' ||
+    typeof summary?.critical_drift_warn_count !== 'number'
+  ) {
+    throw new Error('scene.health.summary critical counters missing');
+  }
+  if ('details' in value) {
+    const details = value.details as Record<string, unknown>;
+    if (!Array.isArray(details?.resolve_errors) || !Array.isArray(details?.drift) || !Array.isArray(details?.debt)) {
+      throw new Error('scene.health.details arrays missing');
+    }
+  }
+  return value as unknown as SceneHealthContract;
+}
+
+async function loadCompanies() {
+  try {
+    const res = await intentRequest<{ records?: Array<{ id: number; name: string }> }>({
+      intent: 'api.data',
+      params: {
+        op: 'list',
+        model: 'res.company',
+        fields: ['id', 'name'],
+        limit: 50,
+        order: 'id asc',
+      },
+    });
+    companies.value = Array.isArray(res.records) ? res.records : [];
+  } catch {
+    companies.value = [];
+  }
+}
+
+async function loadHealth() {
+  loading.value = true;
+  errorText.value = '';
+  errorTraceId.value = '';
+  statusError.value = null;
+  try {
+    const companyId = companyIdText.value ? Number(companyIdText.value) : undefined;
+    const response = await fetchSceneHealth({
+      mode: 'full',
+      limit: 100,
+      offset: 0,
+      ...(companyId ? { company_id: companyId } : {}),
+    });
+    const parsed = validateHealthContract(response.data);
+    health.value = parsed;
+    errorTraceId.value = parsed.trace_id || response.traceId || '';
+  } catch (err) {
+    health.value = null;
+    errorText.value = err instanceof Error ? err.message : pageText('error_fallback', 'health request failed');
+    statusError.value = buildStatusError(err, errorText.value);
+    errorTraceId.value = statusError.value.traceId || '';
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function executeHeaderAction(actionKey: string) {
+  const handled = await executePageContractAction({
+    actionKey,
+    router,
+    actionIntent: pageActionIntent,
+    actionTarget: pageActionTarget,
+    onRefresh: loadHealth,
+    onFallback: async (key) => {
+      if (key === 'refresh_page') {
+        await loadHealth();
+        return true;
+      }
+      return false;
+    },
+  });
+  if (!handled && actionKey === 'refresh_page') {
+    await loadHealth();
+  }
+}
+
+async function runGovernance(action: 'set_channel' | 'rollback' | 'pin_stable' | 'export_contract') {
+  const reason = governanceReason.value.trim();
+  if (!reason) {
+    errorText.value = pageText('error_reason_required', 'reason is required for governance action');
+    statusError.value = { message: errorText.value };
+    return;
+  }
+  governanceBusy.value = true;
+  errorText.value = '';
+  statusError.value = null;
+  try {
+    if (action === 'rollback') {
+      const ok = window.confirm('Confirm rollback to stable pinned mode?');
+      if (!ok) {
+        governanceBusy.value = false;
+        return;
+      }
+    }
+    const companyId = companyIdText.value ? Number(companyIdText.value) : undefined;
+    let response: { readonly data: { readonly trace_id: string }; readonly traceId: string };
+    if (action === 'set_channel') {
+      response = await governanceSetChannel({
+        reason,
+        channel: targetChannel.value,
+        ...(companyId ? { company_id: companyId } : {}),
+      });
+    } else if (action === 'rollback') {
+      response = await governanceRollback({ reason });
+    } else if (action === 'pin_stable') {
+      response = await governancePinStable({ reason });
+    } else {
+      response = await governanceExportContract({ reason, channel: targetChannel.value });
+    }
+    governanceTraceId.value = response.data.trace_id || response.traceId || '';
+    await loadHealth();
+  } catch (err) {
+    errorText.value = err instanceof Error ? err.message : pageText('error_governance_failed', 'governance action failed');
+    statusError.value = buildStatusError(err, errorText.value);
+    errorTraceId.value = statusError.value.traceId || '';
+  } finally {
+    governanceBusy.value = false;
+  }
+}
+
+onMounted(async () => {
+  await loadCompanies();
+  await loadHealth();
+});
+</script>
+
+<style scoped>
+.scene-health {
+  display: grid;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px;
+  border-radius: var(--sc-component-panel-radius);
+  background: var(--sc-app-panel);
+  border: 1px solid var(--sc-app-border);
+}
+
+.header h2 {
+  margin: 0;
+}
+
+.header p {
+  margin: 4px 0 0;
+  color: var(--sc-semantic-text-muted);
+}
+
+.actions {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+
+.actions label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--sc-app-text-secondary);
+}
+
+.actions select {
+  min-width: 180px;
+}
+
+.content {
+  display: grid;
+  gap: 14px;
+}
+
+.pill-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  background: var(--sc-app-info-bg);
+  color: var(--sc-app-info-text);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.pill.warn {
+  background: var(--sc-app-danger-bg);
+  color: var(--sc-app-danger-text);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  border-radius: var(--sc-component-panel-radius);
+  padding: 16px;
+  background: var(--sc-app-panel);
+  border: 1px solid var(--sc-app-border);
+}
+
+.card.danger {
+  border-color: var(--sc-app-danger-border);
+}
+
+.card h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.card p {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.meta {
+  background: var(--sc-app-panel);
+  border-radius: var(--sc-component-panel-radius);
+  border: 1px solid var(--sc-app-border);
+  padding: 12px 14px;
+}
+
+.meta p {
+  margin: 4px 0;
+}
+
+.governance {
+  background: var(--sc-app-panel);
+  border-radius: var(--sc-component-panel-radius);
+  border: 1px solid var(--sc-app-border);
+  padding: 12px 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.governance h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.governance-grid {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 12px;
+}
+
+.governance-grid label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--sc-app-text-secondary);
+}
+
+.governance-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.danger {
+  border: 1px solid var(--sc-app-danger-border);
+  background: var(--sc-app-danger-bg);
+  color: var(--sc-app-danger-text);
+  border-radius: var(--sc-component-button-radius);
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+details {
+  background: var(--sc-app-panel);
+  border-radius: var(--sc-component-panel-radius);
+  border: 1px solid var(--sc-app-border);
+  padding: 10px 12px;
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+pre {
+  overflow: auto;
+  background: var(--sc-app-text-primary);
+  color: var(--sc-app-panel);
+  border-radius: var(--sc-component-panel-radius);
+  padding: 10px;
+  font-size: 12px;
+}
+
+.secondary {
+  border: 1px solid var(--sc-app-border-strong);
+  background: var(--sc-app-panel);
+  color: var(--sc-app-text-primary);
+  border-radius: var(--sc-component-button-radius);
+  padding: 8px 10px;
+  cursor: pointer;
+}
+</style>

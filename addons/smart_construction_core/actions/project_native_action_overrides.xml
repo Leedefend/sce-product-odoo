@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="project.open_view_project_all" model="ir.actions.act_window">
+        <field name="domain">[]</field>
+        <field name="context">{}</field>
+    </record>
+
+    <record id="action_sc_project_list" model="ir.actions.act_window">
+        <field name="view_id" ref="smart_construction_core.view_project_my_list_tree"/>
+        <field name="search_view_id" ref="smart_construction_core.view_project_project_search_sc_business"/>
+    </record>
+    <record id="action_sc_project_list_tree_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="10"/>
+        <field name="view_mode">tree</field>
+        <field name="view_id" ref="smart_construction_core.view_project_my_list_tree"/>
+        <field name="act_window_id" ref="smart_construction_core.action_sc_project_list"/>
+    </record>
+    <record id="action_sc_project_list_form_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="20"/>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="smart_construction_core.view_project_overview_form"/>
+        <field name="act_window_id" ref="smart_construction_core.action_sc_project_list"/>
+    </record>
+    <record id="action_sc_project_list_kanban_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="30"/>
+        <field name="view_mode">kanban</field>
+        <field name="view_id" ref="smart_construction_core.view_sc_project_kanban_lifecycle"/>
+        <field name="act_window_id" ref="smart_construction_core.action_sc_project_list"/>
+    </record>
+
+    <record id="action_project_dashboard" model="ir.actions.act_window">
+        <field name="search_view_id" ref="smart_construction_core.view_project_project_search_sc_business"/>
+    </record>
+
+    <record id="action_sc_project_overview" model="ir.actions.act_window">
+        <field name="search_view_id" ref="smart_construction_core.view_project_project_search_sc_business"/>
+    </record>
+
+    <record id="action_sc_project_manage" model="ir.actions.act_window">
+        <field name="search_view_id" ref="smart_construction_core.view_project_project_search_sc_business"/>
+    </record>
+
+    <record id="action_sc_project_my_list" model="ir.actions.act_window">
+        <field name="view_id" ref="smart_construction_core.view_project_my_list_tree"/>
+        <field name="search_view_id" ref="smart_construction_core.view_project_project_search_sc_business"/>
+    </record>
+
+    <record id="account.res_partner_action_supplier" model="ir.actions.act_window">
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="smart_construction_core.view_sc_supplier_partner_tree"/>
+        <field name="search_view_id" ref="smart_construction_core.view_sc_supplier_partner_search"/>
+        <field name="domain">[('supplier_rank', '&gt;', 0)]</field>
+        <field name="context">{'default_supplier_rank': 1, 'default_is_company': True, 'active_test': False}</field>
+    </record>
+
+    <record id="action_account_supplier_partner_tree_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="1"/>
+        <field name="view_mode">tree</field>
+        <field name="view_id" ref="smart_construction_core.view_sc_supplier_partner_tree"/>
+        <field name="act_window_id" ref="account.res_partner_action_supplier"/>
+    </record>
+
+    <record id="action_account_supplier_partner_form_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="2"/>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="smart_construction_core.view_sc_supplier_partner_form"/>
+        <field name="act_window_id" ref="account.res_partner_action_supplier"/>
+    </record>
+</odoo>

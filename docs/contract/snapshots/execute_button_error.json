@@ -1,0 +1,28 @@
+{
+  "action": null,
+  "case": "execute_button_error",
+  "contract_version": "v1",
+  "error": null,
+  "execute_error": "你没有权限推进项目阶段。",
+  "execute_result": null,
+  "fallback": false,
+  "meta_fields": null,
+  "model": "project.project",
+  "op": "model",
+  "record": null,
+  "record_error": "You are not allowed to access '项目合同' (construction.contract) records.\n\nThis operation is allowed for the following groups:\n\t- Smart Construction/SC 能力 - 合同中心只读\n\t- Smart Construction/SC 能力 - 合同中心审批\n\t- Smart Construction/SC 能力 - 合同中心经办\n\t- Smart Construction/SC 能力 - 财务中心只读\n\t- Smart Construction/SC 能力 - 财务中心审批\n\t- Smart Construction/SC 能力 - 财务中心经办\n\t- Smart Construction/合同中心-只读\n\t- Smart Construction/合同中心-审批\n\t- Smart Construction/合同中心-经办\n\nContact your administrator to request access if necessary.",
+  "ui_contract": {
+    "chatter": {},
+    "headerButtons": [],
+    "model": "project.project",
+    "ribbon": null,
+    "sheet": [],
+    "statButtons": [],
+    "titleField": "name",
+    "view_type": "form"
+  },
+  "ui_contract_raw": {},
+  "user": "pm",
+  "user_fallback": "admin",
+  "view_type": "form"
+}

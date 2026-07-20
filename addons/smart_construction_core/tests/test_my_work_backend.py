@@ -1,0 +1,395 @@
+# -*- coding: utf-8 -*-
+
+from unittest.mock import patch
+
+from odoo.exceptions import AccessError, UserError
+from odoo.tests.common import TransactionCase, tagged
+
+from odoo.addons.smart_construction_core.handlers.my_work_complete import (
+    MyWorkCompleteBatchHandler,
+    MyWorkCompleteHandler,
+    _failure_meta_for_exception,
+    _retryable_summary,
+)
+from odoo.addons.smart_construction_core.handlers.reason_codes import (
+    REASON_IDEMPOTENCY_CONFLICT,
+    REASON_REPLAY_WINDOW_EXPIRED,
+)
+from odoo.addons.smart_construction_core.handlers.my_work_summary import MyWorkSummaryHandler
+
+
+@tagged("sc_smoke", "my_work_backend")
+class TestMyWorkBackend(TransactionCase):
+    def _create_project_with_partner(self, name):
+        project = self.env["project.project"].create(
+            {
+                "name": name,
+                "manager_id": self.env.user.id,
+                "user_id": self.env.user.id,
+            }
+        )
+        partner = self.env["res.partner"].create({"name": "%s Partner" % name})
+        return project, partner
+
+    def test_summary_filters_apply_server_side(self):
+        handler = MyWorkSummaryHandler(self.env, payload={})
+        rows = [
+            {"section": "todo", "source": "mail.activity", "reason_code": "A", "title": "Build contract", "model": "x", "action_label": ""},
+            {"section": "owned", "source": "project.project", "reason_code": "B", "title": "Review budget", "model": "y", "action_label": ""},
+            {"section": "todo", "source": "mail.activity", "reason_code": "B", "title": "Approve payment", "model": "z", "action_label": ""},
+        ]
+        filtered = handler._apply_filters(
+            rows,
+            section="todo",
+            source="mail.activity",
+            reason_code="B",
+            search="approve",
+        )
+        self.assertEqual(len(filtered), 1)
+        self.assertEqual(filtered[0]["title"], "Approve payment")
+
+    def test_failure_meta_classification(self):
+        self.assertEqual(_failure_meta_for_exception(AccessError("no")).get("reason_code"), "PERMISSION_DENIED")
+        self.assertFalse(_failure_meta_for_exception(UserError("待办不存在")).get("retryable"))
+        self.assertEqual(_failure_meta_for_exception(Exception("x")).get("reason_code"), "INTERNAL_ERROR")
+        self.assertTrue(_failure_meta_for_exception(Exception("x")).get("retryable"))
+
+    def test_summary_facets_ranked(self):
+        handler = MyWorkSummaryHandler(self.env, payload={})
+        facets = handler._build_facets(
+            [
+                {"section": "todo", "source": "mail.activity", "reason_code": "A"},
+                {"section": "todo", "source": "mail.activity", "reason_code": "B"},
+                {"section": "owned", "source": "project.project", "reason_code": "B"},
+            ]
+        )
+        self.assertEqual(facets["source_counts"][0]["key"], "mail.activity")
+        self.assertEqual(facets["source_counts"][0]["count"], 2)
+        self.assertEqual(facets["reason_code_counts"][0]["key"], "B")
+        self.assertEqual(facets["reason_code_counts"][0]["count"], 2)
+        self.assertEqual(facets["section_counts"][0]["key"], "todo")
+        self.assertEqual(facets["section_counts"][0]["count"], 2)
+
+    def test_complete_returns_structured_failure_payload(self):
+        handler = MyWorkCompleteHandler(self.env, payload={})
+        result = handler.handle({"id": "bad", "source": "mail.activity"})
+        self.assertTrue(result.get("ok"))
+        data = result.get("data") or {}
+        self.assertFalse(data.get("success"))
+        self.assertEqual(data.get("reason_code"), "INVALID_ID")
+        self.assertEqual(data.get("error_category"), "validation")
+        self.assertFalse(bool(data.get("retryable")))
+
+    def test_batch_contract_contains_request_and_retry_fields(self):
+        handler = MyWorkCompleteBatchHandler(self.env, payload={})
+        result = handler.handle({"ids": ["bad"], "source": "mail.activity", "request_id": "req-demo-1"})
+        self.assertTrue(result.get("ok"))
+        data = result.get("data") or {}
+        self.assertEqual(data.get("execution_mode"), "full")
+        self.assertEqual(data.get("request_id"), "req-demo-1")
+        self.assertEqual(data.get("idempotency_key"), "req-demo-1")
+        self.assertFalse(bool(data.get("idempotent_replay")))
+        self.assertFalse(bool(data.get("replay_window_expired")))
+        self.assertEqual(data.get("idempotency_replay_reason_code"), "")
+        self.assertEqual(int(data.get("replay_from_audit_id") or 0), 0)
+        self.assertEqual(str(data.get("replay_original_trace_id") or ""), "")
+        self.assertEqual(int(data.get("replay_age_ms") or 0), 0)
+        self.assertTrue(bool(data.get("idempotency_fingerprint")))
+        self.assertTrue(str(data.get("trace_id") or "").startswith("mw_batch_"))
+        self.assertEqual(data.get("failed_count"), 1)
+        self.assertEqual(data.get("failed_retry_ids"), [])
+        self.assertEqual(data.get("retry_request"), None)
+        groups = data.get("failed_groups") or []
+        self.assertEqual(len(groups), 1)
+        self.assertEqual((groups[0] or {}).get("reason_code"), "INVALID_ID")
+        self.assertEqual((groups[0] or {}).get("count"), 1)
+        failed_items = data.get("failed_items") or []
+        self.assertEqual(len(failed_items), 1)
+        self.assertTrue(str((failed_items[0] or {}).get("trace_id") or "").startswith("mw_batch_"))
+
+    def test_batch_idempotent_replay_returns_same_contract(self):
+        if not self.env.get("sc.audit.log"):
+            self.skipTest("sc.audit.log not available")
+        handler = MyWorkCompleteBatchHandler(self.env, payload={})
+        payload = {"ids": ["bad"], "source": "mail.activity", "request_id": "req-idem-1"}
+        first = handler.handle(payload)
+        second = handler.handle(payload)
+        self.assertTrue(first.get("ok"))
+        self.assertTrue(second.get("ok"))
+        first_data = first.get("data") or {}
+        second_data = second.get("data") or {}
+        self.assertFalse(bool(first_data.get("idempotent_replay")))
+        self.assertFalse(bool(first_data.get("replay_window_expired")))
+        self.assertTrue(bool(second_data.get("idempotent_replay")))
+        self.assertFalse(bool(second_data.get("replay_window_expired")))
+        self.assertEqual(second_data.get("idempotency_replay_reason_code"), "")
+        self.assertEqual(second_data.get("idempotency_key"), "req-idem-1")
+        self.assertEqual(
+            second_data.get("idempotency_fingerprint"),
+            first_data.get("idempotency_fingerprint"),
+        )
+        self.assertTrue(int(second_data.get("replay_from_audit_id") or 0) > 0)
+        self.assertTrue(bool(second_data.get("replay_original_trace_id")))
+        self.assertTrue(int(second_data.get("replay_age_ms") or 0) >= 0)
+
+    def test_batch_idempotent_conflict_when_same_key_diff_payload(self):
+        if not self.env.get("sc.audit.log"):
+            self.skipTest("sc.audit.log not available")
+        handler = MyWorkCompleteBatchHandler(self.env, payload={})
+        first = handler.handle({"ids": ["bad"], "source": "mail.activity", "request_id": "req-idem-2"})
+        self.assertTrue(first.get("ok"))
+        conflict = handler.handle(
+            {
+                "ids": ["bad", "bad2"],
+                "source": "mail.activity",
+                "request_id": "req-idem-2",
+            }
+        )
+        self.assertFalse(conflict.get("ok"))
+        self.assertEqual(int(conflict.get("code") or 0), 409)
+        err = conflict.get("error") or {}
+        self.assertEqual(err.get("reason_code"), REASON_IDEMPOTENCY_CONFLICT)
+        data = conflict.get("data") or {}
+        self.assertEqual(data.get("request_id"), "req-idem-2")
+        self.assertEqual(data.get("idempotency_key"), "req-idem-2")
+        self.assertEqual(int(data.get("replay_from_audit_id") or 0), 0)
+        self.assertEqual(str(data.get("replay_original_trace_id") or ""), "")
+        self.assertEqual(int(data.get("replay_age_ms") or 0), 0)
+
+    def test_batch_idempotent_window_expired_no_replay(self):
+        if not self.env.get("sc.audit.log"):
+            self.skipTest("sc.audit.log not available")
+        handler = MyWorkCompleteBatchHandler(self.env, payload={})
+        payload = {"ids": ["bad"], "source": "mail.activity", "request_id": "req-idem-3"}
+        first = handler.handle(payload)
+        self.assertTrue(first.get("ok"))
+        original_window = handler.IDEMPOTENCY_WINDOW_SECONDS
+        try:
+            handler.IDEMPOTENCY_WINDOW_SECONDS = 0
+            second = handler.handle(payload)
+        finally:
+            handler.IDEMPOTENCY_WINDOW_SECONDS = original_window
+        self.assertTrue(second.get("ok"))
+        second_data = second.get("data") or {}
+        self.assertFalse(bool(second_data.get("idempotent_replay")))
+        self.assertTrue(bool(second_data.get("replay_window_expired")))
+        self.assertEqual(second_data.get("idempotency_replay_reason_code"), REASON_REPLAY_WINDOW_EXPIRED)
+
+    def test_batch_replay_contract_shape_without_audit_model(self):
+        handler = MyWorkCompleteBatchHandler(self.env, payload={})
+        replay_payload = {
+            "source": "mail.activity",
+            "success": False,
+            "reason_code": "PARTIAL_FAILED",
+            "message": "部分待办完成失败",
+            "done_count": 0,
+            "failed_count": 1,
+            "completed_ids": [],
+            "failed_items": [{"id": 0, "reason_code": "INVALID_ID", "message": "待办 ID 无效"}],
+            "failed_reason_summary": [{"reason_code": "INVALID_ID", "count": 1}],
+            "done_at": "mock",
+        }
+        with patch(
+            "odoo.addons.smart_construction_core.handlers.my_work_complete.resolve_idempotency_decision",
+            return_value={
+                "conflict": False,
+                "replay_entry": {"audit_id": 9, "trace_id": "trace-replay"},
+                "replay_payload": replay_payload,
+                "replay_window_expired": False,
+            },
+        ):
+            result = handler.handle({"ids": ["bad"], "source": "mail.activity", "request_id": "req-mock-replay-1"})
+        self.assertTrue(result.get("ok"))
+        data = result.get("data") or {}
+        self.assertTrue(bool(data.get("idempotent_replay")))
+        self.assertEqual(int(data.get("replay_from_audit_id") or 0), 9)
+        self.assertEqual(str(data.get("replay_original_trace_id") or ""), "trace-replay")
+        self.assertEqual(data.get("idempotency_key"), "req-mock-replay-1")
+        self.assertTrue(bool(data.get("idempotency_fingerprint")))
+
+    def test_batch_conflict_contract_shape_without_audit_model(self):
+        handler = MyWorkCompleteBatchHandler(self.env, payload={})
+        with patch(
+            "odoo.addons.smart_construction_core.handlers.my_work_complete.resolve_idempotency_decision",
+            return_value={
+                "conflict": True,
+                "replay_entry": None,
+                "replay_payload": None,
+                "replay_window_expired": False,
+            },
+        ):
+            result = handler.handle({"ids": ["bad"], "source": "mail.activity", "request_id": "req-mock-conflict-1"})
+        self.assertFalse(result.get("ok"))
+        self.assertEqual(int(result.get("code") or 0), 409)
+        err = result.get("error") or {}
+        self.assertEqual(err.get("reason_code"), REASON_IDEMPOTENCY_CONFLICT)
+        data = result.get("data") or {}
+        self.assertEqual(data.get("request_id"), "req-mock-conflict-1")
+        self.assertEqual(data.get("idempotency_key"), "req-mock-conflict-1")
+        self.assertEqual(int(data.get("replay_from_audit_id") or 0), 0)
+
+    def test_summary_status_contract(self):
+        handler = MyWorkSummaryHandler(self.env, payload={})
+        empty_status = handler._build_status(total_before_filter=0, filtered_count=0)
+        self.assertEqual(empty_status.get("state"), "EMPTY")
+        self.assertEqual(empty_status.get("reason_code"), "NO_WORK_ITEMS")
+
+        filter_empty_status = handler._build_status(total_before_filter=3, filtered_count=0)
+        self.assertEqual(filter_empty_status.get("state"), "FILTER_EMPTY")
+        self.assertEqual(filter_empty_status.get("reason_code"), "FILTER_NO_MATCH")
+
+        ready_status = handler._build_status(total_before_filter=3, filtered_count=2)
+        self.assertEqual(ready_status.get("state"), "READY")
+        self.assertEqual(ready_status.get("reason_code"), "OK")
+
+    def test_summary_sort_and_pagination_helpers(self):
+        handler = MyWorkSummaryHandler(self.env, payload={})
+        rows = [
+            {"id": 3, "title": "Gamma", "deadline": "2026-02-03"},
+            {"id": 1, "title": "Alpha", "deadline": ""},
+            {"id": 2, "title": "Beta", "deadline": "2026-02-01"},
+            {"id": 4, "title": "Delta", "deadline": "2026-02-04"},
+            {"id": 5, "title": "Epsilon", "deadline": ""},
+        ]
+        sorted_rows = handler._apply_sort(rows, sort_by="title", sort_dir="asc")
+        self.assertEqual([item["id"] for item in sorted_rows], [1, 2, 4, 5, 3])
+
+        page_rows, total_pages, safe_page = handler._paginate_items(sorted_rows, page=2, page_size=2)
+        self.assertEqual(total_pages, 3)
+        self.assertEqual(safe_page, 2)
+        self.assertEqual([item["id"] for item in page_rows], [4, 5])
+
+    def test_summary_attaches_completion_capability(self):
+        handler = MyWorkSummaryHandler(self.env, payload={})
+        rows = handler._attach_targets(
+            [
+                {
+                    "id": 11,
+                    "title": "Todo row",
+                    "model": "project.task",
+                    "record_id": 11,
+                    "source": "mail.activity",
+                },
+                {
+                    "id": 12,
+                    "title": "Task row",
+                    "model": "project.task",
+                    "record_id": 12,
+                    "source": "project.task",
+                },
+            ]
+        )
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(bool(rows[0].get("can_complete")))
+        self.assertEqual((rows[0].get("complete_action") or {}).get("intent"), "my.work.complete")
+        self.assertEqual((rows[0].get("complete_action") or {}).get("source"), "mail.activity")
+        self.assertFalse(bool(rows[1].get("can_complete")))
+        self.assertFalse(bool(rows[1].get("complete_action")))
+
+        self.assertEqual(handler._normalize_sort_by("unknown"), "id")
+        self.assertEqual(handler._normalize_sort_dir("up"), "desc")
+
+    def test_summary_priority_sort(self):
+        handler = MyWorkSummaryHandler(self.env, payload={})
+        rows = [
+            {"id": 1, "priority": "medium"},
+            {"id": 2, "priority": "low"},
+            {"id": 3, "priority": "high"},
+        ]
+        sorted_rows = handler._apply_sort(rows, sort_by="priority", sort_dir="desc")
+        self.assertEqual([item["id"] for item in sorted_rows], [3, 1, 2])
+
+    def test_summary_includes_project_execution_projection_items(self):
+        project, partner = self._create_project_with_partner("My Work Projection Test")
+        self.env["payment.request"].create(
+            {
+                "name": "PR-MYWORK-001",
+                "project_id": project.id,
+                "partner_id": partner.id,
+                "amount": 888.0,
+            }
+        )
+        self.env["sc.settlement.order"].create(
+            {
+                "name": "SO-MYWORK-001",
+                "project_id": project.id,
+                "partner_id": partner.id,
+            }
+        )
+        self.env["construction.contract"].create(
+            {
+                "subject": "我的工作合同事项",
+                "type": "out",
+                "project_id": project.id,
+                "partner_id": partner.id,
+            }
+        )
+
+        handler = MyWorkSummaryHandler(self.env, payload={})
+        items = handler._load_project_execution_items(self.env.user, 20)
+        sources = {str(item.get("source") or "") for item in items}
+
+        self.assertIn("payment.request", sources)
+        self.assertIn("sc.settlement.order", sources)
+        self.assertIn("construction.contract", sources)
+
+    def test_contract_target_keeps_action_without_hidden_mixed_menu(self):
+        handler = MyWorkSummaryHandler(self.env, payload={})
+        action_ctx = handler._resolve_action_context_for_model("construction.contract")
+        mixed_menu = self.env.ref("smart_construction_core.menu_sc_construction_contract")
+
+        self.assertTrue(action_ctx.get("action_id"))
+        self.assertFalse(action_ctx.get("menu_id"))
+        self.assertFalse(mixed_menu.active)
+
+    def test_retryable_summary_counts(self):
+        summary = _retryable_summary(
+            [
+                {"retryable": True},
+                {"retryable": False},
+                {"retryable": True},
+            ]
+        )
+        self.assertEqual(summary.get("retryable"), 2)
+        self.assertEqual(summary.get("non_retryable"), 1)
+
+    def test_batch_retry_mode_uses_retry_ids(self):
+        handler = MyWorkCompleteBatchHandler(self.env, payload={})
+        with patch(
+            "odoo.addons.smart_construction_core.handlers.my_work_complete._complete_activity",
+            return_value=None,
+        ) as mocked_complete:
+            result = handler.handle(
+                {
+                    "ids": [111, 222],
+                    "retry_ids": [222],
+                    "source": "mail.activity",
+                    "request_id": "req-retry-mode-1",
+                }
+            )
+        self.assertTrue(result.get("ok"))
+        data = result.get("data") or {}
+        self.assertEqual(data.get("execution_mode"), "retry")
+        self.assertEqual(data.get("done_count"), 1)
+        self.assertEqual(data.get("completed_ids"), [222])
+        mocked_complete.assert_called_once()
+
+    def test_batch_failure_generates_retry_request_for_retryable_ids(self):
+        handler = MyWorkCompleteBatchHandler(self.env, payload={})
+        with patch(
+            "odoo.addons.smart_construction_core.handlers.my_work_complete._complete_activity",
+            side_effect=Exception("transient failure"),
+        ):
+            result = handler.handle(
+                {"ids": [901], "source": "mail.activity", "request_id": "req-retry-template-1"}
+            )
+        self.assertTrue(result.get("ok"))
+        data = result.get("data") or {}
+        retry_ids = data.get("failed_retry_ids") or []
+        self.assertEqual(retry_ids, [901])
+        retry_request = data.get("retry_request") or {}
+        self.assertEqual(retry_request.get("intent"), "my.work.complete_batch")
+        params = retry_request.get("params") or {}
+        self.assertEqual(params.get("retry_ids"), [901])
+        self.assertEqual(params.get("source"), "mail.activity")
+        self.assertTrue(str(params.get("request_id") or "").startswith("mw_retry_"))

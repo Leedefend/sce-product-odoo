@@ -1,0 +1,620 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="0">
+        <!-- Capability groups and capabilities are owned by scene orchestration. -->
+        <record id="smart_construction_core.sc_cap_group_project_management" model="sc.capability.group">
+            <field name="sequence">10</field>
+            <field name="key">project_management</field>
+            <field name="label">项目管理</field>
+            <field name="icon">briefcase</field>
+        </record>
+        <record id="smart_construction_core.sc_cap_group_contract_management" model="sc.capability.group">
+            <field name="sequence">20</field>
+            <field name="key">contract_management</field>
+            <field name="label">合同管理</field>
+            <field name="icon">file-text</field>
+        </record>
+        <record id="smart_construction_core.sc_cap_group_cost_management" model="sc.capability.group">
+            <field name="sequence">30</field>
+            <field name="key">cost_management</field>
+            <field name="label">成本管理</field>
+            <field name="icon">calculator</field>
+        </record>
+        <record id="smart_construction_core.sc_cap_group_finance_management" model="sc.capability.group">
+            <field name="sequence">40</field>
+            <field name="key">finance_management</field>
+            <field name="label">财务管理</field>
+            <field name="icon">wallet</field>
+        </record>
+        <record id="smart_construction_core.sc_cap_group_material_management" model="sc.capability.group">
+            <field name="sequence">50</field>
+            <field name="key">material_management</field>
+            <field name="label">物资管理</field>
+            <field name="icon">boxes</field>
+        </record>
+        <record id="smart_construction_core.sc_cap_group_governance" model="sc.capability.group">
+            <field name="sequence">60</field>
+            <field name="key">governance</field>
+            <field name="label">治理配置</field>
+            <field name="icon">shield</field>
+        </record>
+        <record id="smart_construction_core.sc_cap_group_analytics" model="sc.capability.group">
+            <field name="sequence">70</field>
+            <field name="key">analytics</field>
+            <field name="label">经营分析</field>
+            <field name="icon">chart</field>
+        </record>
+        <record id="smart_construction_core.sc_cap_group_others" model="sc.capability.group">
+            <field name="sequence">80</field>
+            <field name="key">others</field>
+            <field name="label">其他能力</field>
+            <field name="icon">grid</field>
+        </record>
+
+        <record id="smart_construction_core.sc_cap_project_work" model="sc.capability">
+            <field name="sequence">10</field>
+            <field name="key">project.board.open</field>
+            <field name="name">项目工作</field>
+            <field name="group_id" ref="smart_construction_core.sc_cap_group_project_management"/>
+            <field name="ui_label">项目工作</field>
+            <field name="ui_hint">项目台账与项目办理入口</field>
+            <field name="intent">ui.contract</field>
+            <field name="default_payload" eval="{'action_xmlid': 'smart_construction_core.action_sc_project_list', 'menu_xmlid': 'smart_construction_core.menu_sc_project_project'}"/>
+            <field name="required_group_ids" eval="[(6, 0, [ref('smart_construction_core.group_sc_cap_project_read')])]"/>
+            <field name="tags">project</field>
+            <field name="status">ga</field>
+        </record>
+        <record id="smart_construction_core.sc_cap_capability_matrix" model="sc.capability">
+            <field name="sequence">20</field>
+            <field name="key">governance.capability.matrix</field>
+            <field name="name">能力矩阵</field>
+            <field name="group_id" ref="smart_construction_core.sc_cap_group_governance"/>
+            <field name="ui_label">能力矩阵</field>
+            <field name="ui_hint">查看角色可用能力</field>
+            <field name="intent">ui.contract</field>
+            <field name="default_payload" eval="{'scene_key': 'portal.capability_matrix', 'route': '/s/portal.capability_matrix'}"/>
+            <field name="tags">portal,capability</field>
+            <field name="status">ga</field>
+        </record>
+        <record id="smart_construction_core.sc_cap_contract_work" model="sc.capability">
+            <field name="sequence">30</field>
+            <field name="key">contract.center.open</field>
+            <field name="name">合同工作</field>
+            <field name="group_id" ref="smart_construction_core.sc_cap_group_contract_management"/>
+            <field name="ui_label">合同工作</field>
+            <field name="ui_hint">合同台账与合同清单</field>
+            <field name="intent">ui.contract</field>
+            <field name="default_payload" eval="{'scene_key': 'contract.center', 'route': '/s/contract.center', 'menu_xmlid': 'smart_construction_core.menu_sc_contract_center'}"/>
+            <field name="required_group_ids" eval="[(6, 0, [ref('smart_construction_core.group_sc_cap_contract_read')])]"/>
+            <field name="tags">contract</field>
+            <field name="status">ga</field>
+        </record>
+        <record id="smart_construction_core.sc_cap_cost_work" model="sc.capability">
+            <field name="sequence">40</field>
+            <field name="key">cost.ledger.open</field>
+            <field name="name">成本工作</field>
+            <field name="group_id" ref="smart_construction_core.sc_cap_group_cost_management"/>
+            <field name="ui_label">成本工作</field>
+            <field name="ui_hint">成本台账与预算入口</field>
+            <field name="intent">ui.contract</field>
+            <field name="default_payload" eval="{'action_xmlid': 'smart_construction_core.action_project_cost_ledger_my', 'menu_xmlid': 'smart_construction_core.menu_sc_project_cost_ledger'}"/>
+            <field name="required_group_ids" eval="[(6, 0, [ref('smart_construction_core.group_sc_cap_cost_read')])]"/>
+            <field name="tags">cost</field>
+            <field name="status">ga</field>
+        </record>
+        <record id="smart_construction_core.sc_cap_finance_work" model="sc.capability">
+            <field name="sequence">50</field>
+            <field name="key">finance.payment_request.list</field>
+            <field name="name">财务工作</field>
+            <field name="group_id" ref="smart_construction_core.sc_cap_group_finance_management"/>
+            <field name="ui_label">财务工作</field>
+            <field name="ui_hint">付款申请与财务台账</field>
+            <field name="intent">ui.contract</field>
+            <field name="default_payload" eval="{'action_xmlid': 'smart_construction_core.action_payment_request_my', 'menu_xmlid': 'smart_construction_core.menu_payment_request'}"/>
+            <field name="required_group_ids" eval="[(6, 0, [ref('smart_construction_core.group_sc_cap_finance_read')])]"/>
+            <field name="tags">finance</field>
+            <field name="status">ga</field>
+        </record>
+
+        <!-- Default scene: update base record only (version payloads moved to dedicated files) -->
+        <record id="smart_construction_core.sc_scene_default" model="sc.scene">
+            <field name="state">published</field>
+            <field name="version">v2</field>
+            <field name="is_default">1</field>
+            <field name="is_test">1</field>
+        </record>
+
+        <!-- Smoke scene for system-bound tests -->
+        <record id="sc_scene_smoke_default" model="sc.scene">
+            <field name="sequence">20</field>
+            <field name="name">Scene Smoke Default</field>
+            <field name="code">scene_smoke_default</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+            <field name="is_test">1</field>
+        </record>
+
+        <!-- Projects ledger scene -->
+        <record id="sc_scene_projects_list" model="sc.scene">
+            <field name="sequence">30</field>
+            <field name="name">项目台账</field>
+            <field name="code">projects.list</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Projects intake scene -->
+        <record id="sc_scene_projects_intake" model="sc.scene">
+            <field name="sequence">40</field>
+            <field name="name">项目立项</field>
+            <field name="code">projects.intake</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Projects ledger scene -->
+        <record id="sc_scene_projects_ledger" model="sc.scene">
+            <field name="sequence">50</field>
+            <field name="name">项目台账</field>
+            <field name="code">projects.ledger</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Finance payment requests scene -->
+        <record id="sc_scene_finance_payment_requests" model="sc.scene">
+            <field name="sequence">55</field>
+            <field name="name">付款申请审批</field>
+            <field name="code">finance.payment_requests</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <record id="sc_scene_cost_cost_compare" model="sc.scene">
+            <field name="sequence">56</field>
+            <field name="name">成本中心</field>
+            <field name="code">cost.cost_compare</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <record id="sc_scene_cost_project_cost_ledger" model="sc.scene">
+            <field name="sequence">57</field>
+            <field name="name">成本台账</field>
+            <field name="code">cost.project_cost_ledger</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <record id="sc_scene_finance_center" model="sc.scene">
+            <field name="sequence">58</field>
+            <field name="name">财务中心</field>
+            <field name="code">finance.center</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <record id="sc_scene_finance_settlement_orders" model="sc.scene">
+            <field name="sequence">59</field>
+            <field name="name">结算单</field>
+            <field name="code">finance.settlement_orders</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Portal lifecycle scene -->
+        <record id="sc_scene_portal_lifecycle" model="sc.scene">
+            <field name="sequence">60</field>
+            <field name="name">生命周期驾驶舱</field>
+            <field name="code">portal.lifecycle</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Portal capability matrix scene -->
+        <record id="sc_scene_portal_capability_matrix" model="sc.scene">
+            <field name="sequence">61</field>
+            <field name="name">能力矩阵</field>
+            <field name="code">portal.capability_matrix</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Portal dashboard scene -->
+        <record id="sc_scene_portal_dashboard" model="sc.scene">
+            <field name="sequence">62</field>
+            <field name="name">角色首页</field>
+            <field name="code">portal.dashboard</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- My work scene -->
+        <record id="sc_scene_my_work_workspace" model="sc.scene">
+            <field name="sequence">63</field>
+            <field name="name">我的工作</field>
+            <field name="code">my_work.workspace</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Project dashboard scene -->
+        <record id="sc_scene_projects_dashboard" model="sc.scene">
+            <field name="sequence">70</field>
+            <field name="name">项目驾驶舱</field>
+            <field name="code">projects.dashboard</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Project dashboard focus scene -->
+        <record id="sc_scene_projects_dashboard_showcase" model="sc.scene">
+            <field name="sequence">71</field>
+            <field name="name">项目驾驶舱聚焦</field>
+            <field name="code">projects.dashboard_focus</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Project management scene -->
+        <record id="sc_scene_project_management" model="sc.scene">
+            <field name="sequence">72</field>
+            <field name="name">项目驾驶舱</field>
+            <field name="code">project.management</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Contracts workspace scene -->
+        <record id="sc_scene_contract_center" model="sc.scene">
+            <field name="sequence">73</field>
+            <field name="name">合同中心</field>
+            <field name="code">contract.center</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Contracts workspace scene -->
+        <record id="sc_scene_contracts_workspace" model="sc.scene">
+            <field name="sequence">74</field>
+            <field name="name">合同管理工作台</field>
+            <field name="code">contracts.workspace</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Cost analysis workspace scene -->
+        <record id="sc_scene_cost_analysis" model="sc.scene">
+            <field name="sequence">75</field>
+            <field name="name">成本控制工作台</field>
+            <field name="code">cost.analysis</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Finance workspace scene -->
+        <record id="sc_scene_finance_workspace" model="sc.scene">
+            <field name="sequence">76</field>
+            <field name="name">资金管理工作台</field>
+            <field name="code">finance.workspace</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Risk center workspace scene -->
+        <record id="sc_scene_risk_center" model="sc.scene">
+            <field name="sequence">77</field>
+            <field name="name">风险提醒工作台</field>
+            <field name="code">risk.center</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Dictionary scene -->
+        <record id="sc_scene_data_dictionary" model="sc.scene">
+            <field name="sequence">80</field>
+            <field name="name">业务字典</field>
+            <field name="code">data.dictionary</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Purchase, material, labor, equipment, subcontract runtime scenes -->
+        <record id="sc_scene_material_center" model="sc.scene">
+            <field name="sequence">90</field>
+            <field name="name">物资与分包</field>
+            <field name="code">material.center</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_material_catalog" model="sc.scene">
+            <field name="sequence">91</field>
+            <field name="name">材料档案</field>
+            <field name="code">material.catalog</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_material_procurement" model="sc.scene">
+            <field name="sequence">92</field>
+            <field name="name">采购协同</field>
+            <field name="code">material.procurement</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_material_rfq" model="sc.scene">
+            <field name="sequence">93</field>
+            <field name="name">询比价</field>
+            <field name="code">material.rfq</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_material_acceptance" model="sc.scene">
+            <field name="sequence">94</field>
+            <field name="name">材料进场验收</field>
+            <field name="code">material.acceptance</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_material_inbound" model="sc.scene">
+            <field name="sequence">95</field>
+            <field name="name">入库单</field>
+            <field name="code">material.inbound</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_material_outbound" model="sc.scene">
+            <field name="sequence">96</field>
+            <field name="name">出库单</field>
+            <field name="code">material.outbound</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_material_price_library" model="sc.scene">
+            <field name="sequence">97</field>
+            <field name="name">材料价格库</field>
+            <field name="code">material.price_library</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_material_settlement" model="sc.scene">
+            <field name="sequence">98</field>
+            <field name="name">材料结算</field>
+            <field name="code">material.settlement</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_material_rental" model="sc.scene">
+            <field name="sequence">99</field>
+            <field name="name">周转材料租赁</field>
+            <field name="code">material.rental</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_material_rental_order" model="sc.scene">
+            <field name="sequence">100</field>
+            <field name="name">租赁单</field>
+            <field name="code">material.rental_order</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_material_rental_settlement" model="sc.scene">
+            <field name="sequence">101</field>
+            <field name="name">租赁结算</field>
+            <field name="code">material.rental_settlement</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_labor_management" model="sc.scene">
+            <field name="sequence">102</field>
+            <field name="name">劳务管理</field>
+            <field name="code">labor.management</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_labor_request" model="sc.scene">
+            <field name="sequence">103</field>
+            <field name="name">劳务申请</field>
+            <field name="code">labor.request</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_labor_attendance" model="sc.scene">
+            <field name="sequence">104</field>
+            <field name="name">考勤记录</field>
+            <field name="code">labor.attendance</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_labor_settlement" model="sc.scene">
+            <field name="sequence">105</field>
+            <field name="name">劳务结算</field>
+            <field name="code">labor.settlement</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_equipment_management" model="sc.scene">
+            <field name="sequence">106</field>
+            <field name="name">机械设备</field>
+            <field name="code">equipment.management</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_equipment_request" model="sc.scene">
+            <field name="sequence">107</field>
+            <field name="name">设备申请</field>
+            <field name="code">equipment.request</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_equipment_usage" model="sc.scene">
+            <field name="sequence">108</field>
+            <field name="name">设备使用登记</field>
+            <field name="code">equipment.usage</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_equipment_settlement" model="sc.scene">
+            <field name="sequence">109</field>
+            <field name="name">设备结算</field>
+            <field name="code">equipment.settlement</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_subcontract_management" model="sc.scene">
+            <field name="sequence">110</field>
+            <field name="name">专业分包</field>
+            <field name="code">subcontract.management</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_subcontract_request" model="sc.scene">
+            <field name="sequence">111</field>
+            <field name="name">分包申请</field>
+            <field name="code">subcontract.request</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_subcontract_register" model="sc.scene">
+            <field name="sequence">112</field>
+            <field name="name">分包登记</field>
+            <field name="code">subcontract.register</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_subcontract_settlement" model="sc.scene">
+            <field name="sequence">113</field>
+            <field name="name">分包结算</field>
+            <field name="code">subcontract.settlement</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+
+        <!-- Site execution, quality and safety runtime scenes -->
+        <record id="sc_scene_construction_execution" model="sc.scene">
+            <field name="sequence">120</field>
+            <field name="name">施工管理</field>
+            <field name="code">construction.execution</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_construction_plan" model="sc.scene">
+            <field name="sequence">121</field>
+            <field name="name">计划管理</field>
+            <field name="code">construction.plan</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_construction_plan_report" model="sc.scene">
+            <field name="sequence">122</field>
+            <field name="name">计划汇报</field>
+            <field name="code">construction.plan_report</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_construction_diary" model="sc.scene">
+            <field name="sequence">123</field>
+            <field name="name">施工日志</field>
+            <field name="code">construction.diary</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_quality_center" model="sc.scene">
+            <field name="sequence">124</field>
+            <field name="name">质量检查</field>
+            <field name="code">quality.center</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_quality_rectification" model="sc.scene">
+            <field name="sequence">125</field>
+            <field name="name">质量整改</field>
+            <field name="code">quality.rectification</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_quality_recheck" model="sc.scene">
+            <field name="sequence">126</field>
+            <field name="name">质量复验</field>
+            <field name="code">quality.recheck</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_safety_center" model="sc.scene">
+            <field name="sequence">127</field>
+            <field name="name">安全检查</field>
+            <field name="code">safety.center</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_safety_rectification" model="sc.scene">
+            <field name="sequence">128</field>
+            <field name="name">安全整改</field>
+            <field name="code">safety.rectification</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+        <record id="sc_scene_safety_recheck" model="sc.scene">
+            <field name="sequence">129</field>
+            <field name="name">安全复验</field>
+            <field name="code">safety.recheck</field>
+            <field name="layout">grid</field>
+            <field name="state">published</field>
+            <field name="version">v2</field>
+        </record>
+    </data>
+</odoo>

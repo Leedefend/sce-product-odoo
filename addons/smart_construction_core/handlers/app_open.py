@@ -1,0 +1,215 @@
+# -*- coding: utf-8 -*-
+# smart_construction_core/handlers/app_open.py
+import json, hashlib, logging, time
+from typing import Any, Dict
+from odoo import api, SUPERUSER_ID
+from odoo.addons.smart_core.core.base_handler import BaseIntentHandler
+from odoo.addons.smart_core.security.platform_admin import user_is_platform_admin
+from odoo.addons.smart_core.utils.reason_codes import REASON_PERMISSION_DENIED, failure_meta_for_reason
+from .app_catalog import (
+    APP_DEFS,
+    APP_DELIVERY_FALLBACK_META,
+    APP_DELIVERY_SOURCE_AUTHORITY,
+    _current_perms,
+    _xmlid_to_id,
+)
+
+# 如需直接执行契约，可引入：
+from odoo.addons.smart_core.app_config_engine.services.dispatchers.action_dispatcher import ActionDispatcher
+from odoo.addons.smart_core.app_config_engine.services.contract_service import ContractService
+
+_logger = logging.getLogger(__name__)
+
+def _md5(d: Any) -> str:
+    return hashlib.md5(json.dumps(d, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def _params(payload: Any) -> Dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {}
+    nested = payload.get("params")
+    if isinstance(nested, dict):
+        merged = dict(payload)
+        merged.update(nested)
+        return merged
+    return dict(payload)
+
+
+def _is_feature_openable(env, su_env, app_id: str, feature: Dict[str, Any], perms: set[str]) -> bool:
+    if not isinstance(feature, dict):
+        return False
+
+    need = set(feature.get("required_permissions") or [])
+    is_system_admin = False
+    try:
+        is_system_admin = bool(user_is_platform_admin(env.user))
+    except Exception:
+        is_system_admin = False
+    if need and not need.issubset(perms) and not is_system_admin:
+        return False
+
+    open_payload = feature.get("open") if isinstance(feature.get("open"), dict) else {}
+    if not open_payload:
+        return False
+    if str(open_payload.get("internal_route") or "").strip():
+        return True
+    if str(open_payload.get("workflow_id") or "").strip():
+        return True
+    if str(open_payload.get("odoo_menu_xmlid") or "").strip():
+        return bool(_xmlid_to_id(su_env, open_payload.get("odoo_menu_xmlid")))
+    if str(open_payload.get("odoo_action_xmlid") or "").strip():
+        return bool(_xmlid_to_id(su_env, open_payload.get("odoo_action_xmlid")))
+    _logger.info("[app.open] feature not openable app=%s feature=%s", app_id, feature.get("key"))
+    return False
+
+
+def _workspace_fallback_payload(reason: str = "") -> Dict[str, Any]:
+    payload = {
+        "subject": "ui.contract",
+        "scene_key": "workspace.home",
+        "route": "/s/workspace.home",
+        **APP_DELIVERY_FALLBACK_META,
+    }
+    if reason:
+        payload["fallback_reason"] = str(reason)
+    return payload
+
+
+def _permission_denied_response(app_id: str, feature_key: str, meta: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "status": "error",
+        "ok": False,
+        "code": 403,
+        "data": {
+            "success": False,
+            "reason_code": REASON_PERMISSION_DENIED,
+            "app": str(app_id or ""),
+            "feature": str(feature_key or ""),
+        },
+        "error": {
+            "code": REASON_PERMISSION_DENIED,
+            "reason_code": REASON_PERMISSION_DENIED,
+            "message": "permission denied for app feature",
+            **failure_meta_for_reason(REASON_PERMISSION_DENIED),
+        },
+        "meta": meta,
+    }
+
+
+def _action_target_payload(su_env, action_xmlid: str) -> Dict[str, Any]:
+    action = su_env.ref(action_xmlid, raise_if_not_found=False)
+    if not action:
+        return {}
+    return {
+        "subject": "action",
+        "id": int(action.id),
+        "action_id": int(action.id),
+        "model": str(getattr(action, "res_model", "") or ""),
+        "view_type": str(getattr(action, "view_mode", "") or "tree,form").split(",", 1)[0],
+    }
+
+class AppOpenHandler(BaseIntentHandler):
+    """
+    意图：app.open
+    打开指定应用的某个 feature：
+      - odoo_menu_xmlid  → 返回 menu 契约目标
+      - odoo_action_xmlid→ 返回 action 契约目标（也可直接执行并回传契约）
+      - internal_route    → 返回内部路由（前端按 ui.contract 渲染）
+      - workflow_id       → 触发工作流引擎
+    """
+    INTENT_TYPE = "app.open"
+    DESCRIPTION = "打开应用功能（统一入口）"
+    VERSION = "1.0.0"
+    ETAG_ENABLED = False
+    REQUIRED_GROUPS = []  # 具体的权限在 feature.required_permissions 内校验
+
+    def _meta(self, ts0):
+        return {
+            "intent": self.INTENT_TYPE,
+            "elapsed_ms": int((time.time() - ts0) * 1000),
+            "source_authority": APP_DELIVERY_SOURCE_AUTHORITY,
+        }
+
+    def handle(self, payload=None, ctx=None):
+        payload = _params(payload)
+        ts0 = time.time()
+        env = self.env
+        su_env = self.su_env or api.Environment(env.cr, SUPERUSER_ID, dict(env.context or {}))
+
+        app_id = payload.get("app")
+        feature_key = payload.get("feature")
+        if not app_id:
+            app_id = "workspace"
+
+        if app_id == "workspace" and not feature_key:
+            data = _workspace_fallback_payload("workspace_default")
+            return {"status":"success","data":data,"meta":self._meta(ts0),"ok":True}
+
+        app = next((a for a in APP_DEFS if a["id"] == app_id), None)
+        if not app:
+            data = _workspace_fallback_payload("app_not_found")
+            return {"status":"success","data":data,"meta":self._meta(ts0),"ok":True}
+
+        have = _current_perms(env)
+        openable_features = [
+            item
+            for item in (app.get("features") or [])
+            if _is_feature_openable(env, su_env, app_id, item, have)
+        ]
+
+        if not feature_key:
+            first_openable = next((x for x in openable_features if isinstance(x, dict) and x.get("key")), None)
+            if first_openable:
+                feature_key = first_openable.get("key")
+        f = next((x for x in app.get("features", []) if x["key"] == feature_key), None)
+        if not f:
+            data = _workspace_fallback_payload("no_openable_feature")
+            return {"status":"success","data":data,"meta":self._meta(ts0),"ok":True}
+
+        if feature_key and not _is_feature_openable(env, su_env, app_id, f, have):
+            data = _workspace_fallback_payload("feature_not_openable")
+            return {"status":"success","data":data,"meta":self._meta(ts0),"ok":True}
+
+        # 权限二次校验
+        need = set(f.get("required_permissions") or [])
+        is_system_admin = False
+        try:
+            is_system_admin = bool(user_is_platform_admin(env.user))
+        except Exception:
+            is_system_admin = False
+        if need and not need.issubset(have) and not is_system_admin:
+            return _permission_denied_response(app_id, feature_key, self._meta(ts0))
+
+        o = f.get("open") or {}
+        # 1) 菜单：返回前端可直接 contract.get('menu', {id})
+        if o.get("odoo_menu_xmlid"):
+            mid = _xmlid_to_id(su_env, o["odoo_menu_xmlid"])
+            data = {"subject": "menu", "id": int(mid)}  # 零推理：前端直接把这个交回 contract
+            return {"status":"success","data":data,"meta":self._meta(ts0),"ok":True}
+
+        # 2) 动作：按客户端能力返回动作目标或执行后契约。
+        if o.get("odoo_action_xmlid"):
+            if str(payload.get("client_type") or payload.get("clientType") or "").strip() in {"wx_mini", "harmony_h5"}:
+                data = _action_target_payload(su_env, o["odoo_action_xmlid"])
+                if data:
+                    return {"status":"success","data":data,"meta":self._meta(ts0),"ok":True}
+            aid = _xmlid_to_id(su_env, o["odoo_action_xmlid"])
+            p = {"subject": "action", "action_id": int(aid), "with_data": False}
+            ad = ActionDispatcher(env, su_env)
+            data, versions = ad.dispatch(p)
+            fixed = ContractService(su_env).finalize_contract({"ok": True, "data": data, "meta": {"subject":"action"}})
+            fixed_data = fixed.get("data") if isinstance(fixed.get("data"), dict) else {}
+            fixed_data.setdefault("subject", "action")
+            return {"status":"success","data":fixed_data,"meta":self._meta(ts0),"ok":True}
+
+        # 3) 内部路由：交给前端 ui.contract
+        if o.get("internal_route"):
+            data = {"subject": "ui.contract", "route": o["internal_route"], "args": payload.get("args") or {}}
+            return {"status":"success","data":data,"meta":self._meta(ts0),"ok":True}
+
+        # 4) 工作流：直接触发
+        if o.get("workflow_id"):
+            res = self.env["workflow.engine"].run(o["workflow_id"], payload.get("args") or {})
+            return {"status":"success","data":res,"meta":self._meta(ts0),"ok":True}
+
+        raise ValueError(f"unknown open mapping for {app_id}:{feature_key}")

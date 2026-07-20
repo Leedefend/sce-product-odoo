@@ -1,0 +1,99 @@
+{
+  "action": null,
+  "case": "scene_package_export_intent_admin",
+  "contract_version": "v1",
+  "error": null,
+  "execute_error": null,
+  "execute_result": null,
+  "fallback": false,
+  "meta_fields": null,
+  "model": null,
+  "op": "intent.invoke",
+  "record": null,
+  "record_error": null,
+  "ui_contract": null,
+  "ui_contract_raw": {
+    "action": "package_export",
+    "checksum": "dc07bb53d360e39ca2f3a6fede76e79ee562825f4354a8c5d655cf74c40da8a1",
+    "package": {
+      "checksum": "dc07bb53d360e39ca2f3a6fede76e79ee562825f4354a8c5d655cf74c40da8a1",
+      "compatibility": {
+        "min_core_version": "10.6.0",
+        "supported_schema_versions": [
+          "v2"
+        ]
+      },
+      "defaults": {
+        "rollback_active": true,
+        "scene_channel": "stable",
+        "use_pinned": true
+      },
+      "package_name": "snapshot.pkg",
+      "package_version": "0.0.1",
+      "policies": {
+        "auto_degrade": {
+          "action": "rollback_pinned",
+          "critical_threshold": {
+            "drift_warn": 1,
+            "resolve_errors": 1
+          },
+          "enabled": true
+        },
+        "channel_defaults": {
+          "default": "stable"
+        }
+      },
+      "previous_versions": [],
+      "profiles": {
+        "scenes": {
+          "projects.ledger": {
+            "list_profile": {
+              "hidden_columns_must_include": [
+                "message_needaction"
+              ],
+              "required": [
+                "columns",
+                "hidden_columns"
+              ]
+            },
+            "required": [
+              "list_profile",
+              "default_sort"
+            ]
+          },
+          "projects.list": {
+            "list_profile": {
+              "hidden_columns_must_include": [
+                "message_needaction"
+              ],
+              "required": [
+                "columns",
+                "hidden_columns"
+              ]
+            },
+            "required": [
+              "list_profile",
+              "default_sort"
+            ]
+          }
+        },
+        "version": "v2"
+      },
+      "scene_version": "",
+      "scenes": [],
+      "schema_version": "v2",
+      "upgrade": {
+        "breaking": false,
+        "supported_from": [],
+        "type": "inplace"
+      }
+    },
+    "package_name": "snapshot.pkg",
+    "package_version": "0.0.1",
+    "scene_channel": "stable",
+    "scene_count": 0
+  },
+  "user": "admin",
+  "user_fallback": null,
+  "view_type": null
+}

@@ -1,0 +1,24 @@
+{
+  "action": null,
+  "case": "attachment_list_pm",
+  "contract_version": "v1",
+  "error": null,
+  "execute_error": null,
+  "execute_result": null,
+  "fallback": false,
+  "meta_fields": null,
+  "model": "ir.attachment",
+  "op": "model",
+  "record": null,
+  "record_error": null,
+  "ui_contract": {
+    "columns": [],
+    "columnsSchema": [],
+    "model": "ir.attachment",
+    "view_type": "list"
+  },
+  "ui_contract_raw": {},
+  "user": "pm",
+  "user_fallback": "admin",
+  "view_type": "list"
+}

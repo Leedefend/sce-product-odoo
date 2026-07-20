@@ -1,0 +1,32 @@
+{
+  "action": null,
+  "case": "portal_dashboard_pm",
+  "contract_version": "v1",
+  "error": null,
+  "execute_error": null,
+  "execute_result": null,
+  "fallback": false,
+  "meta_fields": null,
+  "model": null,
+  "op": "contract.portal_dashboard",
+  "record": null,
+  "record_error": null,
+  "ui_contract": null,
+  "ui_contract_raw": {
+    "entries": [
+      {
+        "allowed": true,
+        "deny_reason": [],
+        "desc": "查看角色可用能力",
+        "icon": "M",
+        "key": "capability_matrix",
+        "label": "能力矩阵",
+        "route": "/s/portal.capability_matrix",
+        "scene_key": "portal.capability_matrix"
+      }
+    ]
+  },
+  "user": "pm",
+  "user_fallback": "admin",
+  "view_type": null
+}

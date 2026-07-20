@@ -1,0 +1,1546 @@
+# -*- coding: utf-8 -*-
+"""
+services/view_Parser/parsers Tree Form.py
+
+Tree / Form 解析、表单布局转换、按钮归一化（增强版，直接可用）
+- tree：default_order / editable / create / delete / limit / 列级修饰 / 行装饰 / 行按钮 / columns_schema / search
+- form：layout(notebook/page/group/field) / header_buttons / button_box(stat_buttons) / chatter / attachments /
+        field_modifiers(arch + fields_info 合并) / x2many subviews（inline + 引用） / statusbar 智能识别 / search
+
+依赖：
+- _BaseViewParserMixin 中的：_safe_get_view_data, _lossless_parse_xml, _normalize_toolbar, _merge_search, _parse_search_from_arch,
+  _serialize_odoo_view, _normalize_view_types 等通用能力
+"""
+from odoo import _
+from lxml import etree
+import logging
+import ast
+import json
+import re
+
+_logger = logging.getLogger(__name__)
+
+
+class _TreeFormParserMixin:
+    SOURCE_KIND = "odoo_tree_form_view_parser_mixin"
+    SOURCE_AUTHORITIES = ("ir.ui.view:tree", "ir.ui.view:form", "ir.model.fields")
+    NO_BUSINESS_FACT_AUTHORITY = True
+
+    @classmethod
+    def source_authority_contract(cls) -> dict:
+        return {
+            "kind": cls.SOURCE_KIND,
+            "authorities": list(cls.SOURCE_AUTHORITIES),
+            "projection_only": True,
+            "rebuildable": True,
+            "no_business_fact_authority": cls.NO_BUSINESS_FACT_AUTHORITY,
+            "view_parser_mixin_only": True,
+        }
+
+    _SIMPLE_MODIFIER_RE = re.compile(
+        r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*(==|!=|>=|<=|>|<|=)\s*('([^']*)'|\"([^\"]*)\"|True|False|true|false|\d+(?:\.\d+)?)\s*$"
+    )
+
+    def _normalize_modifier_value(self, value):
+        raw = str(value or "").strip()
+        if not raw:
+            return raw
+        if raw in ("1", "true", "True"):
+            return True
+        if raw in ("0", "false", "False"):
+            return False
+        normalized = self._normalize_modifier_structure(value)
+        if normalized is not None:
+            return normalized
+        parsed = self._safe_eval_expr(value)
+        if parsed is not None and parsed != value:
+            normalized = self._normalize_modifier_structure(parsed)
+            return normalized if normalized is not None else parsed
+        match = self._SIMPLE_MODIFIER_RE.match(raw)
+        if match:
+            expected_raw = match.group(4) if match.group(4) is not None else match.group(5)
+            if expected_raw is None:
+                token = match.group(3)
+                if token in ("True", "true"):
+                    expected_raw = True
+                elif token in ("False", "false"):
+                    expected_raw = False
+                elif "." in token:
+                    try:
+                        expected_raw = float(token)
+                    except Exception:
+                        expected_raw = token
+                else:
+                    try:
+                        expected_raw = int(token)
+                    except Exception:
+                        expected_raw = token
+            op = "==" if match.group(2) == "=" else match.group(2)
+            return {
+                "kind": "field_compare",
+                "field": match.group(1),
+                "operator": op,
+                "value": expected_raw,
+                "raw": raw,
+            }
+        if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", raw):
+            return {
+                "kind": "field_truthy",
+                "field": raw,
+                "raw": raw,
+            }
+        return raw
+
+    def _normalize_modifier_structure(self, value):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (list, tuple)):
+            return self._normalize_domain_modifier(list(value))
+        if not isinstance(value, str):
+            return None
+        raw = value.strip()
+        if not raw:
+            return None
+        try:
+            expr = ast.parse(raw, mode='eval').body
+        except Exception:
+            return None
+        node = self._normalize_python_modifier_expr(expr)
+        if isinstance(node, dict):
+            node.setdefault('raw', raw)
+        return node
+
+    def _normalize_python_modifier_expr(self, node):
+        if isinstance(node, ast.Name):
+            if node.id in ('True', 'False'):
+                return node.id == 'True'
+            return {'kind': 'field_truthy', 'field': node.id}
+        if isinstance(node, ast.Constant):
+            return node.value if isinstance(node.value, bool) else {'kind': 'static', 'value': node.value}
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+            child = self._normalize_python_modifier_expr(node.operand)
+            return {'kind': 'not', 'expr': child} if child is not None else None
+        if isinstance(node, ast.BoolOp):
+            children = [self._normalize_python_modifier_expr(v) for v in node.values]
+            children = [v for v in children if v is not None]
+            if not children:
+                return None
+            return {'kind': 'all' if isinstance(node.op, ast.And) else 'any', 'exprs': children}
+        if isinstance(node, ast.Compare) and len(node.ops) == 1 and len(node.comparators) == 1:
+            left = self._ast_field_name(node.left)
+            if not left:
+                return None
+            op = self._ast_compare_operator(node.ops[0])
+            if not op:
+                return None
+            return {
+                'kind': 'field_compare',
+                'field': left,
+                'operator': op,
+                'value': self._ast_literal_value(node.comparators[0]),
+            }
+        return None
+
+    def _ast_field_name(self, node):
+        if isinstance(node, ast.Name):
+            return node.id
+        if isinstance(node, ast.Attribute):
+            parent = self._ast_field_name(node.value)
+            return ("%s.%s" % (parent, node.attr)) if parent else node.attr
+        return ""
+
+    def _ast_compare_operator(self, op):
+        if isinstance(op, ast.Eq):
+            return '=='
+        if isinstance(op, ast.NotEq):
+            return '!='
+        if isinstance(op, ast.Gt):
+            return '>'
+        if isinstance(op, ast.GtE):
+            return '>='
+        if isinstance(op, ast.Lt):
+            return '<'
+        if isinstance(op, ast.LtE):
+            return '<='
+        if isinstance(op, ast.In):
+            return 'in'
+        if isinstance(op, ast.NotIn):
+            return 'not in'
+        return ""
+
+    def _ast_literal_value(self, node):
+        if isinstance(node, ast.Constant):
+            return node.value
+        if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+            return [self._ast_literal_value(item) for item in node.elts]
+        if isinstance(node, ast.Name):
+            if node.id == 'False':
+                return False
+            if node.id == 'True':
+                return True
+            if node.id == 'None':
+                return None
+            return node.id
+        return None
+
+    def _normalize_domain_modifier(self, value):
+        if not value:
+            return False
+        if len(value) == 3 and isinstance(value[0], str) and value[0] not in ('|', '&', '!'):
+            return {
+                'kind': 'field_compare',
+                'field': value[0],
+                'operator': '==' if value[1] == '=' else value[1],
+                'value': value[2],
+            }
+        stack = list(value)
+        parsed = self._parse_prefix_domain_modifier(stack)
+        if parsed is not None and not stack:
+            return parsed
+        exprs = [parsed] if parsed is not None else []
+        value = stack if parsed is not None else value
+        for item in value:
+            normalized = self._normalize_domain_modifier(list(item)) if isinstance(item, tuple) else None
+            if normalized is not None:
+                exprs.append(normalized)
+        if exprs:
+            return {'kind': 'all', 'exprs': exprs}
+        return None
+
+    def _parse_prefix_domain_modifier(self, stack):
+        if not stack:
+            return None
+        token = stack.pop(0)
+        if token == '|':
+            left = self._parse_prefix_domain_modifier(stack)
+            right = self._parse_prefix_domain_modifier(stack)
+            return {'kind': 'any', 'exprs': [x for x in (left, right) if x is not None]}
+        if token == '&':
+            left = self._parse_prefix_domain_modifier(stack)
+            right = self._parse_prefix_domain_modifier(stack)
+            return {'kind': 'all', 'exprs': [x for x in (left, right) if x is not None]}
+        if token == '!':
+            expr = self._parse_prefix_domain_modifier(stack)
+            return {'kind': 'not', 'expr': expr}
+        if isinstance(token, tuple):
+            return self._normalize_domain_modifier(list(token))
+        return None
+
+    def _field_widget_semantics(self, fname, widget, options):
+        if widget != 'daterange':
+            return {}
+        options = options if isinstance(options, dict) else {}
+        end_field = (
+            options.get('end_date_field')
+            or options.get('related_end_date')
+            or options.get('date_end')
+            or options.get('end_field')
+            or ''
+        )
+        return {
+            'kind': 'date_range',
+            'start_field': fname,
+            'end_field': str(end_field or '').strip(),
+        }
+
+    def _resolve_action_label(self, btn_node, name_raw):
+        label = (btn_node.get('string') or btn_node.get('title') or '').strip()
+        if label:
+            return label
+        try:
+            if str(name_raw or '').strip().isdigit():
+                action = self.env['ir.actions.actions'].sudo().browse(int(name_raw))
+                if action.exists() and action.name:
+                    return str(action.name).strip()
+        except Exception:
+            _logger.debug("failed to resolve action label for %s", name_raw, exc_info=True)
+        return ""
+
+    def _button_badge_meta(self, btn_node):
+        try:
+            for field_node in btn_node.xpath(".//field[contains(concat(' ', normalize-space(@widget), ' '), ' statinfo ')]"):
+                field_name = (field_node.get('name') or field_node.get('field') or '').strip()
+                if not field_name:
+                    continue
+                badge_label = (field_node.get('string') or field_node.get('title') or field_node.get('label') or '').strip()
+                return {
+                    "kind": "statinfo",
+                    "field": field_name,
+                    "count_field": field_name,
+                    "label": badge_label or field_name,
+                }
+        except Exception:
+            _logger.debug("failed to resolve button badge meta", exc_info=True)
+        return {}
+
+    def _class_list(self, node):
+        return [c.strip() for c in (node.get('class') or '').split() if c.strip()]
+
+    def _has_class(self, node, class_name):
+        return class_name in self._class_list(node)
+
+    def _native_button_contract_scope(self, btn_node, level='header'):
+        classes = [c.strip() for c in (btn_node.get('class') or '').split() if c.strip()]
+        if 'oe_stat_button' in classes or 'oe_stat_info' in classes:
+            return {
+                "level": "smart",
+                "selection": "none",
+                "visible_profiles": ["create", "edit", "readonly"],
+            }
+
+        in_header = False
+        host = ""
+        p = btn_node.getparent()
+        while p is not None:
+            tag = getattr(p, 'tag', '')
+            if tag == 'header':
+                in_header = True
+            if tag in ('tree', 'list'):
+                host = 'list'
+                break
+            if tag == 'form':
+                host = 'form'
+                break
+            if tag == 'kanban':
+                host = 'kanban'
+                break
+            p = p.getparent()
+
+        if host == 'list':
+            if in_header:
+                return {
+                    "level": "toolbar",
+                    "selection": "multi",
+                    "visible_profiles": ["readonly", "list"],
+                }
+            return {
+                "level": "row",
+                "selection": "none",
+                "visible_profiles": ["readonly", "list"],
+            }
+
+        return {
+            "level": "header" if level != 'smart' else 'smart',
+            "selection": "none",
+            "visible_profiles": ["create", "edit", "readonly"],
+        }
+
+    def _button_action_safety(self, *, btn_node, btype, method, label, classes, confirm, level):
+        method_text = str(method or "").strip().lower()
+        label_text = str(label or "").strip()
+        label_lower = label_text.lower()
+        class_set = set(classes or [])
+        raw_level = str(level or "").strip().lower()
+
+        navigation_prefixes = (
+            "action_open_",
+            "action_view_",
+            "open_",
+            "view_",
+        )
+        navigation_label_tokens = ("分析", "查看", "打开", "搜索", "明细", "台账")
+        dangerous_method_tokens = (
+            "cancel",
+            "delete",
+            "unlink",
+            "archive",
+            "reset",
+            "rebuild",
+            "generate",
+            "import",
+            "submit",
+            "approve",
+            "reject",
+            "confirm",
+            "done",
+            "publish",
+            "validate",
+        )
+        dangerous_label_tokens = (
+            "取消",
+            "作废",
+            "删除",
+            "归档",
+            "重置",
+            "重建",
+            "生成",
+            "导入",
+            "提交",
+            "批准",
+            "审批",
+            "驳回",
+            "确认",
+            "完成",
+            "发布",
+            "校验",
+        )
+
+        is_open = btype in ("action", "url", "workflow")
+        is_navigation_object = (
+            method_text.startswith(navigation_prefixes)
+            or any(token in label_text for token in navigation_label_tokens)
+        )
+        native_confirm = str(confirm or "").strip()
+        class_danger = bool(class_set.intersection({"btn-danger", "text-danger", "oe_danger"}))
+        destructive = (
+            class_danger
+            or bool(native_confirm)
+            or any(token in method_text for token in dangerous_method_tokens)
+            or any(token in label_text for token in dangerous_label_tokens)
+        )
+
+        if is_open or is_navigation_object:
+            return {
+                "classification": "safe",
+                "requires_confirm": False,
+                "reason_code": "SAFE_NAVIGATION_ACTION",
+            }
+
+        if destructive:
+            message = native_confirm or _("确认执行“%s”？") % (label_text or method or _("此操作"))
+            return {
+                "classification": "danger",
+                "requires_confirm": raw_level in ("body", "row") or bool(native_confirm) or class_danger,
+                "confirm_message": message,
+                "reason_code": "NATIVE_BUTTON_DANGEROUS_ACTION",
+            }
+
+        return {
+            "classification": "safe",
+            "requires_confirm": False,
+            "reason_code": "SAFE_ACTION",
+        }
+
+    # ---------------- tree 解析 ----------------
+    def _parse_tree_view(self, arch, fields_info):
+        columns, row_actions, row_classes = [], [], []
+        page_size = 50
+        modifiers = {}
+        capabilities = {"inline_edit": False, "can_create": True, "can_delete": True}
+        default_order = None
+
+        try:
+            root = etree.fromstring(arch.encode('utf-8')) if arch else None
+            if root is not None and root.tag in ('tree', 'list'):
+                # default_order / editable / create / delete / limit
+                default_order = root.get('default_order')
+                editable = (root.get('editable') or '').strip().lower()  # bottom/top/''/true
+                capabilities["inline_edit"] = editable in ('bottom', 'top', '1', 'true')
+                capabilities["can_create"] = (root.get('create', '1') not in ('0', 'false', 'False'))
+                capabilities["can_delete"] = (root.get('delete', '1') not in ('0', 'false', 'False'))
+
+                limit_attr = root.get('limit')
+                if limit_attr:
+                    try:
+                        page_size = int(limit_attr)
+                    except Exception:
+                        page_size = 50
+
+                # 1) 列与列级属性
+                for el in root.xpath('./field[@name]'):
+                    fname = el.get('name')
+                    if not fname:
+                        continue
+                    if fname not in columns:
+                        columns.append(fname)
+                    mods = modifiers.setdefault(fname, {})
+                    field_string = (el.get('string') or '').strip()
+                    if field_string:
+                        mods['string'] = field_string
+                        mods['label'] = field_string
+                    # optional: hide/show/column
+                    opt = el.get('optional')
+                    if opt:
+                        mods['optional'] = opt
+                    # 列上 attrs/invisible/readonly/required
+                    for key in ('readonly', 'required', 'invisible', 'column_invisible'):
+                        val = el.get(key)
+                        if val:
+                            mods[key] = self._normalize_modifier_value(val)
+                    # 列上的 widget / sum（页脚汇总）
+                    if el.get('widget'):
+                        mods['widget'] = el.get('widget')
+                    if el.get('sum'):
+                        mods['sum'] = el.get('sum')
+
+                _logger.debug("TREE_PARSER_DEBUG: parsed_columns=%s", columns)
+
+                # 2) 行级按钮（tree 内所有 <button>）
+                for btn in root.xpath('.//button'):
+                    entry = self._button_to_action(btn, level='row')
+                    if entry:
+                        row_actions.append(entry)
+
+                # 3) 行样式：decoration-xxx
+                for k, v in root.attrib.items():
+                    if k.startswith('decoration-') and v:
+                        row_classes.append({
+                            "expr_raw": v,
+                            "expr": self._safe_eval_expr(v),
+                            "class": k.replace('decoration-', '')
+                        })
+
+        except Exception:
+            _logger.exception("parse tree view failed")
+
+        if not row_actions:
+            row_actions = [{
+                "name": "open_form",
+                "label": _("打开"),
+                "kind": "open",
+                "level": "row",
+                "selection": "single",
+                "trigger": "row_click",
+                "display_mode": "row_click",
+                "intent": "open",
+                "payload": {"ref": None, "view_mode": "form"},
+            }]
+        if not columns:
+            # 没有列时，取 fields_info 前几列兜底
+            columns = [k for k in (fields_info or {}).keys() if not k.startswith('__')][:6] or ['id']
+
+        # 列模式（兼容 + 原生字段语义）
+        columns_schema = [
+            self._tree_column_schema(c, fields_info.get(c, {}) if isinstance(fields_info, dict) else {}, modifiers.get(c, {}))
+            for c in columns
+        ]
+
+        _logger.debug("TREE_PARSER_DEBUG: final_columns=%s fields_info_keys=%s", columns, list((fields_info or {}).keys())[:10])
+
+        return {
+            "columns": columns,
+            "columns_schema": columns_schema,
+            "row_actions": row_actions,
+            "page_size": page_size,
+            "row_classes": row_classes,
+            "modifiers": modifiers,
+            "capabilities": capabilities,
+            "default_order": default_order,
+            # 让服务层不需要再兜底 search
+            "search": {"filters": [], "group_by": [], "facets": {"enabled": True}},
+        }
+
+    def _tree_column_schema(self, name, field_meta, modifiers):
+        meta = field_meta if isinstance(field_meta, dict) else {}
+        mods = modifiers if isinstance(modifiers, dict) else {}
+        widget = str(mods.get('widget') or meta.get('type') or 'char').strip() or 'char'
+        label = mods.get('string') or mods.get('label') or meta.get('string') or name
+        schema = {
+            "name": name,
+            "label": label,
+            "string": label,
+            "type": meta.get('type') or 'char',
+            "widget": widget,
+        }
+        selection = meta.get('selection')
+        if isinstance(selection, (list, tuple)):
+            schema["selection"] = [
+                {"value": item[0], "label": item[1]}
+                for item in selection
+                if isinstance(item, (list, tuple)) and len(item) >= 2
+            ]
+        for key, value in mods.items():
+            if key == 'widget':
+                continue
+            schema[key] = value
+        return schema
+
+    # ---------------- form 解析（增强） ----------------
+    def _view_bool_attr(self, node, attr_name, default=True):
+        if node is None:
+            return bool(default)
+        raw = node.get(attr_name)
+        if raw is None:
+            return bool(default)
+        return str(raw).strip().lower() not in ('0', 'false', 'no', 'off')
+
+    def _parse_form_view(self, arch, fields_info, model_name):
+        """
+        返回契约块：
+        {
+          layout, statusbar, header_buttons, button_box, stat_buttons, field_modifiers,
+          subviews, chatter, attachments, search
+        }
+        """
+        root = None
+        if arch:
+            try:
+                root = etree.fromstring(arch.encode('utf-8'))
+            except Exception:
+                _logger.exception("FORM_PARSER_DEBUG: XML parse failed, fallback to minimal layout")
+
+        capabilities = {
+            "can_create": self._view_bool_attr(root, "create", True),
+            "can_write": self._view_bool_attr(root, "edit", True),
+            "can_delete": self._view_bool_attr(root, "delete", True),
+        }
+
+        # 1) DOM 优先解析真实布局（避免 lossless 未还原导致空表单）
+        layout_dom = self._extract_form_layout_dom(root, fields_info) if root is not None else []
+        _logger.debug("FORM_PARSER_DEBUG: layout_dom=%s", layout_dom)
+
+        # 2) lossless 结果作为兜底/补充
+        layout_ll = self._convert_parsed_structure_to_layout(self._lossless_parse_xml(arch), fields_info)
+        layout = self._merge_layout(layout_dom, layout_ll)
+        _logger.debug("FORM_PARSER_DEBUG: merged layout=%s", layout)
+
+        # 3) statusbar 智能识别 + 状态集
+        statusbar = self._build_statusbar(root, fields_info, model_name)
+        _logger.debug("FORM_PARSER_DEBUG: statusbar=%s", statusbar)
+
+        # 4) header 按钮
+        header_buttons = self._extract_header_buttons(root) if root is not None else []
+        _logger.debug("FORM_PARSER_DEBUG: header_buttons=%s", header_buttons)
+
+        # 5) Smart Buttons（oe_button_box/oe_stat_button）
+        stat_buttons = self._extract_button_box(root) if root is not None else []
+        # 兼容：有些版本直接把 oe_stat_button 放 sheet/header 下
+        if root is not None and not stat_buttons:
+            for b in root.xpath(".//button[contains(concat(' ', normalize-space(@class), ' '), ' oe_stat_button ')]"):
+                norm = self._button_to_action(b, level='smart')
+                if norm:
+                    stat_buttons.append(norm)
+        button_box = list(stat_buttons)
+        _logger.debug("FORM_PARSER_DEBUG: button_box=%s", button_box)
+
+        # 6) 字段修饰（字段级 + arch 覆盖）
+        field_modifiers = self._collect_field_modifiers(fields_info, root)
+        _logger.debug("FORM_PARSER_DEBUG: field_modifiers keys=%s", list(field_modifiers.keys()))
+
+        # 7) 子视图（inline + 引用式）
+        subviews = self._collect_x2many_subviews_from_dom(root, fields_info)
+        if not subviews:
+            subviews = self._infer_x2many_subviews(fields_info)
+        _logger.debug("FORM_PARSER_DEBUG: subviews keys=%s", list(subviews.keys()))
+
+        # 8) 协作能力（优先模型字段判定，其次 DOM 探测）
+        chatter, attachments = self._detect_chatter_and_attachments_model_first(model_name, fields_info, root)
+        _logger.debug("FORM_PARSER_DEBUG: chatter=%s, attachments=%s", chatter, attachments)
+
+        # 9) 最小 search（表单内置搜索占位）
+        search = {"filters": [], "group_by": [], "facets": {"enabled": True}}
+
+        result = {
+            "layout": layout if isinstance(layout, list) else [layout],
+            "capabilities": capabilities,
+            "statusbar": statusbar,
+            "header_buttons": header_buttons,
+            "button_box": button_box,
+            "stat_buttons": stat_buttons,
+            "field_modifiers": field_modifiers,
+            "subviews": subviews,
+            "chatter": chatter,
+            "attachments": attachments,
+            "search": search,
+        }
+        _logger.debug("FORM_PARSER_DEBUG: final result keys=%s", list(result.keys()))
+        return result
+
+    # ---------------- 按钮归一 ----------------
+    def _button_to_action(self, btn_node, level='header'):
+        try:
+            btype    = (btn_node.get('type') or 'object').strip().lower()
+            name_raw = (btn_node.get('name') or '').strip()
+            label    = self._resolve_action_label(btn_node, name_raw)
+            classes  = [c.strip() for c in (btn_node.get('class') or '').split() if c.strip()]
+            states   = [s.strip() for s in (btn_node.get('states') or '').split(',') if s and s.strip()]
+            confirm  = btn_node.get('confirm') or btn_node.get('help') or ''
+            icon     = btn_node.get('icon') or next((c for c in classes if c.startswith('fa-') or c.startswith('oi-')), '')
+            options_raw = btn_node.get('options')
+            domain_raw  = btn_node.get('domain')
+            context_raw = btn_node.get('context')
+            priority    = btn_node.get('priority')
+            badge       = self._button_badge_meta(btn_node)
+
+            scope = self._native_button_contract_scope(btn_node, level=level)
+            lvl = scope["level"]
+            selection = scope["selection"]
+            visible_profiles = scope["visible_profiles"]
+            ctx_val = self._safe_eval_expr(context_raw)
+            if isinstance(ctx_val, dict):
+                sel = ctx_val.get('selection')
+                if isinstance(sel, str) and sel in ('single', 'multi', 'none'):
+                    selection = sel
+
+            # groups 与可见性
+            groups_attr   = btn_node.get('groups') or ''
+            groups_xmlids = [g.strip() for g in groups_attr.split(',') if g.strip()]
+            attrs_raw     = btn_node.get('attrs')
+            attrs_parsed  = self._safe_eval_expr(attrs_raw) if attrs_raw else None
+
+            visible_attrs = {
+                "readonly": self._normalize_modifier_value(btn_node.get('readonly')) if btn_node.get('readonly') else None,
+                "required": self._normalize_modifier_value(btn_node.get('required')) if btn_node.get('required') else None,
+                "invisible": self._normalize_modifier_value(btn_node.get('invisible')) if btn_node.get('invisible') else None,
+            }
+            if isinstance(attrs_parsed, dict):
+                for k in ('readonly', 'required', 'invisible'):
+                    if k in attrs_parsed:
+                        visible_attrs[k] = attrs_parsed.get(k)
+
+            try:
+                priority_val = int(priority) if (priority is not None and str(priority).strip().lstrip('-').isdigit()) else None
+            except Exception:
+                priority_val = None
+
+            base = {
+                "name": name_raw or ('open_action' if btype == 'action' else ('open_url' if btype == 'url' else 'button')),
+                "label": label,
+                "kind": "object",
+                "level": lvl,
+                "selection": selection,
+                "visible_profiles": visible_profiles,
+                "groups": [],
+                "visible": {"domain": [], "states": states, "attrs": visible_attrs},
+                "intent": "execute",
+                "icon": icon,
+                "action_safety": self._button_action_safety(
+                    btn_node=btn_node,
+                    btype=btype,
+                    method=name_raw,
+                    label=label,
+                    classes=classes,
+                    confirm=confirm,
+                    level=level,
+                ),
+                "badge": badge or None,
+                "payload": {
+                    "method": None,
+                    "ref": None,
+                    "url": '',
+                    "confirm": confirm,
+                    "groups_xmlids": groups_xmlids,
+                    "priority": priority_val,
+                    "type": btype,
+                    "domain_raw": domain_raw,
+                    "context_raw": context_raw,
+                    "options_raw": options_raw,
+                }
+            }
+
+            def _finalize(base, btype):
+                if base.get("selection") not in ("single", "multi", "none"):
+                    base["selection"] = "none"
+                if btype == 'object':
+                    base["kind"] = "object"; base["intent"] = "execute"
+                    if not base["payload"].get("method"):
+                        base["payload"]["method"] = "object_method"
+                    if not base.get("name"):
+                        base["name"] = base["payload"]["method"]
+                if btype == 'action':
+                    base["kind"] = "open"; base["intent"] = "open"
+                    if base.get("level") not in ("row", "toolbar"):
+                        base["selection"] = "none"
+                if btype == 'url' or base["payload"].get("url"):
+                    base["kind"] = "url"; base["intent"] = "url"; base["selection"] = "none"
+                if not (base.get("label") or '').strip():
+                    base["label"] = (base["payload"].get("method") or base["payload"].get("ref") or base["payload"].get("url") or "Button")
+                return base
+
+            if btype == 'object':
+                final_method = name_raw or 'object_method'
+                base["name"] = final_method
+                base["kind"] = "object"
+                base["intent"] = "execute"
+                base["payload"]["method"] = final_method
+                if not (base["label"] or '').strip():
+                    base["label"] = final_method
+                return _finalize(base, btype)
+
+            if btype == 'action':
+                ref = name_raw or 'open_action'
+                base["name"] = ref
+                base["kind"] = "open"
+                base["intent"] = "open"
+                base["payload"]["ref"] = ref
+                if not (base["label"] or '').strip():
+                    base["label"] = self._resolve_action_label(btn_node, name_raw) or "Action"
+                return _finalize(base, btype)
+
+            if btype == 'url' or btn_node.get('url'):
+                url_val = (btn_node.get('url') or name_raw or '').strip()
+                if not url_val:
+                    return None
+                base["name"] = name_raw or 'open_url'
+                base["kind"] = "url"
+                base["intent"] = "url"
+                base["selection"] = "none"
+                base["payload"]["url"] = url_val
+                if btn_node.get('target'):
+                    base["payload"]["target"] = btn_node.get('target')
+                if not (base["label"] or '').strip():
+                    base["label"] = "Open"
+                return _finalize(base, btype)
+
+            if btype == 'workflow':
+                ref = name_raw or 'workflow_action'
+                base["name"] = ref
+                base["kind"] = "open"
+                base["intent"] = "open"
+                base["payload"]["ref"] = ref
+                if not (base["label"] or '').strip():
+                    base["label"] = "Workflow"
+                return _finalize(base, btype)
+
+            # 样式提示（不改变语义）
+            if 'oe_highlight' in classes:
+                base["payload"]["level"] = "primary"
+            if 'btn-danger' in classes:
+                base["payload"]["level"] = "danger"
+            if 'oe_link' in classes:
+                base["payload"]["appearance"] = "link"
+
+            if not base["name"]:
+                base["name"] = 'button'
+            if base["payload"]["method"] is None:
+                base["payload"]["method"] = base["name"]
+
+            return _finalize(base, btype)
+
+        except Exception:
+            _logger.exception("button to action failed")
+            return None
+
+    # ---------------- 表单布局（DOM 直读） ----------------
+    def _extract_form_layout_dom(self, root, fields_info):
+        if root is None:
+            return []
+        # 锚定 <form>
+        form = root if root.tag == 'form' else (root.xpath('.//form') or [None])[0]
+        if form is None:
+            # 如果没有找到form节点，尝试直接使用root节点
+            form = root if root.tag != 'form' else None
+            if form is None:
+                return []
+        
+        out = []
+        for ch in form:
+            node = self._node_to_layout_from_dom(ch, fields_info)
+            if node:
+                out.append(node)
+        
+        # 如果没有任何可识别子节点，给一个最小 sheet
+        if not out:
+            out = [{"type": "sheet", "children": []}]
+        else:
+            # 确保所有节点都有完整的结构
+            for node in out:
+                self._ensure_complete_layout_structure(node)
+        
+        _logger.debug("FORM_PARSER_DEBUG: _extract_form_layout_dom result=%s", out)
+        return out
+
+    def _ensure_complete_layout_structure(self, node):
+        """确保布局节点具有完整的结构，特别是 children 属性"""
+        if not isinstance(node, dict):
+            return
+            
+        # 确保节点有 children 属性
+        if 'children' not in node:
+            # 对于某些特殊节点类型，可能不需要children属性
+            if node.get('type') in ('field', 'button'):
+                # field和button节点通常不需要children属性
+                pass
+            elif node.get('type') == 'notebook':
+                # notebook节点可能使用tabs而不是children
+                if 'tabs' not in node:
+                    node['tabs'] = []
+            else:
+                node['children'] = []
+                
+        # 递归处理子节点
+        if 'children' in node and isinstance(node['children'], list):
+            for child in node['children']:
+                self._ensure_complete_layout_structure(child)
+                
+        # 特殊处理 notebook 节点
+        if node.get('type') == 'notebook' and 'tabs' in node and isinstance(node['tabs'], list):
+            for tab in node['tabs']:
+                self._ensure_complete_layout_structure(tab)
+
+    def _node_to_layout_from_dom(self, el, fields_info):
+        tag = getattr(el, 'tag', '')
+        if not tag or not isinstance(tag, str):
+            return None
+
+        def _attrs(e):
+            return {k: (v if v is None or not v.strip() else v) for k, v in (e.attrib or {}).items()}
+
+        if self._has_class(el, 'oe_chatter'):
+            chatter_fields = [f.get('name') for f in el.xpath(".//field[@name]") if f.get('name')]
+            return {
+                'type': 'chatter',
+                'name': 'chatter',
+                'label': _('沟通记录'),
+                'attributes': _attrs(el),
+                'fields': chatter_fields,
+                'children': [],
+            }
+
+        # 容器节点：sheet/group/notebook/page/div/header/footer/separator
+        if tag in ('sheet', 'group', 'notebook', 'page', 'div', 'header', 'footer', 'separator'):
+            node = {
+                'type': self._layout_type(tag),
+                'attributes': _attrs(el)
+            }
+            text = " ".join((el.text or "").split())
+            if text:
+                node['text'] = text
+            # 标签/列数等
+            if tag in ('group', 'page', 'notebook'):
+                node['label'] = el.get('string', '')
+                node['name'] = el.get('name', '')
+                if tag == 'group':
+                    try:
+                        node['cols'] = int(el.get('col', '2'))
+                    except Exception:
+                        node['cols'] = 2
+            # 容器级修饰（显隐/只读）
+            mods = {}
+            for k in ('readonly', 'required', 'invisible'):
+                v = el.get(k)
+                if v:
+                    mods[k] = self._normalize_modifier_value(v)
+            if el.get('attrs'):
+                parsed = self._safe_eval_expr(el.get('attrs'))
+                if isinstance(parsed, dict):
+                    for k in ('readonly', 'required', 'invisible'):
+                        if k in parsed:
+                            mods[k] = parsed[k]
+            if mods:
+                node.setdefault('attributes', {})['modifiers'] = mods
+
+            # 递归子节点
+            children = []
+            for ch in el:
+                cv = self._node_to_layout_from_dom(ch, fields_info)
+                if cv:
+                    children.append(cv)
+            if children:
+                if tag == 'notebook':
+                    # notebook → tabs
+                    node['tabs'] = []
+                    for cv in children:
+                        if cv.get('type') == 'page':
+                            node['tabs'].append(cv)
+                    node['children'] = []  # 与 tabs 并存时保持空，避免前端重复
+                else:
+                    node['children'] = children
+            else:
+                # 确保所有容器节点都有 children 属性，即使为空
+                node['children'] = []
+            return node
+
+        # 字段节点
+        if tag == 'field':
+            fname = el.get('name') or ''
+            if not fname:
+                return None
+            node = {'type': 'field', 'name': fname}
+            meta = self._field_info_for_layout(fname, fields_info)
+            # 覆盖 label/help/widget
+            if el.get('string'):
+                meta['label'] = el.get('string')
+            if el.get('help'):
+                meta['help'] = el.get('help')
+            if el.get('widget'):
+                meta['widget'] = el.get('widget')
+            if el.get('options'):
+                options_val = self._safe_eval_expr(el.get('options'))
+                meta['widget_options'] = options_val if isinstance(options_val, dict) else {}
+                semantics = self._field_widget_semantics(fname, meta.get('widget'), meta['widget_options'])
+                if semantics:
+                    meta['widget_semantics'] = semantics
+            # 局部修饰
+            fmods = {}
+            for k in ('readonly', 'required', 'invisible'):
+                if el.get(k):
+                    fmods[k] = self._normalize_modifier_value(el.get(k))
+            if el.get('attrs'):
+                parsed = self._safe_eval_expr(el.get('attrs'))
+                if isinstance(parsed, dict):
+                    for k in ('readonly', 'required', 'invisible'):
+                        if k in parsed:
+                            fmods[k] = parsed[k]
+            if fmods:
+                meta.setdefault('modifiers', {}).update(fmods)
+            node['fieldInfo'] = meta
+
+            # inline 子视图在这里不展开（交给 _collect_x2many_subviews_from_dom）
+            return node
+
+        # 按钮占位（通常不把按钮放进布局树，header/smart 会单独抽取）
+        if tag == 'button':
+            node = {
+                'type': 'button',
+                'name': el.get('name', ''),
+                'label': self._resolve_action_label(el, el.get('name', '')),
+                'buttonType': el.get('type', 'object'),
+                'action': self._button_to_action(el, level='body'),
+            }
+            mods = {}
+            for k in ('readonly', 'required', 'invisible'):
+                if el.get(k):
+                    mods[k] = self._normalize_modifier_value(el.get(k))
+            if el.get('attrs'):
+                parsed = self._safe_eval_expr(el.get('attrs'))
+                if isinstance(parsed, dict):
+                    for k in ('readonly', 'required', 'invisible'):
+                        if k in parsed:
+                            mods[k] = parsed[k]
+            if mods:
+                node['modifiers'] = mods
+                node.setdefault('attributes', {})['modifiers'] = mods
+            return node
+
+        if tag == 'widget':
+            node = {
+                'type': 'widget',
+                'name': el.get('name', ''),
+                'widget': el.get('name', ''),
+                'label': el.get('title', ''),
+                'attributes': _attrs(el),
+                'children': [],
+            }
+            mods = {}
+            if el.get('invisible'):
+                mods['invisible'] = self._normalize_modifier_value(el.get('invisible'))
+            if mods:
+                node.setdefault('attributes', {})['modifiers'] = mods
+            return node
+
+        # 其他未知节点：以 container 兜底
+        node = {'type': self._layout_type(tag), 'attributes': _attrs(el)}
+        text = " ".join((el.text or "").split())
+        if text:
+            node['text'] = text
+        children = []
+        for ch in el:
+            cv = self._node_to_layout_from_dom(ch, fields_info)
+            if cv:
+                children.append(cv)
+        # 确保所有节点都有 children 属性
+        node['children'] = children
+        return node
+
+    # ---------------- 布局合并 ----------------
+    def _merge_layout(self, primary, fallback):
+        """优先使用 DOM 解析结果；DOM 为空时使用 lossless 兜底。"""
+        if isinstance(primary, list) and primary:
+            return primary
+        if isinstance(fallback, list) and fallback:
+            return fallback
+        if isinstance(fallback, dict) and fallback:
+            return [fallback]
+        return [{"type": "sheet", "children": []}]
+
+    # ---------------- 状态条构建 ----------------
+    def _build_statusbar(self, root, fields_info, model_name):
+        field_name = None
+        if root is not None:
+            sb = root.xpath(".//field[@widget='statusbar' and @name]")
+            if sb:
+                field_name = sb[0].get('name')
+        if not field_name:
+            if 'stage_id' in (fields_info or {}):
+                field_name = 'stage_id'
+            elif 'state' in (fields_info or {}):
+                field_name = 'state'
+        states = []
+        # selection → 直接构造；状态字段不一定叫 state，例如 project.lifecycle_state。
+        if field_name and fields_info.get(field_name, {}).get('selection'):
+            for v, lbl in (fields_info[field_name].get('selection') or []):
+                states.append({'value': v, 'label': lbl})
+        # stage_id（many2one）→ 若能安全 name_search 就取若干候选
+        try:
+            if field_name == 'stage_id':
+                # 尝试轻量取 20 个阶段作为候选；失败则留空由前端懒加载
+                Stage = self.env.get((fields_info.get('stage_id') or {}).get('relation', ''))
+                if Stage is not None:
+                    for rec_id, name in (Stage.sudo().name_search('', operator='ilike', limit=20) or []):
+                        states.append({'value': rec_id, 'label': name})
+        except Exception:
+            pass
+        return {"field": field_name, "states": states}
+
+    # ---------------- 头部按钮抽取 ----------------
+    def _extract_header_buttons(self, root):
+        """抽取 <header>//button → 归一化为契约按钮"""
+        if root is None:
+            return []
+        btns = []
+        for b in root.xpath('.//header//button'):
+            entry = self._button_to_action(b, level='header')
+            if entry:
+                btns.append(entry)
+        return btns
+
+    # ---------------- Smart Buttons 抽取 ----------------
+    def _extract_button_box(self, root):
+        """抽取 oe_button_box 内的 oe_stat_button"""
+        if root is None:
+            return []
+        stats = []
+        for b in root.xpath(".//*[contains(concat(' ', normalize-space(@class), ' '), ' oe_button_box ')]//button[contains(concat(' ', normalize-space(@class), ' '), ' oe_stat_button ')]"):
+            norm = self._button_to_action(b, level='smart')
+            if norm:
+                # label/icon 兜底
+                if not norm.get('label'):
+                    norm['label'] = (b.get('string') or 'Stat')
+                if not norm.get('icon'):
+                    norm['icon'] = (b.get('icon') or '')
+                stats.append(norm)
+        return stats
+
+    # ---------------- Chatter/Attachments（模型优先） ----------------
+    def _detect_chatter_and_attachments_model_first(self, model_name, fields_info, root=None):
+        chatter_enabled = any(k in (fields_info or {}) for k in ('message_ids', 'message_follower_ids', 'website_message_ids'))
+        attach_enabled = any(k in (fields_info or {}) for k in ('message_attachment_count', 'doc_count'))
+        # DOM 辅助探测
+        if root is not None:
+            try:
+                has_chatter = bool(root.xpath(".//*[@widget='mail_thread']")) or bool(
+                    root.xpath(".//*[contains(concat(' ', normalize-space(@class), ' '), ' oe_chatter ')]")
+                )
+                has_attachments = bool(root.xpath(".//*[@widget='many2many_binary']")) or bool(
+                    root.xpath(".//*[contains(concat(' ', normalize-space(@class), ' '), ' oe_attachment_box ')]")
+                )
+                chatter_enabled = chatter_enabled or has_chatter
+                attach_enabled = attach_enabled or has_attachments
+            except Exception:
+                _logger.exception("detect chatter/attachments failed")
+        attach_enabled = attach_enabled or chatter_enabled
+        chatter = {'enabled': bool(chatter_enabled)}
+        if chatter['enabled']:
+            chatter['label'] = _('沟通记录')
+            chatter['fields'] = [
+                name for name in ('message_follower_ids', 'activity_ids', 'message_ids', 'website_message_ids')
+                if name in (fields_info or {})
+            ]
+            chatter['features'] = {'message': True, 'note': True, 'activity': True}
+            chatter['actions'] = [
+                {
+                    'key': 'chatter_send_message',
+                    'label': _('记录沟通'),
+                    'kind': 'chatter',
+                    'level': 'chatter',
+                    'selection': 'none',
+                    'intent': 'message',
+                    'payload': {'mode': 'message'},
+                },
+                {
+                    'key': 'chatter_log_note',
+                    'label': _('记录备注'),
+                    'kind': 'chatter',
+                    'level': 'chatter',
+                    'selection': 'none',
+                    'intent': 'note',
+                    'payload': {'mode': 'note'},
+                },
+                {
+                    'key': 'chatter_schedule_activity',
+                    'label': _('活动'),
+                    'kind': 'chatter',
+                    'level': 'chatter',
+                    'selection': 'none',
+                    'intent': 'activity',
+                    'payload': {
+                        'mode': 'activity',
+                        'execute_intent': 'chatter.activity.schedule',
+                        'activity_type_xmlid': 'mail.mail_activity_data_todo',
+                        'fields': [
+                            {'name': 'summary', 'label': _('摘要'), 'type': 'char', 'required': True},
+                            {'name': 'date_deadline', 'label': _('截止日期'), 'type': 'date', 'required': False},
+                            {'name': 'note', 'label': _('备注'), 'type': 'text', 'required': False},
+                        ],
+                    },
+                },
+            ]
+        attachments = {'enabled': bool(attach_enabled)}
+        if attachments['enabled']:
+            attachments.update({
+                'label': _('附件'),
+                'upload': {
+                    'intent': 'file.upload',
+                    'max_bytes': 5 * 1024 * 1024,
+                    'accepted_types': [],
+                },
+                'download': {
+                    'intent': 'file.download',
+                },
+                'ui_labels': {
+                    'upload': _('上传附件'),
+                    'uploading': _('上传中...'),
+                    'download': _('下载'),
+                    'upload_failed': _('附件上传失败'),
+                    'download_failed': _('附件下载失败'),
+                    'size_exceeded': _('文件过大'),
+                },
+            })
+        return chatter, attachments
+
+    # ---------------- 字段修饰聚合 ----------------
+    def _collect_field_modifiers(self, fields_info, root):
+        """
+        合并两处信息：
+        - fields_info[f]['modifiers'] / ['domain'] / ['context'] / ['groups']
+        - arch 的 <field name="f"> 上的 @readonly/@required/@invisible/@widget/@domain/@context/@groups
+        """
+        out = {}
+        # 先从 fields_info 带过来
+        for fname, meta in (fields_info or {}).items():
+            mods = {}
+            base_mods = (meta or {}).get('modifiers') or {}
+            for k in ('readonly', 'required', 'invisible', 'column_invisible'):
+                if k in base_mods:
+                    mods[k] = base_mods[k]
+            for k in ('widget', 'domain', 'context', 'groups'):
+                if k in (meta or {}):
+                    mods[k] = meta.get(k)
+            if mods:
+                out[fname] = mods
+
+        # 再从 arch 覆盖/补充
+        if root is not None:
+            for el in root.xpath(".//field[@name]"):
+                fname = el.get('name')
+                if not fname:
+                    continue
+                mods = out.setdefault(fname, {})
+                for k in ('readonly', 'required', 'invisible', 'column_invisible'):
+                    if el.get(k):
+                        mods[k] = self._safe_eval_expr(el.get(k)) or el.get(k)
+                if el.get('widget'):
+                    mods['widget'] = el.get('widget')
+                if el.get('domain'):
+                    mods['domain'] = self._safe_eval_expr(el.get('domain')) or el.get('domain')
+                if el.get('context'):
+                    mods['context'] = self._safe_eval_expr(el.get('context')) or el.get('context')
+                if el.get('groups'):
+                    mods['groups_xmlids'] = [x.strip() for x in el.get('groups').split(',') if x.strip()]
+
+        return out
+
+    # ---------------- 子视图收集（inline + 引用） ----------------
+    def _collect_x2many_subviews_from_dom(self, root, fields_info):
+        sub = {}
+        if root is None:
+            return sub
+        for el in root.xpath(".//field[@name]"):
+            fname = el.get('name')
+            finfo = (fields_info or {}).get(fname) or {}
+            ftype = finfo.get('type')
+            if ftype not in ('one2many', 'many2many'):
+                continue
+            entry = {}
+            relation = finfo.get('relation')
+            relation_fields = self._safe_relation_fields_for_subview(relation)
+            # 1) inline 定义
+            inline_tree = el.xpath('./tree')
+            inline_form = el.xpath('./form')
+            if inline_tree:
+                entry['tree'] = self._parse_inline_tree_columns(inline_tree[0])
+            if inline_form:
+                entry['form'] = {"layout": self._extract_form_layout_dom(inline_form[0], {})}
+
+            # 2) 引用式（views/context）
+            try:
+                # views="[(tree,ref),(form,ref)]" 风格
+                views_attr = (el.get('views') or '').strip()
+                if views_attr:
+                    views_spec = self._safe_eval_expr(views_attr)
+                    if isinstance(views_spec, (list, tuple)):
+                        for vt, vid in views_spec:
+                            if vt in ('tree', 'form'):
+                                blk = self._safe_get_view_data(self.env[relation], vt)
+                                if vt == 'tree':
+                                    entry['tree'] = self._parse_inline_tree_columns(etree.fromstring((blk or {}).get('arch', '').encode('utf-8'))) if (blk or {}).get('arch') else entry.get('tree')
+                                else:
+                                    entry['form'] = {"layout": self._extract_form_layout_dom(etree.fromstring((blk or {}).get('arch','').encode('utf-8')), {})} if (blk or {}).get('arch') else entry.get('form')
+                # context="{'tree_view_ref': 'xmlid'}" 风格
+                ctx = self._safe_eval_expr(el.get('context')) if el.get('context') else None
+                xmlid = (isinstance(ctx, dict) and (ctx.get('tree_view_ref') or ctx.get('form_view_ref')))
+                if relation and xmlid and not entry.get('tree'):
+                    Model = self.env[relation]
+                    # 通过 xmlid 解析（容错处理）
+                    try:
+                        res = self.env['ir.model.data']._xmlid_to_res_model_res_id(xmlid)
+                        if res and res[0] == 'ir.ui.view':
+                            view_rec = self.env['ir.ui.view'].browse(res[1])
+                            if view_rec.type == 'tree':
+                                entry['tree'] = self._parse_inline_tree_columns(etree.fromstring(view_rec.arch_db.encode('utf-8')))
+                            elif view_rec.type == 'form':
+                                entry['form'] = {"layout": self._extract_form_layout_dom(etree.fromstring(view_rec.arch_db.encode('utf-8')), {})}
+                    except Exception:
+                        pass
+            except Exception:
+                _logger.exception("collect x2many subviews (ref) failed for %s", fname)
+
+            # 最小兜底
+            if not entry.get('tree'):
+                entry['tree'] = {'columns': ['display_name']}
+            business_columns = self._business_x2many_tree_columns(
+                (entry.get('tree') or {}).get('columns') or [],
+                relation_fields,
+            )
+            entry['tree']['columns'] = business_columns
+            entry['tree']['column_policy'] = {
+                'surface': 'business_edit',
+                'source': 'backend_native_contract',
+                'front_end_filtering': False,
+            }
+            entry.setdefault('policies', {'inline_edit': True, 'can_create': True, 'can_unlink': True})
+            entry['policies'].setdefault('ui_labels', {
+                'add_row': _('添加行'),
+                'remove': _('移除'),
+                'restore': _('撤销'),
+            })
+            if relation_fields:
+                entry['fields'] = relation_fields
+            if not business_columns:
+                entry['policies'].update({
+                    'inline_edit': False,
+                    'can_create': False,
+                    'can_unlink': False,
+                    'reason_code': 'NO_BUSINESS_EDIT_COLUMNS',
+                })
+            sub[fname] = entry
+        return sub
+
+    def _safe_relation_fields_for_subview(self, relation):
+        relation_model = str(relation or '').strip()
+        if not relation_model:
+            return {}
+        try:
+            fields_map = self.env[relation_model].sudo().fields_get()
+        except Exception:
+            _logger.exception("collect x2many relation fields failed for %s", relation_model)
+            return {}
+        return fields_map if isinstance(fields_map, dict) else {}
+
+    def _business_x2many_tree_columns(self, columns, relation_fields):
+        out = []
+        for col in columns or []:
+            name = col.get('name') if isinstance(col, dict) else col
+            name = str(name or '').strip()
+            meta = (relation_fields or {}).get(name) or {}
+            ttype = str(meta.get('type') or 'char')
+            if not self._is_business_edit_x2many_column(name, meta, ttype, col if isinstance(col, dict) else {}):
+                continue
+            selection = meta.get('selection')
+            out.append({
+                'name': name,
+                'label': meta.get('string') or (col.get('label') if isinstance(col, dict) else name),
+                'ttype': ttype,
+                'required': bool(meta.get('required')),
+                'readonly': bool(meta.get('readonly')),
+                'selection': selection if isinstance(selection, list) else [],
+                'surface_role': 'business_read' if bool(meta.get('readonly')) else 'business_edit',
+            })
+        return out
+
+    def _is_business_edit_x2many_column(self, name, meta, ttype, column_contract=None):
+        if not name:
+            return False
+        column_contract = column_contract or {}
+        modifiers = column_contract.get('modifiers') if isinstance(column_contract.get('modifiers'), dict) else {}
+        if self._static_truthy_modifier(column_contract.get('invisible')) or self._static_truthy_modifier(modifiers.get('invisible')):
+            return False
+        if column_contract.get('optional') == 'hide':
+            return False
+        if column_contract.get('column_invisible') is not None or modifiers.get('column_invisible') is not None:
+            return False
+        blocked_names = {
+            'id',
+            'sequence',
+            'display_name',
+            'subtask_count',
+            'closed_subtask_count',
+            'create_uid',
+            'create_date',
+            'write_uid',
+            'write_date',
+        }
+        if name in blocked_names:
+            return False
+        if ttype in ('one2many', 'many2many', 'binary', 'html', 'properties'):
+            return False
+        return True
+
+    def _static_truthy_modifier(self, value):
+        if value is True or value == 1:
+            return True
+        if isinstance(value, str):
+            return value.strip() in ('1', 'true', 'True')
+        return False
+
+    def _parse_inline_tree_columns(self, tree_el):
+        try:
+            cols = []
+            for f in tree_el.xpath('./field[@name]'):
+                n = f.get('name')
+                if not n or any((col.get('name') if isinstance(col, dict) else col) == n for col in cols):
+                    continue
+                col = {'name': n}
+                for key in ('optional', 'readonly', 'required', 'invisible', 'column_invisible', 'widget'):
+                    if f.get(key) is not None:
+                        col[key] = self._safe_eval_expr(f.get(key)) or f.get(key)
+                if f.get('string'):
+                    col['label'] = f.get('string')
+                if f.get('attrs'):
+                    attrs = self._safe_eval_expr(f.get('attrs'))
+                    if isinstance(attrs, dict):
+                        col['modifiers'] = attrs
+                cols.append(col)
+            return {'columns': cols or ['display_name']}
+        except Exception:
+            return {'columns': ['display_name']}
+
+    # ---------------- 工具函数 ----------------
+    def _convert_parsed_structure_to_layout(self, parsed_structure, fields_info=None):
+        if not parsed_structure:
+            return {'type': 'form', 'children': []}
+        node = parsed_structure
+        root_type = node.get('tag')
+        if root_type != 'form':
+            if root_type and node.get('children'):
+                for ch in node['children']:
+                    if ch.get('tag') == 'form':
+                        node = ch
+                        break
+        return self._convert_node_to_layout(node, fields_info or {})
+
+    def _convert_node_to_layout(self, node, fields_info):
+        if not node:
+            return None
+        tag = node.get('tag', '')
+        attrs = node.get('attributes', {}) or {}
+        children = node.get('children', []) or []
+
+        layout_node = {'type': self._layout_type(tag), 'attributes': dict(attrs)}
+
+        if tag in ('group', 'page', 'notebook'):
+            layout_node['label'] = attrs.get('string', '')
+            layout_node['name'] = attrs.get('name', '')
+            if tag == 'group':
+                try:
+                    layout_node['cols'] = int(attrs.get('col', '2'))
+                except Exception:
+                    layout_node['cols'] = 2
+        elif tag == 'field':
+            fname = attrs.get('name', '')
+            layout_node['name'] = fname
+            meta = self._field_info_for_layout(fname, fields_info)
+            if attrs.get('string'):
+                meta['label'] = attrs.get('string')
+            if attrs.get('help'):
+                meta['help'] = attrs.get('help')
+            if attrs.get('widget'):
+                meta['widget'] = attrs.get('widget')
+            if attrs.get('options'):
+                options_val = self._safe_eval_expr(attrs.get('options'))
+                meta['widget_options'] = options_val if isinstance(options_val, dict) else {}
+                semantics = self._field_widget_semantics(fname, meta.get('widget'), meta['widget_options'])
+                if semantics:
+                    meta['widget_semantics'] = semantics
+            for key in ('readonly', 'required', 'invisible'):
+                if attrs.get(key):
+                    meta.setdefault('modifiers', {})[key] = self._normalize_modifier_value(attrs.get(key))
+            layout_node['fieldInfo'] = meta
+        elif tag == 'button':
+            layout_node['name'] = attrs.get('name', '')
+            layout_node['label'] = attrs.get('string', '')
+            layout_node['buttonType'] = attrs.get('type', 'object')
+            mods = {}
+            for key in ('readonly', 'required', 'invisible'):
+                if attrs.get(key):
+                    mods[key] = self._normalize_modifier_value(attrs.get(key))
+            if attrs.get('attrs'):
+                parsed = self._safe_eval_expr(attrs.get('attrs'))
+                if isinstance(parsed, dict):
+                    for key in ('readonly', 'required', 'invisible'):
+                        if key in parsed:
+                            mods[key] = parsed[key]
+            if mods:
+                layout_node['modifiers'] = mods
+                layout_node.setdefault('attributes', {})['modifiers'] = mods
+            try:
+                fake = etree.Element('button', **{str(k): str(v) for k, v in attrs.items() if v is not None})
+                layout_node['action'] = self._button_to_action(fake, level='body')
+            except Exception:
+                layout_node['action'] = None
+
+        ch_list = []
+        for ch in children:
+            cv = self._convert_node_to_layout(ch, fields_info)
+            if cv:
+                ch_list.append(cv)
+        if ch_list:
+            layout_node['children'] = ch_list
+
+        return layout_node
+
+    def _layout_type(self, tag):
+        mapping = {
+            'form': 'form', 'sheet': 'sheet', 'group': 'group', 'page': 'page',
+            'notebook': 'notebook', 'field': 'field', 'button': 'button',
+            'header': 'header', 'footer': 'footer', 'div': 'container',
+            'separator': 'separator', 'newline': 'newline', 'label': 'label'
+        }
+        return mapping.get(tag, tag)
+
+    def _field_info_for_layout(self, fname, fields_info):
+        meta = (fields_info or {}).get(fname, {}) or {}
+        return {
+            'name': fname,
+            'type': meta.get('type', 'char'),
+            'label': meta.get('string') or fname,
+            'help': meta.get('help') or '',
+            'relation': meta.get('relation') or '',
+            'required': bool(meta.get('required')),  # 仅供前端初始提示
+            'readonly': bool(meta.get('readonly')),
+            'widget': meta.get('widget') or '',
+        }
+
+    # ---------------- 推断x2many子视图 ----------------
+    def _infer_x2many_subviews(self, fields_meta):
+        """
+        小工具：识别 x2many 并构造最小子视图
+        """
+        sub = {}
+        for fname, meta in (fields_meta or {}).items():
+            t = meta.get('type')
+            if t in ('one2many', 'many2many'):
+                sub[fname] = {
+                    'tree': {'columns': ['display_name']},
+                    'policies': {
+                        'inline_edit': True,
+                        'can_create': True,
+                        'can_unlink': True,
+                        'ui_labels': {
+                            'add_row': _('添加行'),
+                            'remove': _('移除'),
+                            'restore': _('撤销'),
+                        },
+                    },
+                }
+        return sub
+
+    # ---------------- 安全表达式求值 ----------------
+    def _safe_eval_expr(self, text):
+        if text is None:
+            return None
+        t = text.strip()
+        if not t:
+            return t
+        # 已经是 JSON 的场景
+        try:
+            if (t.startswith('{') and t.endswith('}')) or (t.startswith('[') and t.endswith(']')):
+                return json.loads(t)
+        except Exception:
+            pass
+        # Python 风格 domain/attrs/context
+        try:
+            return ast.literal_eval(t)
+        except Exception:
+            return t

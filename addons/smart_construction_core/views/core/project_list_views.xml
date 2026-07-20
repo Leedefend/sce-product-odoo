@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_project_my_list_tree" model="ir.ui.view">
+        <field name="name">project.project.tree.sc.my.list</field>
+        <field name="model">project.project</field>
+        <field name="arch" type="xml">
+            <tree string="项目台账" default_order="write_date desc, id desc">
+                <field name="name"/>
+                <field name="project_code" string="项目编号"/>
+                <field name="owner_id" string="业主单位" optional="show"/>
+                <field name="sc_partner_display_name" string="关联单位" optional="show"/>
+                <field name="operation_strategy" string="经营方式"/>
+                <field name="business_nature" string="经营性质" optional="show"/>
+                <field name="lifecycle_state" string="项目状态"/>
+                <field name="user_id" string="项目负责人" optional="show"/>
+                <field name="manager_id" string="项目经理" optional="hide"/>
+                <field name="contract_amount" string="合同总额" optional="show"/>
+                <field name="dashboard_progress_rate" string="进度(%)" optional="show"/>
+                <field name="write_date" string="更新时间" optional="show"/>
+            </tree>
+        </field>
+    </record>
+</odoo>

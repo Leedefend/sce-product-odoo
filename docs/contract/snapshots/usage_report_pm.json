@@ -1,0 +1,119 @@
+{
+  "action": null,
+  "case": "usage_report_pm",
+  "contract_version": "v1",
+  "error": null,
+  "execute_error": null,
+  "execute_result": null,
+  "fallback": false,
+  "meta_fields": null,
+  "model": null,
+  "op": "intent.invoke",
+  "record": null,
+  "record_error": null,
+  "ui_contract": null,
+  "ui_contract_raw": {
+    "capability_top": [],
+    "daily": {
+      "capability_open": [
+        {
+          "count": 0,
+          "day": "2026-04-17"
+        },
+        {
+          "count": 0,
+          "day": "2026-04-18"
+        },
+        {
+          "count": 0,
+          "day": "2026-04-19"
+        },
+        {
+          "count": 0,
+          "day": "2026-04-20"
+        },
+        {
+          "count": 0,
+          "day": "2026-04-21"
+        },
+        {
+          "count": 0,
+          "day": "2026-04-22"
+        },
+        {
+          "count": 0,
+          "day": "2026-04-23"
+        }
+      ],
+      "scene_open": [
+        {
+          "count": 0,
+          "day": "2026-04-17"
+        },
+        {
+          "count": 0,
+          "day": "2026-04-18"
+        },
+        {
+          "count": 0,
+          "day": "2026-04-19"
+        },
+        {
+          "count": 0,
+          "day": "2026-04-20"
+        },
+        {
+          "count": 0,
+          "day": "2026-04-21"
+        },
+        {
+          "count": 0,
+          "day": "2026-04-22"
+        },
+        {
+          "count": 1,
+          "day": "2026-04-23"
+        }
+      ]
+    },
+    "filters": {
+      "capability_key_prefix": "",
+      "day_from": "2026-04-17",
+      "day_to": "2026-04-23",
+      "days": 7,
+      "role_code": "",
+      "scene_key_prefix": "",
+      "top": 10,
+      "user_id": 0
+    },
+    "role_top": [
+      {
+        "capability_open_total": 0,
+        "combined_total": 1,
+        "role_code": "admin",
+        "scene_open_total": 1
+      }
+    ],
+    "scene_top": [
+      {
+        "count": 1,
+        "key": "my.work"
+      }
+    ],
+    "totals": {
+      "capability_open_total": 0,
+      "scene_open_total": 1
+    },
+    "user_top": [
+      {
+        "capability_open_total": 0,
+        "combined_total": 1,
+        "scene_open_total": 1,
+        "user_id": 2
+      }
+    ]
+  },
+  "user": "pm",
+  "user_fallback": "admin",
+  "view_type": null
+}

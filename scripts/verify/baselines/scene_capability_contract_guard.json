@@ -1,0 +1,10 @@
+{
+  "min_scenes": 20,
+  "min_capabilities": 3,
+  "role_min_capabilities": {
+    "sc_fx_pm": 3,
+    "sc_fx_finance": 1
+  },
+  "max_missing_refs": 0,
+  "max_errors": 0
+}

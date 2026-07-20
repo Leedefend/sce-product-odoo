@@ -1,0 +1,28 @@
+{
+  "action": null,
+  "case": "execute_button_missing_record",
+  "contract_version": "v1",
+  "error": null,
+  "execute_error": "record not found",
+  "execute_result": null,
+  "fallback": false,
+  "meta_fields": null,
+  "model": "project.project",
+  "op": "model",
+  "record": null,
+  "record_error": null,
+  "ui_contract": {
+    "chatter": {},
+    "headerButtons": [],
+    "model": "project.project",
+    "ribbon": null,
+    "sheet": [],
+    "statButtons": [],
+    "titleField": "name",
+    "view_type": "form"
+  },
+  "ui_contract_raw": {},
+  "user": "pm",
+  "user_fallback": "admin",
+  "view_type": "form"
+}

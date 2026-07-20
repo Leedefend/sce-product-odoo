@@ -1,0 +1,1588 @@
+# -*- coding: utf-8 -*-
+import logging
+from copy import deepcopy
+from typing import Any, Dict, List
+
+from odoo.addons.smart_core.core.delivery_menu_defaults import register_current_project_scope_model
+from odoo.addons.smart_core.core.project_context import (
+    register_business_scope_exempt_model,
+    register_legacy_direct_acceptance_scope_model,
+    register_legacy_project_scope_model,
+    register_operation_strategy,
+)
+from odoo.addons.smart_core.app_config_engine.services.contract_service import (
+    register_tautology_permission_guard_group_xmlid,
+)
+from odoo.addons.smart_core.core.release_navigation_contract_builder import register_legacy_release_navigation_leaf
+from odoo.addons.smart_core.core.scene_ready_semantic_orchestration_bridge import register_advisory_handoff_family
+from odoo.addons.smart_core.delivery.menu_service import (
+    register_customer_acceptance_group_label,
+    register_preview_group_anchor_skipped_label,
+)
+from odoo.addons.smart_core.model.ui_menu_config_policy import register_protected_node_excluded_fingerprint_token
+from odoo.addons.smart_core.core.scene_contract_builder import (
+    register_legacy_product_title,
+    register_route_only_actions,
+)
+from odoo.addons.smart_core.core.unified_page_contract_v2_assembler import register_kanban_row_action
+from odoo.addons.smart_core.handlers.form_field_configuration import register_form_field_label_override
+from odoo.addons.smart_core.utils.contract_governance import (
+    register_capability_group_profile,
+    register_legacy_delete_only_model,
+    register_legacy_field_presentation,
+    register_legacy_kanban_row_action,
+    register_legacy_project_form_governance_model,
+    register_legacy_project_form_profile,
+    register_legacy_project_kanban_governance_model,
+    register_legacy_project_kanban_profile,
+    register_legacy_project_task_form_profile,
+    register_legacy_project_task_form_governance_model,
+    register_legacy_record_context_clear_model,
+    register_legacy_standard_list_profile,
+    register_scene_semantic_profile,
+)
+from odoo.addons.smart_core.utils.reason_codes import (
+    REASON_PAYMENT_ATTACHMENTS_REQUIRED,
+    REASON_PAYMENT_FUNDING_BASELINE_INVALID,
+    REASON_PAYMENT_FUNDING_CAP_EXCEEDED,
+    REASON_PAYMENT_FUNDING_NOT_READY,
+    REASON_PAYMENT_NOT_FULLY_PAID,
+    REASON_PAYMENT_SETTLEMENT_NOT_READY,
+    register_legacy_business_reason_meta,
+)
+from odoo.addons.smart_construction_core import core_extension_project_layout as _project_layout
+from odoo.addons.smart_construction_core import core_extension_contract_helpers as _contract_helpers
+from odoo.addons.smart_construction_core import core_extension_policy_maps as _policy_maps
+from odoo.addons.smart_construction_core import core_extension_system_init_rows as _system_init_rows
+from odoo.addons.smart_construction_core import core_extension_capability_rows as _capability_rows
+from odoo.addons.smart_construction_core import core_extension_hook_facts as _hook_facts
+from odoo.addons.smart_construction_core import core_extension_policy_accessors as _policy_accessors
+from odoo.addons.smart_construction_core import core_extension_contract_normalizers as _contract_normalizers
+from odoo.addons.smart_construction_core import core_extension_intent_handlers as _intent_handlers
+from odoo.addons.smart_construction_core import core_extension_service_builders as _service_builders
+from odoo.addons.smart_construction_core import core_extension_actor_roles as _actor_roles
+from odoo.addons.smart_construction_core.services.financial_workspace_contract import (
+    build_financial_form_business_actions,
+    inject_financial_workspace_runtime,
+)
+
+_logger = logging.getLogger(__name__)
+
+register_current_project_scope_model("project.project")
+register_legacy_project_scope_model("project.project")
+register_operation_strategy("direct")
+register_operation_strategy("joint")
+for _business_scope_exempt_model in (
+    "sc.document.admin.document",
+    "sc.hr.payroll.document",
+    "res.partner",
+):
+    register_business_scope_exempt_model(_business_scope_exempt_model)
+register_form_field_label_override("project.project", "manager_id", "项目经理")
+for _reason_code, _reason_meta in (
+    (
+        REASON_PAYMENT_ATTACHMENTS_REQUIRED,
+        {
+            "retryable": False,
+            "error_category": "validation",
+            "suggested_action": "upload_attachment",
+        },
+    ),
+    (
+        REASON_PAYMENT_SETTLEMENT_NOT_READY,
+        {
+            "retryable": False,
+            "error_category": "business_state",
+            "suggested_action": "complete_settlement_approval",
+        },
+    ),
+    (
+        REASON_PAYMENT_FUNDING_NOT_READY,
+        {
+            "retryable": False,
+            "error_category": "business_state",
+            "suggested_action": "setup_project_funding",
+        },
+    ),
+    (
+        REASON_PAYMENT_FUNDING_BASELINE_INVALID,
+        {
+            "retryable": False,
+            "error_category": "business_state",
+            "suggested_action": "fix_project_funding_baseline",
+        },
+    ),
+    (
+        REASON_PAYMENT_FUNDING_CAP_EXCEEDED,
+        {
+            "retryable": False,
+            "error_category": "business_state",
+            "suggested_action": "adjust_payment_amount_or_funding",
+        },
+    ),
+    (
+        REASON_PAYMENT_NOT_FULLY_PAID,
+        {
+            "retryable": False,
+            "error_category": "business_state",
+            "suggested_action": "complete_payment_execution",
+        },
+    ),
+):
+    register_legacy_business_reason_meta(_reason_code, _reason_meta)
+for _capability_group_key, _capability_group_profile in (
+    (
+        "project_management",
+        {"label": "项目管理", "icon": "briefcase", "key_prefixes": ["project.", "scene.project", "wbs.", "progress.", "tender."]},
+    ),
+    (
+        "contract_management",
+        {"label": "合同管理", "icon": "file-text", "key_prefixes": ["contract.", "settlement."]},
+    ),
+    (
+        "cost_management",
+        {"label": "成本管理", "icon": "calculator", "key_prefixes": ["cost.", "budget.", "boq."]},
+    ),
+    (
+        "finance_management",
+        {"label": "财务管理", "icon": "wallet", "key_prefixes": ["finance.", "payment.", "treasury."]},
+    ),
+    (
+        "material_management",
+        {"label": "资源管理", "icon": "boxes", "key_prefixes": ["material.", "purchase.", "stock."]},
+    ),
+):
+    register_capability_group_profile(_capability_group_key, _capability_group_profile)
+for _scene_semantic_profile in (
+    {"purpose": "项目推进", "code_prefixes": ["projects."], "code_contains": ["project"]},
+    {"purpose": "资金与审批", "code_prefixes": ["finance."], "code_contains": ["payment"]},
+    {"purpose": "合同履约", "code_prefixes": ["contracts."], "code_contains": ["contract"]},
+):
+    register_scene_semantic_profile(_scene_semantic_profile)
+_PROJECT_DASHBOARD_ROW_ACTION = {
+    "key": "open_project_dashboard",
+    "name": "open_project_dashboard",
+    "label": "进入项目驾驶舱",
+    "intent": "open_scene",
+    "target": {
+        "route": "/s/project.management",
+        "scene_key": "project.management",
+        "entry_intent": "project.dashboard.enter",
+        "project_id": "${id}",
+    },
+    "trigger": "row_click",
+    "level": "row",
+    "target_scope": "row",
+}
+register_kanban_row_action(
+    "project.project",
+    _PROJECT_DASHBOARD_ROW_ACTION,
+)
+register_legacy_kanban_row_action("project.project", _PROJECT_DASHBOARD_ROW_ACTION)
+register_legacy_record_context_clear_model("project.project")
+register_legacy_delete_only_model("project.task")
+register_legacy_project_form_governance_model("project.project")
+register_legacy_project_form_profile(
+    "project.project",
+    {
+        "primary_fields": [
+            "name",
+            "project_type_id",
+            "project_category_id",
+            "lifecycle_state",
+            "stage_id",
+            "manager_id",
+            "user_id",
+            "owner_id",
+            "company_id",
+            "start_date",
+            "end_date",
+            "contract_no",
+            "budget_total",
+            "location",
+        ],
+        "create_hidden_fields": [
+            "project_code",
+            "code",
+            "company_id",
+            "analytic_account_id",
+            "lifecycle_state",
+            "stage_id",
+            "last_update_status",
+            "privacy_visibility",
+            "rating_status",
+            "rating_status_period",
+        ],
+        "action_priorities": ["提交", "进入下一阶段", "创建项目", "保存", "查看任务"],
+        "action_noise_markers": ["设置阶段", "评分", "cron", "ir_cron", "演示", "showcase"],
+        "search_noise_markers": ["活动", "评分", "status_period"],
+        "action_group_labels": {
+            "basic": "基础操作",
+            "workflow": "流程推进",
+            "drilldown": "业务查看",
+            "other": "更多操作",
+        },
+        "max_fields": 25,
+    },
+)
+register_legacy_project_kanban_governance_model("project.project")
+register_legacy_project_kanban_profile(
+    "project.project",
+    {
+        "title_field": "name",
+        "primary_fields": ["name", "project_code", "manager_id"],
+        "secondary_fields": ["stage_id", "lifecycle_state", "end_date", "budget_total"],
+        "status_fields": ["lifecycle_state", "stage_id"],
+        "max_meta": 4,
+    },
+)
+register_legacy_project_task_form_governance_model("project.task")
+for _product_key, _product_title in (
+    ("fr1", "FR-1 项目立项"),
+    ("fr2", "FR-2 项目推进"),
+    ("fr3", "FR-3 成本记录"),
+    ("fr4", "FR-4 支付记录"),
+    ("fr5", "FR-5 结算结果"),
+):
+    register_legacy_product_title(_product_key, _product_title)
+register_route_only_actions(
+    "projects.intake",
+    {
+        "layout": "entry_cards",
+        "primary_actions": [
+            {
+                "key": "quick_project_create",
+                "label": "快速创建（推荐）",
+                "target": {"type": "route", "route": "/s/projects.intake?intake_mode=quick", "scene_key": "projects.intake"},
+            }
+        ],
+        "secondary_actions": [
+            {
+                "key": "standard_project_intake",
+                "label": "标准立项",
+                "target": {"type": "route", "route": "/s/projects.intake", "scene_key": "projects.intake"},
+            }
+        ],
+    },
+)
+for _release_leaf in (
+    {
+        "key": "release.fr1.project_intake",
+        "label": "FR-1 项目立项",
+        "route": "/s/projects.intake",
+        "scene_key": "projects.intake",
+        "product_key": "fr1",
+    },
+    {
+        "key": "release.fr2.project_flow",
+        "label": "FR-2 项目推进",
+        "route": "/release/fr2",
+        "product_key": "fr2",
+        "visible_roles": ("pm", "owner", "executive"),
+    },
+    {
+        "key": "release.fr3.cost_tracking",
+        "label": "FR-3 成本记录",
+        "route": "/release/fr3",
+        "product_key": "fr3",
+        "visible_roles": ("pm", "owner", "executive"),
+    },
+    {
+        "key": "release.fr4.payment_tracking",
+        "label": "FR-4 支付记录",
+        "route": "/release/fr4",
+        "product_key": "fr4",
+        "visible_roles": ("pm", "owner", "executive"),
+    },
+    {
+        "key": "release.fr5.settlement_summary",
+        "label": "FR-5 结算结果",
+        "route": "/release/fr5",
+        "product_key": "fr5",
+        "visible_roles": ("pm", "owner", "executive"),
+    },
+):
+    register_legacy_release_navigation_leaf(**_release_leaf)
+for _advisory_handoff_family in ("payment_approval", "payment_entry"):
+    register_advisory_handoff_family(_advisory_handoff_family)
+for _config_menu_exclusion_token in ("用户验收", "用户数据验收", "用户核对菜单"):
+    register_protected_node_excluded_fingerprint_token(_config_menu_exclusion_token)
+for _acceptance_menu_group_label in ("用户核对菜单", "用户验收"):
+    register_customer_acceptance_group_label(_acceptance_menu_group_label)
+    register_preview_group_anchor_skipped_label(_acceptance_menu_group_label)
+register_tautology_permission_guard_group_xmlid("project.group_project_manager")
+register_legacy_project_task_form_profile(
+    "project.task",
+    {
+        "fields": [
+            "name",
+            "project_id",
+            "stage_id",
+            "sc_state",
+            "user_ids",
+            "date_deadline",
+            "priority",
+            "description",
+        ],
+        "field_labels": {
+            "name": "任务名称",
+            "project_id": "所属项目",
+            "stage_id": "当前阶段",
+            "sc_state": "执行状态",
+            "user_ids": "执行人",
+            "date_deadline": "截止日期",
+            "priority": "优先级",
+            "description": "执行说明",
+        },
+        "core_group_label": "任务基础信息",
+        "description_group_label": "任务说明",
+        "description_fields": ["description"],
+    },
+)
+register_legacy_field_presentation(
+    "project.project",
+    "is_favorite",
+    {
+        "label": "我的收藏",
+        "widget": "boolean_favorite",
+        "cell_role": "favorite",
+        "mutation": {
+            "type": "field_toggle",
+            "operation": "record_write",
+            "field": "is_favorite",
+            "value_type": "boolean",
+        },
+    },
+)
+register_legacy_standard_list_profile(
+    {
+        "profile_key": "project.project.list",
+        "model_name": "project.project",
+        "columns_order": [
+            "name",
+            "project_code",
+            "owner_id",
+            "sc_partner_display_name",
+            "operation_strategy",
+            "lifecycle_state",
+            "user_id",
+            "contract_amount",
+            "dashboard_progress_rate",
+            "write_date",
+        ],
+        "column_labels": {
+            "name": "名称",
+            "project_code": "项目编号",
+            "owner_id": "业主单位",
+            "sc_partner_display_name": "关联单位",
+            "operation_strategy": "经营方式",
+            "lifecycle_state": "项目状态",
+            "user_id": "项目负责人",
+            "contract_amount": "合同总额",
+            "dashboard_progress_rate": "进度(%)",
+            "write_date": "更新时间",
+        },
+        "row_primary": "name",
+        "row_secondary": "",
+        "status_field": "lifecycle_state",
+        "strict_columns": True,
+    }
+)
+register_legacy_standard_list_profile(
+    {
+        "profile_key": "project.task.list",
+        "model_name": "project.task",
+        "columns_order": [
+            "name",
+            "project_id",
+            "user_ids",
+            "stage_id",
+            "sc_state",
+            "date_deadline",
+            "priority",
+        ],
+        "column_labels": {
+            "name": "任务名称",
+            "project_id": "所属项目",
+            "user_ids": "执行人",
+            "stage_id": "当前阶段",
+            "sc_state": "执行状态",
+            "date_deadline": "截止日期",
+            "priority": "优先级",
+        },
+        "row_primary": "name",
+        "row_secondary": "project_id",
+        "status_field": "sc_state",
+    }
+)
+
+
+def _sc_text(value) -> str:
+    return str(value or "").strip()
+
+
+def _sc_field_code(node: dict) -> str:
+    return _project_layout.sc_field_code(node)
+
+
+def _sc_set_project_label(node: dict, field_name: str, label: str) -> None:
+    _project_layout.sc_set_project_label(node, field_name, label)
+
+
+def _sc_prune_and_label_project_nodes(value):
+    return _project_layout.sc_prune_and_label_project_nodes(value)
+
+
+def _sc_project_field_widget(field_name: str, label: str, field_type: str, *, relation: str = "") -> dict:
+    return _project_layout.sc_project_field_widget(field_name, label, field_type, relation=relation)
+
+
+def _sc_project_field_node(field_name: str, label: str, field_type: str, *, relation: str = "") -> dict:
+    return _project_layout.sc_project_field_node(field_name, label, field_type, relation=relation)
+
+
+def _sc_node_has_field(value, field_name: str) -> bool:
+    return _project_layout.sc_node_has_field(value, field_name)
+
+
+def _sc_append_project_responsibility_group(contract: dict, *, include_collaborators: bool) -> None:
+    _project_layout.sc_append_project_responsibility_group(
+        contract,
+        include_collaborators=include_collaborators,
+    )
+
+
+def smart_core_finalize_unified_page_contract_v2(env, contract, context):
+    if not isinstance(contract, dict):
+        return None
+    context = context if isinstance(context, dict) else {}
+    source = context.get("source_contract") if isinstance(context.get("source_contract"), dict) else {}
+    head = source.get("head") if isinstance(source.get("head"), dict) else {}
+    model = _sc_text(source.get("model") or head.get("model"))
+    view_type = _sc_text(source.get("view_type") or head.get("view_type") or (context or {}).get("view_type")).lower()
+    render_profile = _sc_text(source.get("render_profile") or head.get("render_profile") or (((context or {}).get("meta") or {}).get("params") or {}).get("render_profile")).lower()
+    out = deepcopy(contract)
+    _sc_inject_workflow_contract(env, out, source, model=model, view_type=view_type)
+    inject_financial_workspace_runtime(
+        env, out, source, head, context, model, view_type, smart_core_form_business_actions,
+    )
+    _sc_normalize_construction_diary_form(out, source, model=model, view_type=view_type)
+    if model != "project.project" or view_type != "form":
+        return out if out != contract else None
+    layout = out.get("layoutContract") if isinstance(out.get("layoutContract"), dict) else {}
+    tree = layout.get("containerTree") if isinstance(layout.get("containerTree"), list) else []
+    layout["containerTree"] = _sc_prune_and_label_project_nodes(tree)
+    out["layoutContract"] = layout
+    status = out.get("statusContract") if isinstance(out.get("statusContract"), dict) else {}
+    if isinstance(status.get("widgetStatus"), list):
+        status["widgetStatus"] = [
+            row for row in status["widgetStatus"]
+            if not (isinstance(row, dict) and _sc_text(row.get("widgetId")) == "field.user_id")
+        ]
+        out["statusContract"] = status
+    _sc_append_project_responsibility_group(out, include_collaborators=render_profile != "create")
+    return out
+
+
+def smart_core_normalize_projected_contract_data(env, data, context):
+    del env, context
+    if not isinstance(data, dict):
+        return None
+    out = deepcopy(data)
+    _sc_general_contract_tax_contract(out)
+    return out if out != data else None
+
+
+def smart_core_normalize_unified_page_contract_v2(env, contract, context):
+    del env
+    if not isinstance(contract, dict):
+        return None
+    source = (context or {}).get("source_contract") if isinstance(context, dict) else {}
+    source = source if isinstance(source, dict) else {}
+    out = deepcopy(contract)
+    _sc_general_contract_tax_contract(out, source_contract=source)
+    _sc_normalize_general_contract_company_form(out, source_contract=source)
+    return out if out != contract else None
+
+
+def _sc_field_name(node: Any) -> str:
+    return _contract_helpers.sc_field_name(node)
+
+
+def _sc_collect_field_nodes(nodes: Any, existing: dict[str, dict[str, Any]]) -> None:
+    _contract_helpers.sc_collect_field_nodes(nodes, existing)
+
+
+def _sc_set_v2_container_tree(contract: dict[str, Any], container_tree: list[Any]) -> None:
+    _contract_helpers.sc_set_v2_container_tree(contract, container_tree)
+
+
+def _sc_set_v2_widget_status(contract: dict[str, Any], widget_status: list[dict[str, Any]]) -> None:
+    _contract_helpers.sc_set_v2_widget_status(contract, widget_status)
+
+
+def _sc_set_v2_governance_patch(contract: dict[str, Any], key: str, patch: dict[str, Any]) -> None:
+    _contract_helpers.sc_set_v2_governance_patch(contract, key, patch)
+
+
+def _sc_normalize_construction_diary_form(contract: dict[str, Any], source_contract: dict[str, Any], *, model: str, view_type: str) -> None:
+    _contract_normalizers.normalize_construction_diary_form(contract, source_contract, model=model, view_type=view_type)
+
+
+def _sc_replace_contract_content(contract: dict[str, Any], replacement: dict[str, Any]) -> None:
+    _contract_helpers.sc_replace_contract_content(contract, replacement)
+
+
+def _sc_general_contract_tax_contract(contract: dict[str, Any], source_contract: dict[str, Any] | None = None) -> None:
+    _contract_normalizers.general_contract_tax_contract(contract, source_contract=source_contract)
+
+
+def _sc_form_layout_governance(source_contract: dict[str, Any] | None) -> dict[str, Any]:
+    return _contract_helpers.sc_form_layout_governance(source_contract)
+
+
+def _sc_form_layout_columns_from_governance(governance: dict[str, Any] | None, title: str = "") -> int:
+    return _contract_helpers.sc_form_layout_columns_from_governance(governance, title)
+
+
+def _sc_apply_form_layout_governance_to_group(node: dict[str, Any], title: str = "", *, source_contract: dict[str, Any] | None = None) -> None:
+    _contract_helpers.sc_apply_form_layout_governance_to_group(node, title, source_contract=source_contract)
+
+
+def _sc_normalize_general_contract_company_form(contract: dict[str, Any], source_contract: dict[str, Any] | None = None) -> None:
+    _contract_normalizers.normalize_general_contract_company_form(contract, source_contract=source_contract)
+
+
+def _sc_inject_workflow_contract(env, contract, source, *, model, view_type):
+    if view_type != "form" or not model:
+        return
+    if env is None or not getattr(env, "registry", None):
+        return
+    record_id = (
+        source.get("record_id")
+        or source.get("recordId")
+        or ((source.get("head") or {}).get("record_id") if isinstance(source.get("head"), dict) else None)
+    )
+    try:
+        record_id = int(record_id or 0)
+    except Exception:
+        record_id = 0
+    if record_id <= 0:
+        return
+    try:
+        if model not in env.registry:
+            return
+        record = env[model].browse(record_id).exists()
+        if not record:
+            return
+        workflow_contract = env["sc.workflow.contract.service"].describe_record(record)
+    except Exception:
+        _logger.exception("Failed to inject workflow contract for %s,%s", model, record_id)
+        return
+    if not isinstance(workflow_contract, dict) or not workflow_contract:
+        return
+    contract["workflowContract"] = workflow_contract
+    runtime = contract.get("runtimeContract") if isinstance(contract.get("runtimeContract"), dict) else {}
+    runtime["workflowContract"] = workflow_contract
+    contract["runtimeContract"] = runtime
+    status = contract.get("statusContract") if isinstance(contract.get("statusContract"), dict) else {}
+    global_status = status.get("globalStatus") if isinstance(status.get("globalStatus"), dict) else {}
+    editability = _sc_text(workflow_contract.get("editability"))
+    if editability in {"readonly", "locked"}:
+        global_status["pageAuth"] = "read"
+    elif editability == "editable":
+        global_status["pageAuth"] = "edit"
+    global_status["workflowPhase"] = workflow_contract.get("businessPhase")
+    global_status["approvalPhase"] = workflow_contract.get("approvalPhase")
+    status["globalStatus"] = global_status
+    contract["statusContract"] = status
+
+
+ROLE_SURFACE_OVERRIDES = _policy_maps.ROLE_SURFACE_OVERRIDES
+
+ROLE_GROUPS_EXPLICIT = _policy_maps.ROLE_GROUPS_EXPLICIT
+
+ROLE_GROUPS_CAPABILITY_FALLBACK = _policy_maps.ROLE_GROUPS_CAPABILITY_FALLBACK
+
+ROLE_PRECEDENCE = _policy_maps.ROLE_PRECEDENCE
+
+NAV_MENU_SCENE_MAP = _policy_maps.NAV_MENU_SCENE_MAP
+
+NAV_ACTION_SCENE_MAP = _policy_maps.NAV_ACTION_SCENE_MAP
+
+NAV_MODEL_VIEW_SCENE_MAP = _policy_maps.NAV_MODEL_VIEW_SCENE_MAP
+
+SERVER_ACTION_WINDOW_MAP = _policy_maps.SERVER_ACTION_WINDOW_MAP
+
+FILE_ATTACHMENT_ALLOWED_MODEL_EXACT = _policy_maps.FILE_ATTACHMENT_ALLOWED_MODEL_EXACT
+FILE_ATTACHMENT_ALLOWED_MODEL_PREFIXES = _policy_maps.FILE_ATTACHMENT_ALLOWED_MODEL_PREFIXES
+FILE_ATTACHMENT_ALLOWED_LEGACY_MODEL_PREFIXES = _policy_maps.FILE_ATTACHMENT_ALLOWED_LEGACY_MODEL_PREFIXES
+FILE_ATTACHMENT_EXCLUDED_MODEL_PREFIXES = _policy_maps.FILE_ATTACHMENT_EXCLUDED_MODEL_PREFIXES
+FILE_UPLOAD_ALLOWED_MODELS = _policy_maps.FILE_UPLOAD_ALLOWED_MODELS
+FILE_DOWNLOAD_ALLOWED_MODELS = _policy_maps.FILE_DOWNLOAD_ALLOWED_MODELS
+LEGACY_VISIBLE_BUSINESS_COLUMN_LABELS_BY_MODEL = _policy_maps.LEGACY_VISIBLE_BUSINESS_COLUMN_LABELS_BY_MODEL
+
+register_legacy_standard_list_profile({
+    "profile_key": "payment.request.list",
+    "model_name": "payment.request",
+    "columns_order": [
+        "p1_visible_06fa8c6f628f",
+        "p1_visible_8fa8662ad38f",
+        "p1_visible_3e7255522b33",
+        "p1_visible_2c346345746e",
+        "p1_visible_ccfa1326c88f",
+        "p1_visible_c00fc55a25b8",
+        "p1_visible_9469a2ad32f8",
+        "p1_visible_ae1abe750af6",
+        "p1_visible_63c5facb9f66",
+        "p1_visible_e0361480e3a5",
+        "p1_visible_1874b0ce5103",
+        "p1_visible_3759fcfc297a",
+        "p1_visible_6cf6e39bece9",
+        "p1_visible_a103d7cee046",
+        "p1_visible_48a64eb40c71",
+        "p1_visible_901384917949",
+        "p1_visible_71e47f617269",
+        "p1_visible_dfc25d77dc39",
+    ],
+    "column_labels": {
+        "p1_visible_06fa8c6f628f": "单据状态",
+        "p1_visible_8fa8662ad38f": "单据编号",
+        "p1_visible_3e7255522b33": "项目名称",
+        "p1_visible_2c346345746e": "申请日期",
+        "p1_visible_ccfa1326c88f": "收款单位",
+        "p1_visible_c00fc55a25b8": "申请付款金额",
+        "p1_visible_9469a2ad32f8": "实际付款金额",
+        "p1_visible_ae1abe750af6": "可用余额",
+        "p1_visible_63c5facb9f66": "成本分类名称",
+        "p1_visible_e0361480e3a5": "备注",
+        "p1_visible_1874b0ce5103": "是否关联单据",
+        "p1_visible_3759fcfc297a": "付款账号",
+        "p1_visible_6cf6e39bece9": "金额大写",
+        "p1_visible_a103d7cee046": "户名",
+        "p1_visible_48a64eb40c71": "开户行",
+        "p1_visible_901384917949": "账号",
+        "p1_visible_71e47f617269": "填写人",
+        "p1_visible_dfc25d77dc39": "录入时间",
+    },
+    "row_primary": "name",
+    "row_secondary": "project_id",
+    "status_field": "state",
+})
+
+register_legacy_standard_list_profile({
+    "profile_key": "tax_deduction_registration.list",
+    "model_name": "sc.tax.deduction.registration",
+    "columns_order": [
+        "p1_visible_06fa8c6f628f",
+        "p1_visible_8fa8662ad38f",
+        "p1_visible_3540b47897be",
+        "p1_visible_3e7255522b33",
+        "p1_visible_be5462bd6a62",
+        "p1_visible_ada9a85eab00",
+        "p1_visible_8acf4918f1f1",
+        "p1_visible_ee19dd75350c",
+        "p1_visible_eaa05c7105f7",
+        "p1_visible_e0361480e3a5",
+        "p1_visible_ee6a4d9e2956",
+        "p1_visible_1e62803e196c",
+    ],
+    "column_labels": {
+        "p1_visible_06fa8c6f628f": "单据状态",
+        "p1_visible_8fa8662ad38f": "单据编号",
+        "p1_visible_3540b47897be": "是否转出",
+        "p1_visible_3e7255522b33": "项目名称",
+        "p1_visible_be5462bd6a62": "开票单位",
+        "p1_visible_ada9a85eab00": "发票号",
+        "p1_visible_8acf4918f1f1": "抵扣税额",
+        "p1_visible_ee19dd75350c": "抵扣总额",
+        "p1_visible_eaa05c7105f7": "抵扣附加税",
+        "p1_visible_e0361480e3a5": "备注",
+        "p1_visible_ee6a4d9e2956": "录入人",
+        "p1_visible_1e62803e196c": "单据日期",
+    },
+    "row_primary": "document_no",
+    "row_secondary": "project_id",
+    "status_field": "state",
+})
+
+register_legacy_standard_list_profile({
+    "profile_key": "project.material.plan.list",
+    "model_name": "project.material.plan",
+    "columns_order": ["name", "project_id", "date_plan", "state"],
+    "column_labels": {
+        "name": "单号",
+        "project_id": "项目",
+        "date_plan": "需用日期",
+        "state": "状态",
+    },
+    "row_primary": "name",
+    "row_secondary": "project_id",
+    "status_field": "state",
+})
+
+API_DATA_WRITE_ALLOWLIST = _policy_maps.API_DATA_WRITE_ALLOWLIST
+API_DATA_MUTATION_POLICIES = _policy_maps.API_DATA_MUTATION_POLICIES
+
+DRAFT_DELETE_ALLOWED_STATES = _policy_maps.DRAFT_DELETE_ALLOWED_STATES
+
+
+
+
+API_DATA_DRAFT_UNLINK_POLICIES = _policy_maps.API_DATA_DRAFT_UNLINK_POLICIES
+API_DATA_UNLINK_POLICIES = _policy_maps.API_DATA_UNLINK_POLICIES
+API_DATA_UNLINK_ALLOWED_MODELS = _policy_maps.API_DATA_UNLINK_ALLOWED_MODELS
+
+MODEL_CODE_MAPPING = _policy_maps.MODEL_CODE_MAPPING
+
+CRITICAL_SCENE_TARGET_OVERRIDES = _policy_maps.CRITICAL_SCENE_TARGET_OVERRIDES
+
+CRITICAL_SCENE_TARGET_ROUTE_OVERRIDES = _policy_maps.CRITICAL_SCENE_TARGET_ROUTE_OVERRIDES
+INDUSTRY_CREATE_FIELD_FALLBACKS = _policy_maps.INDUSTRY_CREATE_FIELD_FALLBACKS
+
+def _as_text(value: Any) -> str:
+    return _system_init_rows.as_text(value)
+
+
+def _safe_search_read(env, model_name: str, domain: List[Any], fields: List[str], limit: int = 6) -> List[Dict[str, Any]]:
+    return _system_init_rows.safe_search_read(env, model_name, domain, fields, limit=limit)
+
+
+def _model_has_field(env, model_name: str, field_name: str) -> bool:
+    return _system_init_rows.model_has_field(env, model_name, field_name)
+
+
+def _step_status_label(status: str) -> str:
+    return _system_init_rows.step_status_label(status)
+
+
+def _build_enterprise_enablement_contract(env, user) -> Dict[str, Any]:
+    return _system_init_rows.build_enterprise_enablement_contract(env, user)
+
+
+def _build_task_action_rows(env, user) -> List[Dict[str, Any]]:
+    return _system_init_rows.build_task_action_rows(env, user)
+
+
+def _build_payment_action_rows(env) -> List[Dict[str, Any]]:
+    return _system_init_rows.build_payment_action_rows(env)
+
+
+def _build_risk_action_rows(env) -> List[Dict[str, Any]]:
+    return _system_init_rows.build_risk_action_rows(env)
+
+
+def _build_project_action_rows(env, user) -> List[Dict[str, Any]]:
+    return _system_init_rows.build_project_action_rows(env, user)
+
+
+def smart_core_identity_profile(env):
+    return {
+        "role_surface_map": ROLE_SURFACE_OVERRIDES,
+        "role_groups_explicit": ROLE_GROUPS_EXPLICIT,
+        "role_groups_capability_fallback": ROLE_GROUPS_CAPABILITY_FALLBACK,
+        "role_precedence": ROLE_PRECEDENCE,
+    }
+
+
+def smart_core_nav_scene_maps(env):
+    return {
+        "menu_scene_map": dict(NAV_MENU_SCENE_MAP),
+        "action_xmlid_scene_map": dict(NAV_ACTION_SCENE_MAP),
+        "model_view_scene_map": dict(NAV_MODEL_VIEW_SCENE_MAP),
+    }
+
+
+def smart_core_surface_aliases(env):
+    del env
+    return {
+        "construction_pm_v1": "workspace_default_v1",
+    }
+
+
+def smart_core_runtime_business_config_productization_sources(env):
+    del env
+    return []
+
+
+def smart_core_resolve_record_context_config(env, params):
+    del env, params
+    return {
+        "model": "project.project",
+        "label": "当前项目",
+        "placeholder": "搜索项目名称",
+        "selected_id_param": "selected_id",
+    }
+
+
+def smart_core_critical_scene_target_overrides(env):
+    return set(CRITICAL_SCENE_TARGET_OVERRIDES)
+
+
+def smart_core_critical_scene_target_route_overrides(env):
+    return dict(CRITICAL_SCENE_TARGET_ROUTE_OVERRIDES)
+
+
+def get_server_action_window_map_contributions(env):
+    return _policy_accessors.get_server_action_window_map_contributions(env)
+
+
+def get_file_upload_allowed_model_contributions(env):
+    return _policy_accessors.get_file_upload_allowed_model_contributions(env)
+
+
+def get_file_download_allowed_model_contributions(env):
+    return _policy_accessors.get_file_download_allowed_model_contributions(env)
+
+
+def _business_attachment_allowed_models(env):
+    return _policy_accessors.business_attachment_allowed_models(env)
+
+
+def get_api_data_write_allowlist_contributions(env):
+    return _policy_accessors.get_api_data_write_allowlist_contributions(env)
+
+
+def get_api_data_mutation_policy_contribution(env, model_name: str, op: str):
+    return _policy_accessors.get_api_data_mutation_policy_contribution(env, model_name, op)
+
+
+def _is_contract_tax_rate_quick_create(env, vals: dict) -> bool:
+    return _policy_accessors.is_contract_tax_rate_quick_create(env, vals)
+
+
+def get_intent_permission_model_acl_policy_contribution(env, intent_name: str, model_name: str, access_mode: str, params: dict):
+    return _policy_accessors.get_intent_permission_model_acl_policy_contribution(env, intent_name, model_name, access_mode, params)
+
+
+def get_api_data_create_execution_policy_contribution(env, model_name: str, vals: dict, ctx: dict, params: dict):
+    return _policy_accessors.get_api_data_create_execution_policy_contribution(env, model_name, vals, ctx, params)
+
+
+def get_api_data_unlink_allowed_model_contributions(env):
+    return _policy_accessors.get_api_data_unlink_allowed_model_contributions(env)
+
+
+def get_model_code_mapping_contributions(env):
+    return _policy_accessors.get_model_code_mapping_contributions(env)
+
+
+def _dictionary_fields(env) -> List[str]:
+    return _system_init_rows.dictionary_fields(env)
+
+
+def _build_role_entry_contract_rows(env) -> List[Dict[str, Any]]:
+    return _system_init_rows.build_role_entry_contract_rows(env)
+
+
+def _build_home_block_contract_rows(env) -> List[Dict[str, Any]]:
+    return _system_init_rows.build_home_block_contract_rows(env)
+
+
+def get_intent_handler_contributions():
+    """Return construction intent handler contributions for platform loader."""
+    return _intent_handlers.get_intent_handler_contributions()
+
+
+def smart_core_register(registry):
+    """Compatibility loader for smart_core.core.extension_loader."""
+    if not isinstance(registry, dict):
+        return
+    try:
+        from odoo.addons.smart_construction_core.handlers.project_dashboard import (
+            ProjectDashboardHandler,
+        )
+
+        registry["project.dashboard"] = ProjectDashboardHandler
+    except Exception as exc:
+        _logger.warning("[smart_core_register] skip project.dashboard explicit registration: %s", exc)
+    for item in get_intent_handler_contributions():
+        if not isinstance(item, dict):
+            continue
+        intent_name = str(item.get("intent") or "").strip()
+        handler = item.get("handler")
+        if intent_name and handler is not None:
+            registry[intent_name] = handler
+
+
+def get_capability_contributions(env, user):
+    try:
+        from odoo.addons.smart_construction_core.services.capability_registry import (
+            list_capabilities_for_user as registry_list_capabilities_for_user,
+        )
+    except Exception:
+        return []
+    try:
+        capabilities = registry_list_capabilities_for_user(env, user)
+    except Exception:
+        return []
+    return _capability_rows.normalize_capability_rows(capabilities)
+
+
+def get_capability_contributions_with_timings(env, user):
+    try:
+        from odoo.addons.smart_construction_core.services.capability_registry import (
+            list_capabilities_for_user_with_timings as registry_list_capabilities_for_user_with_timings,
+        )
+    except Exception:
+        return [], {}
+    try:
+        capabilities, timings_ms = registry_list_capabilities_for_user_with_timings(env, user)
+    except Exception:
+        return [], {}
+    return (
+        _capability_rows.normalize_capability_rows(capabilities),
+        timings_ms if isinstance(timings_ms, dict) else {},
+    )
+
+
+def get_capability_group_contributions(env):
+    del env
+    try:
+        from odoo.addons.smart_construction_core.services.capability_registry import CAPABILITY_GROUPS
+    except Exception:
+        return []
+    out = []
+    for item in CAPABILITY_GROUPS:
+        if not isinstance(item, dict):
+            continue
+        row = dict(item)
+        row.setdefault("source_module", "smart_construction_core")
+        out.append(row)
+    return out
+
+
+def smart_core_list_capabilities_for_user(env, user):
+    """Compatibility hook consumed by smart_core capability provider."""
+    return get_capability_contributions(env, user)
+
+
+def smart_core_capability_groups(env):
+    """Compatibility hook consumed by smart_core capability provider."""
+    return get_capability_group_contributions(env)
+
+
+def get_create_field_fallback_contributions(env, model_name):
+    del env
+    return dict(INDUSTRY_CREATE_FIELD_FALLBACKS.get(str(model_name or ""), {}))
+
+
+def smart_core_create_field_fallbacks(env, model_name):
+    """Compatibility hook consumed by smart_core api.data handlers."""
+    return get_create_field_fallback_contributions(env, model_name)
+
+
+def smart_core_form_business_actions(env, model_name, record_id, contract):
+    """Return model-level business action semantics for form contracts."""
+    del contract
+    try:
+        return build_financial_form_business_actions(env, model_name, record_id)
+    except Exception:
+        return None
+
+
+def get_system_init_fact_contributions(env, user, context=None):
+    """Return construction system.init facts contribution payload."""
+    del context
+    try:
+        module_facts = {}
+
+        task_rows = _build_task_action_rows(env, user)
+        payment_rows = _build_payment_action_rows(env)
+        risk_rows = _build_risk_action_rows(env)
+        project_rows = _build_project_action_rows(env, user)
+
+        module_facts["workspace_collections"] = {
+            "task_items": task_rows,
+            "payment_requests": payment_rows,
+            "risk_actions": risk_rows,
+            "project_actions": project_rows,
+        }
+        module_facts["workspace_collection_export_keys"] = [
+            "task_items",
+            "payment_requests",
+            "risk_actions",
+            "project_actions",
+        ]
+
+        module_facts["workspace_business_source"] = {
+            "task_items": len(task_rows),
+            "payment_requests": len(payment_rows),
+            "risk_actions": len(risk_rows),
+            "project_actions": len(project_rows),
+        }
+
+        role_entries = _build_role_entry_contract_rows(env)
+        if role_entries:
+            module_facts["role_entries"] = role_entries
+
+        home_blocks = _build_home_block_contract_rows(env)
+        if home_blocks:
+            module_facts["home_blocks"] = home_blocks
+
+        enterprise_enablement = _build_enterprise_enablement_contract(env, user)
+        if enterprise_enablement:
+            module_facts["enterprise_enablement"] = enterprise_enablement
+
+        return {
+            "module": "smart_construction_core",
+            "facts": module_facts,
+            "collections": module_facts.get("workspace_collections") or {},
+            "meta": {
+                "source": "smart_construction_core",
+                "status": "active",
+            },
+        }
+    except Exception as exc:
+        _logger.warning("[get_system_init_fact_contributions] failed: %s", exc)
+        return None
+
+
+def smart_core_extend_system_init(data, env, user):
+    """Compatibility hook: write construction facts only under data['ext_facts']."""
+    if not isinstance(data, dict):
+        return data
+
+    contribution = get_system_init_fact_contributions(env, user)
+    ext_facts = data.get("ext_facts")
+    if not isinstance(ext_facts, dict):
+        ext_facts = {}
+    if isinstance(contribution, dict):
+        module_key = str(contribution.get("module") or "smart_construction_core").strip() or "smart_construction_core"
+        facts_payload = contribution.get("facts") if isinstance(contribution.get("facts"), dict) else {}
+        ext_facts[module_key] = dict(facts_payload)
+    data["ext_facts"] = ext_facts
+    return _system_init_rows.apply_system_init_profile_overrides(data)
+
+
+def smart_core_server_action_window_map(env):
+    return get_server_action_window_map_contributions(env)
+
+
+def smart_core_file_upload_allowed_models(env):
+    return get_file_upload_allowed_model_contributions(env)
+
+
+def smart_core_file_download_allowed_models(env):
+    return get_file_download_allowed_model_contributions(env)
+
+
+def smart_core_file_download_auth_subject(env, attachment, current_subject):
+    del current_subject
+    try:
+        if "payment.request" not in env:
+            return None
+        parent_request = env["payment.request"].sudo().search(
+            [("attachment_ids", "in", attachment.id)],
+            limit=1,
+        )
+    except Exception:
+        return None
+    if not parent_request:
+        return None
+    return {"model": "payment.request", "res_id": parent_request.id}
+
+
+def smart_core_legacy_visible_business_column_labels(env):
+    del env
+    return LEGACY_VISIBLE_BUSINESS_COLUMN_LABELS_BY_MODEL
+
+
+def smart_core_api_data_write_allowlist(env):
+    return get_api_data_write_allowlist_contributions(env)
+
+
+def smart_core_api_data_mutation_policy(env, model_name: str, op: str):
+    return get_api_data_mutation_policy_contribution(env, model_name, op)
+
+
+def smart_core_intent_permission_model_acl_policy(env, intent_name: str, model_name: str, access_mode: str, params: dict):
+    return get_intent_permission_model_acl_policy_contribution(env, intent_name, model_name, access_mode, params)
+
+
+def smart_core_api_data_create_execution_policy(env, model_name: str, vals: dict, ctx: dict, params: dict):
+    return get_api_data_create_execution_policy_contribution(env, model_name, vals, ctx, params)
+
+
+def smart_core_api_data_unlink_allowed_models(env):
+    return get_api_data_unlink_allowed_model_contributions(env)
+
+
+def smart_core_api_data_search_fields(env, model_name: str):
+    return _policy_accessors.get_api_data_search_fields(env, model_name)
+
+
+def smart_core_model_code_mapping(env):
+    return get_model_code_mapping_contributions(env)
+
+
+USER_CONFIRMED_FORMAL_LIST_ACTION_XMLIDS = {
+    "smart_construction_core.action_project_material_plan",
+    "smart_construction_core.action_sc_labor_usage_ticket",
+    "smart_construction_core.action_sc_labor_usage_casual",
+    "smart_construction_core.action_sc_equipment_usage_shift_user_confirmed",
+    "smart_construction_core.action_sc_material_quote_user_confirmed",
+    "smart_construction_core.action_sc_subcontract_request_user_confirmed",
+    "smart_construction_core.action_payment_request_user_payment_apply",
+    "smart_construction_core.action_sc_payment_execution_partner_payment",
+    "smart_construction_core.action_sc_expense_claim_deduction_paid",
+    "smart_construction_core.action_sc_expense_claim_deduction_paid_refund",
+}
+
+
+def _user_confirmed_formal_list_action_ids(env):
+    ids = set()
+    for xmlid in USER_CONFIRMED_FORMAL_LIST_ACTION_XMLIDS:
+        rec = env.ref(xmlid, raise_if_not_found=False)
+        if rec and rec.exists():
+            ids.add(int(rec.id))
+    return ids
+
+
+def smart_core_finalize_projected_contract_data(env, data, context):
+    if not isinstance(data, dict):
+        return None
+    head = data.get("head") if isinstance(data.get("head"), dict) else {}
+    model = str(data.get("model") or head.get("model") or "").strip()
+    view_type = str(data.get("view_type") or head.get("view_type") or (context or {}).get("view_type") or "").strip().lower()
+    if model == "project.project" and (view_type == "form" or isinstance((data.get("views") or {}).get("form") if isinstance(data.get("views"), dict) else None, dict)):
+        projected = dict(data)
+        try:
+            from odoo.addons.smart_construction_core.services.contract_governance_overrides import (
+                _apply_project_ledger_form_surface_governance,
+            )
+
+            _apply_project_ledger_form_surface_governance(projected, "user")
+            return projected
+        except Exception:
+            _logger.exception("Failed to finalize project form contract surface")
+            return None
+    try:
+        action_id = int(data.get("action_id") or head.get("action_id") or 0)
+    except Exception:
+        action_id = 0
+    list_profile = data.get("list_profile") if isinstance(data.get("list_profile"), dict) else {}
+    column_policy = list_profile.get("column_policy") if isinstance(list_profile.get("column_policy"), dict) else {}
+    if str(column_policy.get("reason") or "").strip() == "business_list_config_contract_authoritative":
+        return None
+    if not action_id or action_id not in _user_confirmed_formal_list_action_ids(env):
+        return None
+    action = env["ir.actions.act_window"].sudo().browse(action_id)
+    if not action.exists() or not action.res_model:
+        return None
+    try:
+        view_contract = (
+            env["app.view.config"]
+            .with_context(contract_action_id=action_id, contract_projection_readonly=True)
+            ._generate_from_fields_view_get(action.res_model, "tree")
+            .with_user(env.user)
+            .sudo()
+            .with_context(contract_action_id=action_id, contract_projection_readonly=True)
+            .get_contract_api(filter_runtime=True, check_model_acl=True)
+        )
+    except Exception:
+        _logger.exception("Failed to lock user-confirmed formal list contract for action_id=%s", action_id)
+        return None
+    if not isinstance(view_contract, dict):
+        return None
+    try:
+        import xml.etree.ElementTree as ET
+
+        view = action.view_id
+        arch = view.arch_db if view and view.exists() else ""
+        root = ET.fromstring(arch) if arch else None
+        fields_get = env[action.res_model].sudo().fields_get()
+        locked_columns = []
+        locked_schema = []
+        locked_order = ""
+        if root is not None and root.tag in ("tree", "list"):
+            locked_order = str(root.get("default_order") or "").strip()
+            for node in root.findall(".//field[@name]"):
+                name = str(node.get("name") or "").strip()
+                if not name:
+                    continue
+                if str(node.get("column_invisible") or "").strip() in {"1", "True", "true"}:
+                    continue
+                meta = fields_get.get(name) or {}
+                label = str(node.get("string") or meta.get("string") or name)
+                locked_columns.append(name)
+                locked_schema.append({
+                    "name": name,
+                    "label": label,
+                    "string": label,
+                    "type": meta.get("type") or "char",
+                    "widget": node.get("widget") or "",
+                    "optional": node.get("optional") or "",
+                })
+    except Exception:
+        _logger.exception("Failed to parse locked tree view for action_id=%s", action_id)
+        locked_columns = []
+        locked_schema = []
+        locked_order = ""
+
+    locked = dict(data)
+    views = dict(locked.get("views") if isinstance(locked.get("views"), dict) else {})
+    tree = dict(view_contract)
+    if locked_columns:
+        tree["columns"] = locked_columns
+        tree["columns_schema"] = locked_schema
+    if locked_order:
+        tree["order"] = locked_order
+        tree["default_order"] = locked_order
+    governance = dict(tree.get("governance") if isinstance(tree.get("governance"), dict) else {})
+    governance["user_confirmed_formal_list_lock"] = {
+        "applied": True,
+        "action_id": action_id,
+        "source": "action_bound_tree_view",
+    }
+    tree["governance"] = governance
+    views["tree"] = tree
+    locked["views"] = views
+
+    fields_map = dict(locked.get("fields") if isinstance(locked.get("fields"), dict) else {})
+    for row in tree.get("columns_schema") or []:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name") or "").strip()
+        if not name:
+            continue
+        descriptor = dict(fields_map.get(name) if isinstance(fields_map.get(name), dict) else {})
+        label = str(row.get("label") or row.get("string") or descriptor.get("string") or name)
+        descriptor.update({
+            "name": name,
+            "string": label,
+            "label": label,
+            "type": row.get("type") or descriptor.get("type") or "char",
+        })
+        fields_map[name] = descriptor
+    locked["fields"] = fields_map
+
+    columns = [str(col or "").strip() for col in tree.get("columns") or [] if str(col or "").strip()]
+    if columns:
+        locked["list_profile"] = {
+            **(locked.get("list_profile") if isinstance(locked.get("list_profile"), dict) else {}),
+            "columns": columns,
+            "column_labels": {
+                str(row.get("name") or ""): str(row.get("label") or row.get("string") or row.get("name") or "")
+                for row in tree.get("columns_schema") or []
+                if isinstance(row, dict) and str(row.get("name") or "").strip()
+            },
+            "preference_policy": {
+                "allow_visibility": False,
+                "allow_order": False,
+                "locked_columns": columns,
+                "must_request_columns": columns,
+            },
+        }
+    return locked
+
+
+def smart_core_scene_package_service_class(env):
+    del env
+    return _service_builders.scene_package_service_class()
+
+
+def smart_core_scene_governance_service_class(env):
+    del env
+    return _service_builders.scene_governance_service_class()
+
+
+def smart_core_describe_project_capabilities(env, project):
+    return _service_builders.describe_project_capabilities(env, project)
+
+
+def smart_core_build_portal_dashboard(env):
+    return _service_builders.build_portal_dashboard(env)
+
+
+def smart_core_build_capability_matrix(env):
+    return _service_builders.build_capability_matrix(env)
+
+
+def smart_core_get_project_insight(env, record, scene):
+    return _service_builders.get_project_insight(env, record, scene)
+
+
+def smart_core_build_portal_execute_button_contract(env, model, res_id, method):
+    return _service_builders.build_portal_execute_button_contract(env, model, res_id, method)
+
+
+def smart_core_build_project_execution_service(env):
+    return _service_builders.build_project_execution_service(env)
+
+
+def smart_core_build_project_dashboard_service(env):
+    return _service_builders.build_project_dashboard_service(env)
+
+
+def smart_core_build_project_plan_bootstrap_service(env):
+    return _service_builders.build_project_plan_bootstrap_service(env)
+
+
+def smart_core_build_cost_tracking_service(env):
+    return _service_builders.build_cost_tracking_service(env)
+
+
+def smart_core_build_payment_slice_service(env):
+    return _service_builders.build_payment_slice_service(env)
+
+
+def smart_core_build_settlement_slice_service(env):
+    return _service_builders.build_settlement_slice_service(env)
+
+
+def smart_core_business_config_admin_group_xmlids(env):
+    del env
+    return _hook_facts.business_config_admin_group_xmlids()
+
+
+def smart_core_business_config_form_settings_refs(env):
+    del env
+    return _hook_facts.business_config_form_settings_refs()
+
+
+def smart_core_business_config_approval_policy_refs(env):
+    del env
+    return _hook_facts.business_config_approval_policy_refs()
+
+
+def smart_core_native_config_root_menu_xmlid(env):
+    del env
+    return _hook_facts.native_config_root_menu_xmlid()
+
+
+def smart_core_native_config_delivery_excluded_menu_xmlids(env):
+    del env
+    return _hook_facts.native_config_delivery_excluded_menu_xmlids()
+
+
+def smart_core_lowcode_system_config_menu_xmlids(env):
+    del env
+    return _hook_facts.lowcode_system_config_menu_xmlids()
+
+
+def smart_core_lowcode_config_recovery_parent_menu_xmlids(env):
+    del env
+    return _hook_facts.lowcode_config_recovery_parent_menu_xmlids()
+
+
+def smart_core_business_root_menu_xmlid(env):
+    del env
+    return _hook_facts.business_root_menu_xmlid()
+
+
+def smart_core_relation_entry_policy(env, payload):
+    payload = payload if isinstance(payload, dict) else {}
+    model = _sc_text(payload.get("model"))
+    field_name = _sc_text(payload.get("field_name"))
+    relation = _sc_text(payload.get("relation"))
+    context = payload.get("context") if isinstance(payload.get("context"), dict) else {}
+    record = payload.get("record") if isinstance(payload.get("record"), dict) else {}
+    if relation == "account.tax" and field_name == "tax_id" and model in {"construction.contract", "sc.general.contract"}:
+        default_vals = {
+            "type_tax_use": "none",
+            "amount_type": "percent",
+            "price_include": False,
+        }
+        try:
+            company = env.company
+            helper = env["construction.contract"].sudo().with_company(company)
+            group = helper._sc_contract_tax_group(company)
+            country = company.account_fiscal_country_id or company.partner_id.country_id or env.ref(
+                "base.cn",
+                raise_if_not_found=False,
+            )
+            default_vals.update({
+                "company_id": company.id,
+                "tax_group_id": group.id,
+            })
+            if country:
+                default_vals["country_id"] = country.id
+        except Exception:
+            _logger.debug("Unable to resolve contract tax quick-create defaults.", exc_info=True)
+        return {
+            "has_page": False,
+            "can_open": False,
+            "can_create": True,
+            "quick_create": True,
+            "display_field": "name",
+            "order": "amount asc, id asc",
+            "default_vals": default_vals,
+            "domain": [
+                ["type_tax_use", "=", "none"],
+                ["amount_type", "=", "percent"],
+                ["price_include", "=", False],
+            ],
+            "ui_labels": {
+                "quick_create": "新增税率...",
+                "create_and_edit": "新增税率...",
+                "missing_name": "请输入税率百分比，例如：3%、9%、13%",
+                "quick_create_prompt": "请输入税率百分比，例如：3%、9%、13%",
+                "quick_create_failed": "新增税率失败，请输入 0 到 100 之间的百分比",
+                "inline_create": "新增税率“%s”",
+                "inline_create_failed": "创建税率失败，请检查百分比格式",
+            },
+        }
+    if relation == "res.partner" and model == "sc.self.funding.registration" and field_name == "partner_id":
+        category_code = _sc_text(context.get("current_business_category_code") or context.get("default_business_category_code"))
+        if category_code == "finance.self_funding.refund":
+            contractor_ids = []
+            try:
+                summaries = env["sc.company.contractor.responsibility.summary"].sudo().search([
+                    ("partner_id", "!=", False),
+                    ("self_funding_balance", ">", 0.01),
+                ])
+                partners = summaries.mapped("partner_id").filtered(
+                    lambda partner: partner.supplier_rank > 0 or partner.customer_rank > 0
+                )
+                contractor_ids = sorted(set(partners.ids))
+            except Exception:
+                contractor_ids = []
+            return {
+                "has_page": False,
+                "can_create": False,
+                "display_field": "display_name",
+                "order": "name asc, id asc",
+                "domain": [["id", "in", contractor_ids or [0]]],
+                "ui_labels": {
+                    "search_more": "搜索承包人...",
+                    "dialog_title": "承包人：搜索更多",
+                    "search_placeholder": "输入承包人名称搜索",
+                    "create_and_edit": "",
+                    "quick_create": "",
+                },
+            }
+    if relation == "res.partner" and model == "sc.expense.claim" and field_name == "partner_id":
+        category_code = _sc_text(context.get("current_business_category_code") or context.get("default_business_category_code"))
+        if category_code == "finance.deduction.bill":
+            partner_ids = []
+            try:
+                summaries = env["sc.company.contractor.responsibility.summary"].sudo().search([("partner_id", "!=", False)])
+                partners = summaries.mapped("partner_id").filtered(
+                    lambda partner: partner.supplier_rank > 0 or partner.customer_rank > 0
+                )
+                partner_ids = sorted(set(partners.ids))
+            except Exception:
+                partner_ids = []
+            return {
+                "has_page": False,
+                "can_create": False,
+                "display_field": "display_name",
+                "order": "name asc, id asc",
+                "domain": [["id", "in", partner_ids or [0]]],
+                "ui_labels": {
+                    "search_more": "搜索责任方...",
+                    "dialog_title": "责任方：搜索更多",
+                    "search_placeholder": "输入责任方名称搜索",
+                    "create_and_edit": "",
+                    "quick_create": "",
+                },
+            }
+    if relation == "construction.contract" and model == "construction.contract" and field_name == "original_contract_id":
+        category_code = _sc_text(context.get("current_business_category_code") or context.get("default_business_category_code"))
+        contract_type = _sc_text(context.get("default_type") or context.get("type") or record.get("type"))
+        domain = []
+        if category_code == "contract.income.supplement":
+            domain = [["type", "=", "out"]]
+        elif category_code == "contract.expense.supplement":
+            domain = [["type", "=", "in"]]
+        elif contract_type in {"out", "in"}:
+            domain = [["type", "=", contract_type]]
+        if not domain:
+            return None
+        return {
+            "has_page": False,
+            "can_open": False,
+            "can_create": False,
+            "create_mode": "disabled",
+            "display_field": "display_name",
+            "order": "id desc",
+            "domain": domain,
+            "ui_labels": {
+                "search_more": "搜索原合同...",
+                "dialog_title": "原合同：搜索更多",
+                "search_placeholder": "输入原合同名称、编号、项目或往来单位搜索",
+                "create_and_edit": "",
+                "quick_create": "",
+            },
+        }
+    return None
+
+
+def smart_core_model_specific_form_contract_policy(env, payload):
+    del env
+    return _contract_normalizers.model_specific_form_contract_policy(payload)
+
+
+def smart_core_form_field_aliases(env, payload):
+    del env
+    return _contract_normalizers.form_field_aliases(payload)
+
+
+def smart_core_menu_delivery_token_policy(env):
+    del env
+    return _hook_facts.menu_delivery_token_policy()
+
+
+def smart_core_business_nav_group_display_order(env):
+    del env
+    return _hook_facts.business_nav_group_display_order()
+
+
+def smart_core_product_policy_catalog_source(env, source_env=None):
+    del env
+    return _hook_facts.product_policy_catalog_source(source_env=source_env)
+
+
+def smart_core_product_policy_catalog_base_keys(env):
+    del env
+    return _hook_facts.product_policy_catalog_base_keys()
+
+
+def smart_core_default_product_policy_specs(env):
+    del env
+    return _hook_facts.default_product_policy_specs()
+
+
+def smart_core_product_policy_catalog_label(env, identity):
+    del env
+    return _hook_facts.product_policy_catalog_label(identity)
+
+
+def smart_core_platform_legacy_ownership_module(env):
+    del env
+    return _hook_facts.platform_legacy_ownership_module()
+
+
+def smart_core_resolve_release_actor_role_codes(env, user):
+    del env
+    return _actor_roles.resolve_release_actor_role_codes(user)
+
+
+def smart_core_resolve_usage_actor_role_codes(env, user):
+    return smart_core_resolve_release_actor_role_codes(env, user)
+
+
+def smart_core_default_release_snapshot_role_code(env):
+    del env
+    return _hook_facts.default_release_snapshot_role_code()
+
+
+def smart_core_industry_extension_module_names(env):
+    del env
+    return _hook_facts.industry_extension_module_names()
+
+
+def smart_core_app_shell_contract(env):
+    del env
+    return _hook_facts.app_shell_contract()
+
+
+def smart_core_scene_entry_orchestrator_specs(env):
+    del env
+    return _hook_facts.scene_entry_orchestrator_specs()
+
+
+def smart_core_user_data_acceptance_nav_contract(env):
+    del env
+    return _hook_facts.user_data_acceptance_nav_contract()

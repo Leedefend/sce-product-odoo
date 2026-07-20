@@ -1,0 +1,27 @@
+{
+  "schema_version": "tenant_pro_04.p0_state_known_debt.v1",
+  "baseline_sha": "6b7ec6a667f297cca4d3788f0fd3b0633097b94e",
+  "suite": "smart_construction_core.tests.test_p0_state_closure.TestP0StateClosure",
+  "executed_tests": 78,
+  "failure_count": 16,
+  "classification": "KNOWN_DEBT_NOT_IMPORT_RELATED",
+  "policy": "do_not_modify_unless_directly_blocking_tenant_payload_import",
+  "failures": [
+    {"test_id": "test_expense_claim_blocks_invalid_state_jump_or_late_cancel", "error_type": "UserError", "category": "required_business_anchor"},
+    {"test_id": "test_expense_claim_done_closes_payment_request", "error_type": "UserError", "category": "finance_permission"},
+    {"test_id": "test_financing_loan_blocks_invalid_state_jump_or_late_cancel", "error_type": "UserError", "category": "required_business_classification"},
+    {"test_id": "test_invoice_registration_confirm_register_requires_business_anchor", "error_type": "UserError", "category": "finance_permission"},
+    {"test_id": "test_material_flow_blocks_invalid_state_jump_or_late_cancel", "error_type": "ValidationError", "category": "material_permission"},
+    {"test_id": "test_material_purchase_stock_and_settlement_business_flow", "error_type": "ValidationError", "category": "material_permission"},
+    {"test_id": "test_payment_action_set_approved_closes_validated_approval", "error_type": "ValidationError", "category": "finance_permission"},
+    {"test_id": "test_payment_execution_blocks_invalid_anchor_or_state_jump", "error_type": "AccessError", "category": "record_rule"},
+    {"test_id": "test_payment_execution_paid_closes_payment_request", "error_type": "AccessError", "category": "record_rule"},
+    {"test_id": "test_payment_overpay_can_be_approved_with_advisory", "error_type": "AccessError", "category": "record_rule"},
+    {"test_id": "test_payment_settlement_not_approved_can_be_approved_with_advisory", "error_type": "AccessError", "category": "record_rule"},
+    {"test_id": "test_project_lifecycle_blocked_by_payment", "error_type": "AccessError", "category": "record_rule"},
+    {"test_id": "test_receipt_income_blocks_invalid_anchor_or_state_jump", "error_type": "UserError", "category": "required_business_anchor"},
+    {"test_id": "test_receipt_income_received_closes_receive_request", "error_type": "UserError", "category": "finance_permission"},
+    {"test_id": "test_tax_deduction_action_deduct_defaults_and_closes", "error_type": "UserError", "category": "finance_permission"},
+    {"test_id": "test_tax_deduction_blocks_invalid_state_jump_or_late_cancel", "error_type": "UserError", "category": "finance_permission"}
+  ]
+}

@@ -1,0 +1,67 @@
+import type { FieldDescriptor } from '@sc/schema';
+import {
+  buildFormSectionFieldSchemas,
+  resolveTemplateInputValue,
+  type FormSectionMapperFieldNode,
+} from './formSection.mapper';
+
+export type CreateFormSectionFieldSchemaBuilderContext = {
+  resolveFieldType: (descriptor?: FieldDescriptor) => string;
+  resolveRequired: (field: FormSectionMapperFieldNode) => boolean;
+  resolveSpanClass: (field: FormSectionMapperFieldNode) => string;
+  resolveRawValue: (fieldName: string) => unknown;
+  resolveMany2oneValue: (fieldName: string) => string;
+  normalizeDateInputValue: (value: unknown) => string;
+  normalizeDatetimeInputValue: (value: unknown) => string;
+  resolveTextInputValue: (fieldName: string) => string;
+  resolveInputPlaceholder: (fieldLabel: string) => string;
+  resolveHelpText?: (field: FormSectionMapperFieldNode) => string;
+  resolveErrorText?: (field: FormSectionMapperFieldNode) => string;
+  resolveSelectionOptions: (descriptor?: FieldDescriptor) => Array<{ value: string; label: string }>;
+  resolveRelationOptions: (fieldName: string) => Array<{ value: string; label: string }>;
+  resolveRelationCreateMode: (fieldName: string, descriptor?: FieldDescriptor) => 'none' | 'quick' | 'page';
+  resolveRelationInlineCreate: (fieldName: string, descriptor?: FieldDescriptor) => ReturnType<typeof buildFormSectionFieldSchemas>[number]['relationInlineCreate'];
+  resolveRelationTextValue: (fieldName: string) => string;
+  resolveCanOpenRelationRecord: (fieldName: string, descriptor?: FieldDescriptor) => boolean;
+  resolveRelationRecordOpenLabel: (fieldName: string, descriptor?: FieldDescriptor) => string;
+  resolveRelationSearchLabel: (fieldName: string, descriptor?: FieldDescriptor) => string;
+  resolveRelationCreateLabel: (fieldName: string, descriptor?: FieldDescriptor) => string;
+  resolveRelationInlineCreateLabel: (fieldName: string, descriptor?: FieldDescriptor, keyword?: string) => string;
+  many2oneCreateToken?: string;
+  many2oneSearchToken?: string;
+  many2oneOpenToken?: string;
+};
+
+export function createFormSectionFieldSchemaBuilder(context: CreateFormSectionFieldSchemaBuilderContext) {
+  return (fields: FormSectionMapperFieldNode[]) => buildFormSectionFieldSchemas(fields, {
+    resolveFieldType: context.resolveFieldType,
+    resolveRequired: context.resolveRequired,
+    resolveSpanClass: context.resolveSpanClass,
+    resolveRawValue: context.resolveRawValue,
+    resolveInputValue: (fieldName, type) => resolveTemplateInputValue({
+      fieldName,
+      fieldType: type,
+      rawValue: context.resolveRawValue(fieldName),
+      resolveMany2oneValue: context.resolveMany2oneValue,
+      normalizeDateInputValue: context.normalizeDateInputValue,
+      normalizeDatetimeInputValue: context.normalizeDatetimeInputValue,
+      resolveTextInputValue: context.resolveTextInputValue,
+    }),
+    resolveInputPlaceholder: context.resolveInputPlaceholder,
+    resolveHelpText: context.resolveHelpText,
+    resolveErrorText: context.resolveErrorText,
+    resolveSelectionOptions: context.resolveSelectionOptions,
+    resolveRelationOptions: context.resolveRelationOptions,
+    resolveRelationCreateMode: context.resolveRelationCreateMode,
+    resolveRelationInlineCreate: context.resolveRelationInlineCreate,
+    resolveRelationTextValue: context.resolveRelationTextValue,
+    resolveCanOpenRelationRecord: context.resolveCanOpenRelationRecord,
+    resolveRelationRecordOpenLabel: context.resolveRelationRecordOpenLabel,
+    resolveRelationSearchLabel: context.resolveRelationSearchLabel,
+    resolveRelationCreateLabel: context.resolveRelationCreateLabel,
+    resolveRelationInlineCreateLabel: context.resolveRelationInlineCreateLabel,
+    many2oneCreateToken: context.many2oneCreateToken,
+    many2oneSearchToken: context.many2oneSearchToken,
+    many2oneOpenToken: context.many2oneOpenToken,
+  });
+}

@@ -1,0 +1,225 @@
+<odoo>
+    <record id="action_sc_labor_usage_ticket" model="ir.actions.act_window">
+        <field name="name">方单</field>
+        <field name="res_model">sc.labor.usage</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" eval="False"/>
+        <field name="view_ids" eval="[(5, 0, 0)]"/>
+        <field name="domain">[]</field>
+        <field name="context">{'search_default_group_project': 1}</field>
+    </record>
+
+    <record id="action_sc_labor_usage_casual" model="ir.actions.act_window">
+        <field name="name">零星用工</field>
+        <field name="res_model">sc.labor.usage</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" eval="False"/>
+        <field name="view_ids" eval="[(5, 0, 0)]"/>
+        <field name="domain">[]</field>
+        <field name="context">{'search_default_group_project': 1}</field>
+    </record>
+
+    <record id="menu_sc_labor_usage_acceptance" model="ir.ui.menu">
+        <field name="action" ref="smart_construction_core.action_sc_labor_usage_ticket"/>
+    </record>
+
+    <record id="menu_sc_labor_casual_acceptance" model="ir.ui.menu">
+        <field name="action" ref="smart_construction_core.action_sc_labor_usage_casual"/>
+    </record>
+
+    <record id="view_sc_tax_deduction_registration_formal_deduction_bill_tree" model="ir.ui.view">
+        <field name="name">sc.tax.deduction.registration.formal.deduction.bill.tree</field>
+        <field name="model">sc.tax.deduction.registration</field>
+        <field name="arch" type="xml">
+            <tree string="扣款单" create="false" edit="false" delete="false">
+                <field name="deduction_bill_status_display" string="单据状态" readonly="1"/>
+                <field name="deduction_bill_document_no" string="单据编号" readonly="1"/>
+                <field name="deduction_bill_project_name" string="项目名称" readonly="1"/>
+                <field name="deduction_bill_unit_name" string="扣款单位" readonly="1"/>
+                <field name="deduction_bill_amount_display" string="扣款金额" readonly="1"/>
+                <field name="deduction_bill_reason_display" string="扣款事由" readonly="1"/>
+                <field name="deduction_bill_date_display" string="单据日期" readonly="1"/>
+                <field name="deduction_bill_attachment_text" string="附件" readonly="1"/>
+                <field name="deduction_bill_source_created_by" string="录入人" readonly="1"/>
+                <field name="deduction_bill_source_created_at" string="录入时间" readonly="1"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_sc_expense_claim_formal_company_finance_expense_tree" model="ir.ui.view">
+        <field name="name">sc.expense.claim.formal.company.finance.expense.tree</field>
+        <field name="model">sc.expense.claim</field>
+        <field name="arch" type="xml">
+            <tree string="公司财务支出历史接受面" create="false" edit="false" delete="false">
+                <field name="state" string="单据状态" readonly="1"/>
+                <field name="name" string="单据编号" readonly="1"/>
+                <field name="amount" string="付款金额" readonly="1"/>
+                <field name="expense_type" string="成本类别" readonly="1"/>
+                <field name="receipt_account_name" string="收款单位名称" readonly="1"/>
+                <field name="payment_account_name" string="付款账户名称" readonly="1"/>
+                <field name="note" string="备注" readonly="1"/>
+                <field name="creator_name" string="录入人" readonly="1"/>
+                <field name="created_time" string="录入时间" readonly="1"/>
+                <field name="attachment_ids" string="附件" widget="many2many_binary" readonly="1"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_sc_payment_execution_formal_company_finance_expense_tree" model="ir.ui.view">
+        <field name="name">sc.payment.execution.formal.company.finance.expense.tree</field>
+        <field name="model">sc.payment.execution</field>
+        <field name="arch" type="xml">
+            <tree string="公司财务支出" create="false" edit="false" delete="false">
+                <field name="company_finance_status_display" string="单据状态" readonly="1"/>
+                <field name="company_finance_push_result" string="推送结果" readonly="1"/>
+                <field name="company_finance_document_no" string="单据编号" readonly="1"/>
+                <field name="company_finance_amount_display" string="付款金额" readonly="1"/>
+                <field name="company_finance_cost_type_display" string="成本类别" readonly="1"/>
+                <field name="company_finance_payee_unit" string="收款单位名称" readonly="1"/>
+                <field name="company_finance_payment_account_name" string="付款账户名称" readonly="1"/>
+                <field name="company_finance_note_display" string="备注" readonly="1"/>
+                <field name="company_finance_source_created_by" string="录入人" readonly="1"/>
+                <field name="company_finance_source_created_at" string="录入时间" readonly="1"/>
+                <field name="company_finance_attachment_text" string="附件" readonly="1"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_tender_guarantee_formal_payment_deposit_return_tree" model="ir.ui.view">
+        <field name="name">tender.guarantee.formal.payment.deposit.return.tree</field>
+        <field name="model">tender.guarantee</field>
+        <field name="arch" type="xml">
+            <tree string="付款还保证金" create="false" edit="false" delete="false">
+                <field name="deposit_status_display" string="状态" readonly="1"/>
+                <field name="deposit_push_result" string="推送结果" readonly="1"/>
+                <field name="deposit_kingdee_document_no" string="金蝶单据编号" readonly="1"/>
+                <field name="deposit_document_no" string="单据编号" readonly="1"/>
+                <field name="deposit_bid_project_name" string="投标项目" readonly="1"/>
+                <field name="deposit_engineering_project_name" string="工程项目" readonly="1"/>
+                <field name="deposit_type_display" string="保证金类型" readonly="1"/>
+                <field name="deposit_company_name" string="所属公司" readonly="1"/>
+                <field name="deposit_amount_display" string="保证金金额" readonly="1"/>
+                <field name="deposit_returned_amount_display" string="已退金额" readonly="1"/>
+                <field name="deposit_unreturned_amount_display" string="未退金额" readonly="1"/>
+                <field name="deposit_need_return_text" string="是否需要退回" readonly="1"/>
+                <field name="deposit_payee_unit" string="收款单位" readonly="1"/>
+                <field name="deposit_payment_account" string="支付账户" readonly="1"/>
+                <field name="deposit_note_display" string="备注" readonly="1"/>
+                <field name="deposit_attachment_text" string="附件" readonly="1"/>
+                <field name="deposit_source_created_by" string="录入人" readonly="1"/>
+                <field name="deposit_source_created_at" string="录入时间" readonly="1"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_sc_hr_payroll_document_formal_manager_salary_tree" model="ir.ui.view">
+        <field name="name">sc.hr.payroll.document.formal.manager.salary.tree</field>
+        <field name="model">sc.hr.payroll.document</field>
+        <field name="arch" type="xml">
+            <tree string="管理人员工资表" create="false" edit="false" delete="false">
+                <field name="payroll_document_status_display" string="单据状态" readonly="1"/>
+                <field name="payroll_document_project_name" string="项目名称" readonly="1"/>
+                <field name="payroll_document_no" string="单据编号" readonly="1"/>
+                <field name="payroll_document_date" string="单据日期" readonly="1"/>
+                <field name="payroll_document_salary_month" string="工资月份" readonly="1"/>
+                <field name="payroll_document_net_salary" string="本次实发工资总额" readonly="1"/>
+                <field name="payroll_document_gross_salary" string="本次应发工资总额" readonly="1"/>
+                <field name="payroll_document_payment_status" string="付款状态" readonly="1"/>
+                <field name="payroll_document_paid_amount" string="已付款金额" readonly="1"/>
+                <field name="payroll_document_unpaid_amount" string="未付款金额" readonly="1"/>
+                <field name="payroll_document_note" string="备注" readonly="1"/>
+                <field name="payroll_document_attachment_text" string="附件" readonly="1"/>
+                <field name="payroll_document_source_created_by" string="录入人" readonly="1"/>
+                <field name="payroll_document_source_created_at" string="录入时间" readonly="1"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_sc_tax_deduction_registration_deduction_bill_acceptance" model="ir.actions.act_window">
+        <field name="name">扣款单</field>
+        <field name="res_model">sc.tax.deduction.registration</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="smart_construction_core.view_sc_tax_deduction_registration_formal_deduction_bill_tree"/>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'tree', 'view_id': ref('smart_construction_core.view_sc_tax_deduction_registration_formal_deduction_bill_tree')})]"/>
+        <field name="domain">[('business_category_id.code', '=', 'finance.tax.deduction')]</field>
+        <field name="context">{'search_default_group_project': 1}</field>
+    </record>
+
+    <record id="action_sc_expense_claim_company_finance_expense_acceptance" model="ir.actions.act_window">
+        <field name="name">公司财务支出</field>
+        <field name="res_model">sc.expense.claim</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="smart_construction_core.view_sc_expense_claim_formal_company_finance_expense_tree"/>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'tree', 'view_id': ref('smart_construction_core.view_sc_expense_claim_formal_company_finance_expense_tree')})]"/>
+        <field name="domain">[('claim_type', '=', 'expense')]</field>
+        <field name="context">{'search_default_active_rows': 1, 'search_default_group_project': 1}</field>
+    </record>
+
+    <record id="action_sc_payment_execution_company_finance_expense" model="ir.actions.act_window">
+        <field name="view_id" ref="smart_construction_core.view_sc_payment_execution_formal_company_finance_expense_tree"/>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'tree', 'view_id': ref('smart_construction_core.view_sc_payment_execution_formal_company_finance_expense_tree')})]"/>
+    </record>
+
+    <record id="action_tender_guarantee_formal_payment_deposit_return" model="ir.actions.act_window">
+        <field name="name">付款还保证金</field>
+        <field name="res_model">tender.guarantee</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="smart_construction_core.view_tender_guarantee_formal_payment_deposit_return_tree"/>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'tree', 'view_id': ref('smart_construction_core.view_tender_guarantee_formal_payment_deposit_return_tree')})]"/>
+        <field name="search_view_id" ref="smart_construction_core.view_tender_guarantee_search"/>
+        <field name="domain">[('guarantee_type', '=', 'bid')]</field>
+        <field name="context">{'search_default_group_project': 1}</field>
+    </record>
+
+    <record id="action_sc_salary_registration" model="ir.actions.act_window">
+        <field name="name">项目管理人员工资登记</field>
+        <field name="res_model">sc.hr.payroll.document</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" eval="False"/>
+        <field name="view_ids" eval="[(5, 0, 0)]"/>
+        <field name="domain">[('fact_type', '=', 'salary_registration')]</field>
+        <field name="context">{'default_fact_type': 'salary_registration', 'search_default_salary_registration': 1}</field>
+    </record>
+
+    <record id="action_sc_material_outbound" model="ir.actions.act_window">
+        <field name="name">出库单</field>
+        <field name="res_model">sc.material.outbound</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="smart_construction_core.view_sc_material_outbound_tree"/>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'tree', 'view_id': ref('smart_construction_core.view_sc_material_outbound_tree')}), (0, 0, {'view_mode': 'form', 'view_id': ref('smart_construction_core.view_sc_material_outbound_form')})]"/>
+        <field name="context">{'search_default_group_project': 1}</field>
+    </record>
+
+    <record id="view_construction_contract_expense_execution_acceptance_aligned_tree" model="ir.ui.view">
+        <field name="name">construction.contract.expense.execution.acceptance.aligned.tree</field>
+        <field name="model">construction.contract.expense</field>
+        <field name="arch" type="xml">
+            <tree string="支出合同执行">
+                <field name="expense_execution_status_display" string="单据状态"/>
+                <field name="expense_execution_document_no" string="单据编号"/>
+                <field name="expense_execution_project_name" string="项目名称"/>
+                <field name="expense_execution_contract_date" string="签订日期"/>
+                <field name="expense_execution_title" string="标题"/>
+                <field name="expense_execution_counterparty" string="往来单位"/>
+                <field name="expense_execution_engineering_content" string="合同内容"/>
+                <field name="expense_execution_category" string="合同类别"/>
+                <field name="expense_execution_amount_display" string="合同金额"/>
+                <field name="expense_execution_invoice_amount" string="已开票金额"/>
+                <field name="expense_execution_paid_amount" string="已付款金额"/>
+                <field name="expense_execution_unpaid_amount" string="未付款金额"/>
+                <field name="expense_execution_uninvoiced_amount" string="未开票金额"/>
+                <field name="expense_execution_contract_no" string="合同编号"/>
+                <field name="expense_execution_attachment_text" string="附件"/>
+                <field name="expense_execution_source_created_by" string="录入人"/>
+                <field name="expense_execution_source_created_at" string="录入时间"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_construction_contract_expense_execution" model="ir.actions.act_window">
+        <field name="view_id" ref="smart_construction_core.view_construction_contract_expense_execution_acceptance_aligned_tree"/>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'tree', 'view_id': ref('smart_construction_core.view_construction_contract_expense_execution_acceptance_aligned_tree')}), (0, 0, {'view_mode': 'form', 'view_id': ref('smart_construction_core.view_construction_contract_expense_form')})]"/>
+        <field name="domain">[('legacy_contract_id', 'ilike', 'direct_acceptance:expense_contract:%')]</field>
+        <field name="context">{'default_type': 'in', 'create': False}</field>
+    </record>
+</odoo>

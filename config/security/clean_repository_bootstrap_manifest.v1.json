@@ -1,0 +1,19 @@
+{
+  "schema_version": "sce.clean_repository_bootstrap_manifest.v1",
+  "source_tree_sha": "3b2820179ae7f1e3644024063a57ce9714cd4b13",
+  "source_git_history_imported": false,
+  "source_branches_imported": false,
+  "source_tags_imported": false,
+  "source_pull_request_refs_imported": false,
+  "legacy_repositories_frozen": false,
+  "legacy_repository_cleanup": "IN_PROGRESS",
+  "legacy_repository_used_as_remote": false,
+  "new_repositories": {
+    "github": "Leedefend/sce-product-odoo",
+    "gitee": "leegege/sce-product-odoo"
+  },
+  "initial_branch": "main",
+  "root_strategy": "single_clean_root_commit",
+  "personal_data_values_recorded": false,
+  "credential_values_recorded": false
+}

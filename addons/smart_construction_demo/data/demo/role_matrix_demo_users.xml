@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="user_demo_project_read" model="res.users">
+            <field name="name">Demo Project Read</field>
+            <field name="login">demo_role_project_read</field>
+            <field name="email">demo_role_project_read@example.com</field>
+            <field name="active">True</field>
+            <field name="share">False</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('smart_construction_core.group_sc_cap_project_read')),
+                (4, ref('smart_construction_core.group_sc_cap_contract_read')),
+                (4, ref('smart_construction_core.group_sc_cap_settlement_read')),
+                (4, ref('smart_construction_core.group_sc_cap_finance_read'))
+            ]"/>
+        </record>
+
+        <record id="user_demo_project_user" model="res.users">
+            <field name="name">Demo Project User</field>
+            <field name="login">demo_role_project_user</field>
+            <field name="email">demo_role_project_user@example.com</field>
+            <field name="active">True</field>
+            <field name="share">False</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('smart_construction_core.group_sc_cap_project_user')),
+                (4, ref('smart_construction_core.group_sc_cap_contract_user')),
+                (4, ref('smart_construction_core.group_sc_cap_settlement_user')),
+                (4, ref('smart_construction_core.group_sc_cap_finance_user'))
+            ]"/>
+        </record>
+
+        <record id="user_demo_project_manager" model="res.users">
+            <field name="name">Demo Project Manager</field>
+            <field name="login">demo_role_project_manager</field>
+            <field name="email">demo_role_project_manager@example.com</field>
+            <field name="active">True</field>
+            <field name="share">False</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('smart_construction_core.group_sc_cap_project_manager')),
+                (4, ref('smart_construction_core.group_sc_cap_contract_manager')),
+                (4, ref('smart_construction_core.group_sc_cap_settlement_manager')),
+                (4, ref('smart_construction_core.group_sc_cap_finance_manager'))
+            ]"/>
+        </record>
+
+        <record id="user_demo_e2e_smoke" model="res.users">
+            <field name="name">E2E Smoke User</field>
+            <field name="login">svc_e2e_smoke</field>
+            <field name="email">svc_e2e_smoke@example.com</field>
+            <field name="active">True</field>
+            <field name="share">False</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('smart_construction_core.group_sc_cap_project_read')),
+                (4, ref('smart_construction_core.group_sc_cap_project_manager')),
+                (4, ref('smart_construction_core.group_sc_cap_data_read'))
+            ]"/>
+        </record>
+
+        <record id="user_demo_role_owner" model="res.users">
+            <field name="name">Demo Role Owner</field>
+            <field name="login">demo_role_owner</field>
+            <field name="email">demo_role_owner@example.com</field>
+            <field name="active">True</field>
+            <field name="share">False</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('smart_construction_core.group_sc_role_owner'))
+            ]"/>
+        </record>
+
+        <record id="user_demo_role_pm" model="res.users">
+            <field name="name">Demo Role PM</field>
+            <field name="login">demo_role_pm</field>
+            <field name="email">demo_role_pm@example.com</field>
+            <field name="active">True</field>
+            <field name="share">False</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('smart_construction_core.group_sc_role_project_manager'))
+            ]"/>
+        </record>
+
+        <record id="user_demo_role_finance" model="res.users">
+            <field name="name">Demo Role Finance</field>
+            <field name="login">demo_role_finance</field>
+            <field name="email">demo_role_finance@example.com</field>
+            <field name="active">True</field>
+            <field name="share">False</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('smart_construction_core.group_sc_role_finance_manager'))
+            ]"/>
+        </record>
+
+        <record id="user_demo_role_project_a_member" model="res.users">
+            <field name="name">Demo Project A Member</field>
+            <field name="login">demo_role_project_a_member</field>
+            <field name="email">demo_role_project_a_member@example.invalid</field>
+            <field name="active">True</field>
+            <field name="share">False</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[(6, 0, [
+                ref('base.group_user'),
+                ref('smart_construction_core.group_sc_cap_project_read'),
+                ref('smart_construction_core.group_sc_cap_business_initiator')
+            ])]"/>
+        </record>
+
+        <record id="user_demo_role_executive" model="res.users">
+            <field name="name">Demo Role Executive</field>
+            <field name="login">demo_role_executive</field>
+            <field name="email">demo_role_executive@example.com</field>
+            <field name="active">True</field>
+            <field name="share">False</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="groups_id" eval="[
+                (4, ref('base.group_user')),
+                (4, ref('smart_construction_core.group_sc_role_executive'))
+            ]"/>
+        </record>
+    </data>
+</odoo>

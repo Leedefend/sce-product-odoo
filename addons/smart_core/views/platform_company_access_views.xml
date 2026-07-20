@@ -1,0 +1,613 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+        <menuitem id="menu_smart_core_platform_root"
+                  name="平台内核"
+                  sequence="90"
+                  groups="smart_core.group_smart_core_admin"/>
+
+        <menuitem id="menu_smart_core_company_access_root"
+                  name="公司访问"
+                  parent="menu_smart_core_platform_root"
+                  sequence="10"
+                  groups="smart_core.group_smart_core_admin"/>
+
+        <menuitem id="menu_smart_core_release_root"
+                  name="产品发布"
+                  parent="menu_smart_core_platform_root"
+                  sequence="20"
+                  groups="smart_core.group_smart_core_admin"/>
+
+        <record id="view_sc_subscription_plan_tree" model="ir.ui.view">
+            <field name="name">sc.subscription.plan.tree</field>
+            <field name="model">sc.subscription.plan</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="sequence"/>
+                    <field name="code"/>
+                    <field name="name"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_sc_subscription_plan_form" model="ir.ui.view">
+            <field name="name">sc.subscription.plan.form</field>
+            <field name="model">sc.subscription.plan</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="active"/>
+                            <field name="sequence"/>
+                            <field name="code"/>
+                            <field name="name"/>
+                        </group>
+                        <group>
+                            <field name="feature_flags_json" widget="json"/>
+                            <field name="limits_json" widget="json"/>
+                            <field name="description"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_sc_subscription_plan" model="ir.actions.act_window">
+            <field name="name">订阅套餐</field>
+            <field name="res_model">sc.subscription.plan</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <record id="view_sc_subscription_tree" model="ir.ui.view">
+            <field name="name">sc.subscription.tree</field>
+            <field name="model">sc.subscription</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="company_id"/>
+                    <field name="plan_id"/>
+                    <field name="state"/>
+                    <field name="start_date"/>
+                    <field name="end_date"/>
+                    <field name="is_trial"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_sc_subscription_form" model="ir.ui.view">
+            <field name="name">sc.subscription.form</field>
+            <field name="model">sc.subscription</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="company_id"/>
+                            <field name="plan_id"/>
+                            <field name="state"/>
+                            <field name="start_date"/>
+                            <field name="end_date"/>
+                            <field name="is_trial"/>
+                            <field name="note"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_sc_subscription" model="ir.actions.act_window">
+            <field name="name">订阅实例</field>
+            <field name="res_model">sc.subscription</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <record id="view_sc_entitlement_tree" model="ir.ui.view">
+            <field name="name">sc.entitlement.tree</field>
+            <field name="model">sc.entitlement</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="company_id"/>
+                    <field name="plan_id"/>
+                    <field name="updated_at"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_sc_entitlement_form" model="ir.ui.view">
+            <field name="name">sc.entitlement.form</field>
+            <field name="model">sc.entitlement</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="company_id"/>
+                            <field name="plan_id"/>
+                            <field name="updated_at"/>
+                        </group>
+                        <group>
+                            <field name="effective_flags_json" widget="json"/>
+                            <field name="effective_limits_json" widget="json"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_sc_entitlement" model="ir.actions.act_window">
+            <field name="name">授权快照</field>
+            <field name="res_model">sc.entitlement</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <record id="view_sc_login_route_tree" model="ir.ui.view">
+            <field name="name">sc.login.route.tree</field>
+            <field name="model">sc.login.route</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="sequence"/>
+                    <field name="login"/>
+                    <field name="target_db"/>
+                    <field name="entry_kind"/>
+                    <field name="product_key"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_sc_login_route_form" model="ir.ui.view">
+            <field name="name">sc.login.route.form</field>
+            <field name="model">sc.login.route</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <notebook>
+                            <page string="路由信息" name="route_info">
+                                <group>
+                                    <field name="active"/>
+                                    <field name="sequence"/>
+                                    <field name="login"/>
+                                    <field name="target_db"/>
+                                    <field name="entry_kind"/>
+                                    <field name="product_key"/>
+                                    <field name="label"/>
+                                </group>
+                            </page>
+                            <page string="备注" name="notes">
+                                <group>
+                                    <field name="note"/>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_sc_login_route" model="ir.actions.act_window">
+            <field name="name">统一登录路由</field>
+            <field name="res_model">sc.login.route</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <record id="view_sc_usage_counter_tree" model="ir.ui.view">
+            <field name="name">sc.usage.counter.tree</field>
+            <field name="model">sc.usage.counter</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="company_id"/>
+                    <field name="key"/>
+                    <field name="value"/>
+                    <field name="updated_at"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_sc_usage_counter_form" model="ir.ui.view">
+            <field name="name">sc.usage.counter.form</field>
+            <field name="model">sc.usage.counter</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="company_id"/>
+                            <field name="key"/>
+                            <field name="value"/>
+                            <field name="updated_at"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_sc_usage_counter" model="ir.actions.act_window">
+            <field name="name">用量统计</field>
+            <field name="res_model">sc.usage.counter</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <record id="view_sc_ops_job_tree" model="ir.ui.view">
+            <field name="name">sc.ops.job.tree</field>
+            <field name="model">sc.ops.job</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="name"/>
+                    <field name="job_type"/>
+                    <field name="status"/>
+                    <field name="started_at"/>
+                    <field name="finished_at"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_sc_ops_job_form" model="ir.ui.view">
+            <field name="name">sc.ops.job.form</field>
+            <field name="model">sc.ops.job</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="job_type"/>
+                            <field name="status"/>
+                            <field name="started_at"/>
+                            <field name="finished_at"/>
+                            <field name="trace_id"/>
+                        </group>
+                        <group>
+                            <field name="payload_json" widget="json"/>
+                            <field name="result_json" widget="json"/>
+                            <field name="error_message"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_sc_ops_job" model="ir.actions.act_window">
+            <field name="name">运营任务</field>
+            <field name="res_model">sc.ops.job</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <record id="view_sc_product_policy_tree" model="ir.ui.view">
+            <field name="name">sc.product.policy.tree</field>
+            <field name="model">sc.product.policy</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="product_key"/>
+                    <field name="label"/>
+                    <field name="base_product_key"/>
+                    <field name="edition_key"/>
+                    <field name="state"/>
+                    <field name="access_level"/>
+                    <field name="version"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_sc_product_policy_form" model="ir.ui.view">
+            <field name="name">sc.product.policy.form</field>
+            <field name="model">sc.product.policy</field>
+            <field name="arch" type="xml">
+                <form>
+                    <header>
+                        <button name="action_freeze_candidate" type="object" string="冻结候选快照" class="btn-primary"/>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,preview,stable,archived"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <field name="active"/>
+                            <field name="product_key"/>
+                            <field name="label"/>
+                            <field name="base_product_key"/>
+                            <field name="edition_key"/>
+                            <field name="version"/>
+                            <field name="access_level"/>
+                        </group>
+                        <notebook>
+                            <page string="角色与场景">
+                                <group>
+                                    <field name="allowed_role_codes" widget="json"/>
+                                    <field name="scene_version_bindings" widget="json"/>
+                                </group>
+                            </page>
+                            <page string="发布导航">
+                                <group>
+                                    <field name="menu_groups" widget="json"/>
+                                    <field name="scenes" widget="json"/>
+                                    <field name="capabilities" widget="json"/>
+                                </group>
+                            </page>
+                            <page string="备注">
+                                <field name="note"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_sc_product_policy" model="ir.actions.act_window">
+            <field name="name">产品策略</field>
+            <field name="res_model">sc.product.policy</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <record id="view_sc_scene_snapshot_tree" model="ir.ui.view">
+            <field name="name">sc.scene.snapshot.tree</field>
+            <field name="model">sc.scene.snapshot</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="scene_key"/>
+                    <field name="product_key"/>
+                    <field name="version"/>
+                    <field name="channel"/>
+                    <field name="state"/>
+                    <field name="is_active"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_sc_scene_snapshot_form" model="ir.ui.view">
+            <field name="name">sc.scene.snapshot.form</field>
+            <field name="model">sc.scene.snapshot</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="active"/>
+                            <field name="scene_key"/>
+                            <field name="product_key"/>
+                            <field name="version"/>
+                            <field name="channel"/>
+                            <field name="state"/>
+                            <field name="is_active"/>
+                            <field name="source_ref"/>
+                        </group>
+                        <notebook>
+                            <page string="契约">
+                                <field name="contract_json" widget="json"/>
+                            </page>
+                            <page string="元数据">
+                                <field name="meta_json" widget="json"/>
+                            </page>
+                            <page string="备注">
+                                <field name="note"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_sc_scene_snapshot" model="ir.actions.act_window">
+            <field name="name">场景快照</field>
+            <field name="res_model">sc.scene.snapshot</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <record id="view_sc_edition_release_snapshot_tree" model="ir.ui.view">
+            <field name="name">sc.edition.release.snapshot.tree</field>
+            <field name="model">sc.edition.release.snapshot</field>
+            <field name="arch" type="xml">
+                <tree decoration-success="state == 'released'" decoration-muted="state == 'superseded'">
+                    <field name="product_key"/>
+                    <field name="label"/>
+                    <field name="edition_key"/>
+                    <field name="version"/>
+                    <field name="channel"/>
+                    <field name="state"/>
+                    <field name="is_active"/>
+                    <field name="frozen_at"/>
+                    <field name="released_at"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_sc_edition_release_snapshot_form" model="ir.ui.view">
+            <field name="name">sc.edition.release.snapshot.form</field>
+            <field name="model">sc.edition.release.snapshot</field>
+            <field name="arch" type="xml">
+                <form>
+                    <header>
+                        <button name="action_approve" type="object" string="审批" class="btn-secondary" invisible="state != 'candidate'"/>
+                        <button name="action_release" type="object" string="发布" class="btn-primary" invisible="state not in ('candidate', 'approved')"/>
+                        <button name="action_supersede" type="object" string="废弃" invisible="state not in ('released', 'approved')"/>
+                        <field name="state" widget="statusbar" statusbar_visible="candidate,approved,released,superseded"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <field name="active"/>
+                            <field name="product_key"/>
+                            <field name="label"/>
+                            <field name="base_product_key"/>
+                            <field name="edition_key"/>
+                            <field name="version"/>
+                            <field name="channel"/>
+                            <field name="is_active"/>
+                            <field name="source_policy_id"/>
+                        </group>
+                        <group>
+                            <field name="frozen_at"/>
+                            <field name="approved_at"/>
+                            <field name="released_at"/>
+                            <field name="activated_at"/>
+                            <field name="superseded_at"/>
+                            <field name="rollback_target_snapshot_id"/>
+                            <field name="replaced_by_snapshot_id"/>
+                        </group>
+                        <notebook>
+                            <page string="发布快照">
+                                <field name="snapshot_json" widget="json"/>
+                            </page>
+                            <page string="元数据">
+                                <field name="meta_json" widget="json"/>
+                            </page>
+                            <page string="说明">
+                                <group>
+                                    <field name="state_reason"/>
+                                    <field name="promotion_note"/>
+                                    <field name="note"/>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_sc_edition_release_snapshot" model="ir.actions.act_window">
+            <field name="name">发布快照</field>
+            <field name="res_model">sc.edition.release.snapshot</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <record id="view_sc_release_action_tree" model="ir.ui.view">
+            <field name="name">sc.release.action.tree</field>
+            <field name="model">sc.release.action</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="requested_at"/>
+                    <field name="name"/>
+                    <field name="action_type"/>
+                    <field name="product_key"/>
+                    <field name="state"/>
+                    <field name="approval_state"/>
+                    <field name="target_snapshot_id"/>
+                    <field name="result_snapshot_id"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_sc_release_action_form" model="ir.ui.view">
+            <field name="name">sc.release.action.form</field>
+            <field name="model">sc.release.action</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="active"/>
+                            <field name="name"/>
+                            <field name="action_type"/>
+                            <field name="state"/>
+                            <field name="product_key"/>
+                            <field name="base_product_key"/>
+                            <field name="edition_key"/>
+                            <field name="requested_by_user_id"/>
+                            <field name="requested_at"/>
+                        </group>
+                        <group>
+                            <field name="approval_required"/>
+                            <field name="approval_state"/>
+                            <field name="approved_by_user_id"/>
+                            <field name="approved_at"/>
+                            <field name="policy_key"/>
+                            <field name="reason_code"/>
+                        </group>
+                        <group>
+                            <field name="source_snapshot_id"/>
+                            <field name="target_snapshot_id"/>
+                            <field name="result_snapshot_id"/>
+                        </group>
+                        <notebook>
+                            <page string="请求">
+                                <field name="request_payload_json" widget="json"/>
+                            </page>
+                            <page string="结果">
+                                <field name="result_payload_json" widget="json"/>
+                            </page>
+                            <page string="策略">
+                                <field name="policy_snapshot_json" widget="json"/>
+                                <field name="allowed_executor_role_codes_json" widget="json"/>
+                                <field name="required_approver_role_codes_json" widget="json"/>
+                            </page>
+                            <page string="诊断">
+                                <field name="diagnostics_json" widget="json"/>
+                                <field name="execution_trace_json" widget="json"/>
+                                <field name="note"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_sc_release_action" model="ir.actions.act_window">
+            <field name="name">发布动作</field>
+            <field name="res_model">sc.release.action</field>
+            <field name="view_mode">tree,form</field>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_core.group_smart_core_admin')])]"/>
+        </record>
+
+        <menuitem id="menu_sc_subscription_plan"
+                  name="订阅套餐"
+                  parent="menu_smart_core_company_access_root"
+                  action="action_sc_subscription_plan"
+                  sequence="10"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_subscription"
+                  name="订阅实例"
+                  parent="menu_smart_core_company_access_root"
+                  action="action_sc_subscription"
+                  sequence="20"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_entitlement"
+                  name="授权快照"
+                  parent="menu_smart_core_company_access_root"
+                  action="action_sc_entitlement"
+                  sequence="30"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_login_route"
+                  name="统一登录路由"
+                  parent="menu_smart_core_company_access_root"
+                  action="action_sc_login_route"
+                  sequence="35"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_usage_counter"
+                  name="用量统计"
+                  parent="menu_smart_core_company_access_root"
+                  action="action_sc_usage_counter"
+                  sequence="40"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_ops_job"
+                  name="运营任务"
+                  parent="menu_smart_core_company_access_root"
+                  action="action_sc_ops_job"
+                  sequence="50"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_product_policy"
+                  name="产品策略"
+                  parent="menu_smart_core_release_root"
+                  action="action_sc_product_policy"
+                  sequence="10"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_scene_snapshot"
+                  name="场景快照"
+                  parent="menu_smart_core_release_root"
+                  action="action_sc_scene_snapshot"
+                  sequence="20"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_edition_release_snapshot"
+                  name="发布快照"
+                  parent="menu_smart_core_release_root"
+                  action="action_sc_edition_release_snapshot"
+                  sequence="30"
+                  groups="smart_core.group_smart_core_admin"/>
+        <menuitem id="menu_sc_release_action"
+                  name="发布动作"
+                  parent="menu_smart_core_release_root"
+                  action="action_sc_release_action"
+                  sequence="40"
+                  groups="smart_core.group_smart_core_admin"/>
+    </data>
+</odoo>

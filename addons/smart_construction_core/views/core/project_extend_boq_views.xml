@@ -1,0 +1,11 @@
+<odoo>
+    <record id="view_project_form_boq_hierarchy" model="ir.ui.view">
+        <field name="name">project.project.form.boq.hierarchy</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="active" eval="False"/>
+        <field name="arch" type="xml">
+            <data/>
+        </field>
+    </record>
+</odoo>

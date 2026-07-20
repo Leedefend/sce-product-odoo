@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+        <record id="view_sc_tax_deduction_registration_search" model="ir.ui.view">
+            <field name="name">sc.tax.deduction.registration.search</field>
+            <field name="model">sc.tax.deduction.registration</field>
+            <field name="arch" type="xml">
+                <search string="抵扣税务办理">
+                    <field name="name"/>
+                    <field name="document_no"/>
+                    <field name="business_category_id"/>
+                    <field name="project_id"/>
+                    <field name="partner_id"/>
+                    <field name="company_contractor_responsibility_state" optional="show"/>
+                    <field name="company_contractor_arrival_unprocessed_amount" optional="hide" sum="到款可处理余额合计"/>
+                    <field name="company_contractor_arrival_over_processed_amount" optional="show" sum="到款超处理金额合计"/>
+                    <field name="company_contractor_self_funding_balance" optional="hide" sum="自筹未退余额合计"/>
+                    <field name="partner_name"/>
+                    <field name="deduction_unit_name"/>
+                    <field name="invoice_no"/>
+                    <field name="tax_rate_text"/>
+                    <filter string="已确认" name="state_confirmed" domain="[('state', 'in', ['confirmed', 'legacy_confirmed'])]"/>
+                    <filter string="已抵扣" name="state_deducted" domain="[('state', '=', 'deducted')]"/>
+                    <filter string="公司直营" name="operation_direct" domain="[('operation_strategy', '=', 'direct')]"/>
+                    <filter string="联营项目" name="operation_joint" domain="[('operation_strategy', '=', 'joint')]"/>
+                    <filter string="按项目" name="group_project" context="{'group_by': 'project_id'}"/>
+                    <filter string="按往来单位" name="group_partner" context="{'group_by': 'partner_id'}"/>
+                    <filter string="按经营策略" name="group_operation_strategy" context="{'group_by': 'operation_strategy'}"/>
+                    <filter string="按状态" name="group_state" context="{'group_by': 'state'}"/>
+                    <filter string="按税率" name="group_tax_rate" context="{'group_by': 'tax_rate_text'}"/>
+                    <filter string="按开票日期" name="group_invoice_date" context="{'group_by': 'invoice_date'}"/>
+                    <filter string="按认证抵扣日期" name="group_deduction_date" context="{'group_by': 'deduction_confirm_date'}"/>
+                </search>
+            </field>
+        </record>
+
+        <record id="view_sc_tax_deduction_registration_tree" model="ir.ui.view">
+            <field name="name">sc.tax.deduction.registration.tree</field>
+            <field name="model">sc.tax.deduction.registration</field>
+            <field name="arch" type="xml">
+                <tree string="抵扣税务办理">
+                    <field name="name"/>
+                    <field name="deduction_flow_label"/>
+                    <field name="business_category_id" optional="show"/>
+                    <field name="document_date"/>
+                    <field name="deduction_confirm_date"/>
+                    <field name="document_no"/>
+                    <field name="project_id"/>
+                    <field name="operation_strategy"/>
+                    <field name="partner_id"/>
+                    <field name="partner_name"/>
+                    <field name="deduction_unit_name" optional="show"/>
+                    <field name="invoice_no"/>
+                    <field name="invoice_code"/>
+                    <field name="invoice_date"/>
+                    <field name="invoice_amount_untaxed" sum="发票不含税金额"/>
+                    <field name="invoice_tax_amount" sum="发票税额"/>
+                    <field name="tax_rate_text" optional="show"/>
+                    <field name="invoice_amount_total" sum="发票价税合计"/>
+                    <field name="deduction_amount" sum="抵扣金额"/>
+                    <field name="deduction_tax_amount" sum="抵扣税额"/>
+                    <field name="deduction_surcharge_amount" sum="抵扣附加税"/>
+                    <field name="withholding_amount" optional="show" sum="扣款金额"/>
+                    <field name="is_transfer_out" optional="hide"/>
+                    <field name="state"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_sc_tax_deduction_registration_form" model="ir.ui.view">
+            <field name="name">sc.tax.deduction.registration.form</field>
+            <field name="model">sc.tax.deduction.registration</field>
+            <field name="arch" type="xml">
+                <form string="抵扣税务办理">
+                    <header>
+                        <button name="action_confirm" string="确认" type="object" class="btn-primary"
+                                invisible="state != 'draft'"/>
+                        <button name="action_deduct" string="已抵扣" type="object" class="btn-primary"
+                                invisible="state not in ('draft', 'confirmed')"/>
+                        <button name="action_cancel" string="取消" type="object"
+                                invisible="state in ('cancel', 'legacy_confirmed')"/>
+                        <field name="state" widget="statusbar"
+                               statusbar_visible="draft,confirmed,deducted,legacy_confirmed,cancel"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <group string="业务方向">
+                                <field name="name" readonly="1"/>
+                                <field name="source_origin" invisible="1"/>
+                                <field name="deduction_flow_label" readonly="1"/>
+                                <field name="business_category_id" readonly="state == 'legacy_confirmed'"/>
+                                <field name="document_no" readonly="state == 'legacy_confirmed'"/>
+                                <field name="document_date" readonly="state == 'legacy_confirmed'"/>
+                                <field name="deduction_confirm_date" readonly="state == 'legacy_confirmed'"/>
+                            </group>
+                            <group string="项目与往来单位">
+                                <field name="project_id" readonly="state == 'legacy_confirmed'"/>
+                                <field name="operation_strategy" readonly="1"/>
+                                <field name="partner_id"/>
+                            </group>
+                        </group>
+                        <group string="发票信息">
+                            <field name="invoice_no" readonly="state == 'legacy_confirmed'"/>
+                            <field name="invoice_code" readonly="state == 'legacy_confirmed'"/>
+                            <field name="invoice_date" readonly="state == 'legacy_confirmed'"/>
+                            <field name="tax_rate_text" readonly="1"/>
+                        </group>
+                        <group string="抵扣金额与税额">
+                            <field name="invoice_amount_untaxed" readonly="state == 'legacy_confirmed'"/>
+                            <field name="invoice_tax_amount" readonly="state == 'legacy_confirmed'"/>
+                            <field name="invoice_amount_total" readonly="state == 'legacy_confirmed'"/>
+                            <field name="deduction_amount" readonly="state == 'legacy_confirmed'"/>
+                            <field name="deduction_tax_amount" readonly="state == 'legacy_confirmed'"/>
+                            <field name="deduction_surcharge_amount" readonly="state == 'legacy_confirmed'"/>
+                            <field name="is_transfer_out" readonly="state == 'legacy_confirmed'"/>
+                            <field name="withholding_amount" readonly="state == 'legacy_confirmed'"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="扣款办理">
+                            <field name="deduction_unit_name" readonly="state == 'legacy_confirmed'"/>
+                            <field name="withholding_amount" readonly="state == 'legacy_confirmed'"/>
+                            <field name="deduction_reason" readonly="state == 'legacy_confirmed'" nolabel="1"/>
+                        </group>
+                        <group string="办理说明与附件">
+                            <field name="note"/>
+                            <field name="attachment_ids" widget="many2many_binary" readonly="state == 'legacy_confirmed'"/>
+                        </group>
+                        <notebook>
+                            <page string="责任余额" invisible="not company_contractor_responsibility_summary_id">
+                                <group string="公司-承包人责任约束">
+                                    <field name="company_contractor_responsibility_summary_id" invisible="1"/>
+                                    <field name="company_contractor_responsibility_state" readonly="1"/>
+                                    <field name="company_contractor_arrival_unprocessed_amount" readonly="1"/>
+                                    <field name="company_contractor_arrival_over_processed_amount" readonly="1"/>
+                                    <field name="company_contractor_self_funding_balance" readonly="1"/>
+                                    <field name="company_contractor_responsibility_notice" readonly="1" nolabel="1"/>
+                                    <button name="action_view_company_contractor_responsibility_summary"
+                                            type="object"
+                                            string="查看责任余额"
+                                            class="btn-secondary"
+                                            invisible="not company_contractor_responsibility_summary_id"/>
+                                </group>
+                            </page>
+                            <page string="迁移来源" invisible="source_origin != 'legacy'">
+                                <group>
+                                    <field name="creator_name" readonly="1"/>
+                                    <field name="created_time" readonly="1"/>
+                                    <field name="active"/>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+    </data>
+</odoo>

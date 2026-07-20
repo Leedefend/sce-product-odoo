@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- 工程量清单 1：场地平整（土石方） -->
+        <record id="sc_demo_boq_earthwork" model="project.boq.line">
+            <field name="project_id" ref="smart_construction_demo.sc_demo_project_001"/>
+            <field name="sequence">10</field>
+            <field name="code">010101</field>
+            <field name="name">场地平整</field>
+            <field name="spec">机械挖装回填，运距 10km 内</field>
+            <field name="uom_id" ref="uom.product_uom_cubic_meter"/>
+            <field name="quantity">1200</field>
+            <field name="price">35</field>
+            <field name="cost_item_id" ref="sc_demo_dict_cost_item_earthwork"/>
+            <field name="category">subitem</field>
+        </record>
+
+        <!-- 工程量清单 2：现浇混凝土框架 -->
+        <record id="sc_demo_boq_concrete" model="project.boq.line">
+            <field name="project_id" ref="smart_construction_demo.sc_demo_project_001"/>
+            <field name="sequence">20</field>
+            <field name="code">020202</field>
+            <field name="name">现浇混凝土框架结构</field>
+            <field name="spec">C30，含模板及钢筋安装</field>
+            <field name="uom_id" ref="uom.product_uom_cubic_meter"/>
+            <field name="quantity">800</field>
+            <field name="price">900</field>
+            <field name="cost_item_id" ref="sc_demo_dict_cost_item_structure"/>
+            <field name="category">subitem</field>
+        </record>
+
+    </data>
+</odoo>

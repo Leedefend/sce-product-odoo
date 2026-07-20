@@ -1,0 +1,77 @@
+# docker-compose.ci.yml
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ${DB_CI:-sc_odoo}
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  odoo:
+    image: odoo17-odoo:latest
+    user: "odoo"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    ports: []
+    restart: "no"
+
+    volumes:
+      - odoodata:/var/lib/odoo
+      - ./addons:/mnt/source-addons
+      - ./addons_external:/mnt/addons_external
+      - ./docs:/mnt/docs:ro
+      - ./config/odoo.ci.conf:/etc/odoo/odoo.conf:ro
+      - ./scripts/ci/odoo_ci.sh:/usr/local/bin/odoo_ci.sh:ro
+
+    environment:
+      PYTHONUNBUFFERED: "1"
+      PYTHONPATH: /mnt/source-addons
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: odoo
+      DB_PASSWORD: odoo
+      ODOO_BIN: /usr/bin/odoo
+      ODOO_CONF: /etc/odoo/odoo.conf
+      DB_CI: ${DB_CI:-sc_odoo}
+      MODULE: ${MODULE:-smart_construction_core}
+      TEST_TAGS_FINAL: ${TEST_TAGS_FINAL:-sc_gate,sc_perm}
+
+    entrypoint: []
+    # ✅关键：不要让镜像默认 entrypoint 接管，直接用 bash 跑脚本
+    command:
+      - bash
+      - -lc
+      - |
+          set -euo pipefail
+          echo "[CI] whoami=$(whoami) pwd=$(pwd)"
+          ls -l /usr/local/bin/odoo_ci.sh
+          bash -x /usr/local/bin/odoo_ci.sh
+
+
+volumes:
+  pgdata: {}
+  redisdata: {}
+  odoodata: {}

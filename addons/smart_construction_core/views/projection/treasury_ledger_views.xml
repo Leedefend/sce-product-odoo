@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+        <record id="view_sc_treasury_ledger_search" model="ir.ui.view">
+            <field name="name">sc.treasury.ledger.search</field>
+            <field name="model">sc.treasury.ledger</field>
+            <field name="arch" type="xml">
+                <search string="资金台账">
+                    <field name="name"/>
+                    <field name="project_id"/>
+                    <field name="partner_id"/>
+                    <field name="payment_request_id"/>
+                    <field name="source_model"/>
+                    <field name="source_res_id"/>
+                    <field name="settlement_id"/>
+                    <field name="linked_settlement_summary"/>
+                    <filter string="支出" name="direction_out" domain="[('direction', '=', 'out')]"/>
+                    <filter string="收入" name="direction_in" domain="[('direction', '=', 'in')]"/>
+                    <filter string="已入账" name="state_posted" domain="[('state', '=', 'posted')]"/>
+                    <filter string="明细有关联结算单" name="has_linked_settlement" domain="[('linked_settlement_count', '&gt;', 0)]"/>
+                    <filter string="按项目" name="group_project" context="{'group_by': 'project_id'}"/>
+                    <filter string="按单位" name="group_partner" context="{'group_by': 'partner_id'}"/>
+                    <filter string="按业务类型" name="group_source_kind" context="{'group_by': 'source_kind'}"/>
+                    <filter string="按日期" name="group_date" context="{'group_by': 'date'}"/>
+                </search>
+            </field>
+        </record>
+
+        <record id="view_sc_treasury_ledger_tree" model="ir.ui.view">
+            <field name="name">sc.treasury.ledger.tree</field>
+            <field name="model">sc.treasury.ledger</field>
+            <field name="arch" type="xml">
+                <tree string="资金台账" create="false" edit="false">
+                    <field name="name"/>
+                    <field name="date"/>
+                    <field name="project_id"/>
+                    <field name="partner_id"/>
+                    <field name="settlement_id"/>
+                    <field name="linked_settlement_count" optional="show"/>
+                    <field name="linked_settlement_summary" optional="show"/>
+                    <field name="payment_request_id"/>
+                    <field name="source_model" optional="show"/>
+                    <field name="source_res_id" optional="show"/>
+                    <field name="direction"/>
+                    <field name="source_kind"/>
+                    <field name="amount" sum="金额合计"/>
+                    <field name="currency_id" invisible="1"/>
+                    <button name="action_open_payment_request" type="object" string="打开申请" class="btn-primary" invisible="not payment_request_id"/>
+                    <button name="action_open_settlement" type="object" string="打开结算单" class="btn-secondary" invisible="not settlement_id and linked_settlement_count == 0"/>
+                    <field name="state"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_sc_treasury_ledger_form" model="ir.ui.view">
+            <field name="name">sc.treasury.ledger.form</field>
+            <field name="model">sc.treasury.ledger</field>
+            <field name="arch" type="xml">
+                <form string="资金台账" create="false" edit="false" delete="false">
+                    <header>
+                        <button name="action_open_payment_request" type="object" string="打开申请" class="btn-primary" invisible="not payment_request_id"/>
+                        <button name="action_open_settlement" type="object" string="打开结算单" class="btn-secondary" invisible="not settlement_id and linked_settlement_count == 0"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="name" readonly="1"/>
+                                <field name="date" readonly="1"/>
+                                <field name="state" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="project_id" readonly="1"/>
+                                <field name="partner_id" readonly="1"/>
+                                <field name="direction" readonly="1"/>
+                            </group>
+                        </group>
+                        <group string="关联单据">
+                            <field name="settlement_id" readonly="1"/>
+                            <field name="linked_settlement_count" readonly="1"/>
+                            <field name="linked_settlement_summary" readonly="1"/>
+                            <field name="payment_request_id" readonly="1"/>
+                            <field name="source_model" readonly="1"/>
+                            <field name="source_res_id" readonly="1"/>
+                        </group>
+                        <group string="金额">
+                            <field name="amount" readonly="1"/>
+                            <field name="currency_id" readonly="1" invisible="1"/>
+                        </group>
+                        <group string="来源">
+                            <field name="source_kind" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="note" readonly="1"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_sc_treasury_ledger" model="ir.actions.act_window">
+            <field name="name">资金台账</field>
+            <field name="res_model">sc.treasury.ledger</field>
+            <field name="view_mode">tree,form</field>
+            <field name="search_view_id" ref="view_sc_treasury_ledger_search"/>
+            <field name="context">{'create': False, 'search_default_group_project': 1}</field>
+            <field name="groups_id" eval="[(4, ref('smart_construction_core.group_sc_cap_finance_read')),
+                                           (4, ref('smart_construction_core.group_sc_cap_finance_user')),
+                                           (4, ref('smart_construction_core.group_sc_cap_finance_manager'))]"/>
+        </record>
+
+        <record id="action_sc_treasury_ledger_income" model="ir.actions.act_window">
+            <field name="name">收款统计表</field>
+            <field name="res_model">sc.treasury.ledger</field>
+            <field name="view_mode">tree,form</field>
+            <field name="search_view_id" ref="view_sc_treasury_ledger_search"/>
+            <field name="domain">[('direction', '=', 'in')]</field>
+            <field name="context">{'create': False, 'search_default_direction_in': 1, 'search_default_group_project': 1}</field>
+            <field name="groups_id" eval="[(4, ref('smart_construction_core.group_sc_cap_finance_read')),
+                                           (4, ref('smart_construction_core.group_sc_cap_finance_user')),
+                                           (4, ref('smart_construction_core.group_sc_cap_finance_manager'))]"/>
+        </record>
+
+        <record id="action_sc_treasury_ledger_payment" model="ir.actions.act_window">
+            <field name="name">付款统计表</field>
+            <field name="res_model">sc.treasury.ledger</field>
+            <field name="view_mode">tree,form</field>
+            <field name="search_view_id" ref="view_sc_treasury_ledger_search"/>
+            <field name="domain">[('direction', '=', 'out')]</field>
+            <field name="context">{'create': False, 'search_default_direction_out': 1, 'search_default_group_project': 1}</field>
+            <field name="groups_id" eval="[(4, ref('smart_construction_core.group_sc_cap_finance_read')),
+                                           (4, ref('smart_construction_core.group_sc_cap_finance_user')),
+                                           (4, ref('smart_construction_core.group_sc_cap_finance_manager'))]"/>
+        </record>
+
+        <menuitem id="menu_sc_treasury_ledger"
+                  name="资金台账"
+                  parent="smart_construction_core.menu_sc_finance_center"
+                  action="action_sc_treasury_ledger"
+                  sequence="32"
+                  groups="smart_construction_core.group_sc_cap_finance_read,smart_construction_core.group_sc_cap_finance_user,smart_construction_core.group_sc_cap_finance_manager"/>
+
+        <menuitem id="menu_sc_treasury_ledger_income"
+                  name="收款统计表"
+                  parent="smart_construction_core.menu_sc_finance_center"
+                  action="action_sc_treasury_ledger_income"
+                  sequence="33"
+                  groups="smart_construction_core.group_sc_cap_finance_read,smart_construction_core.group_sc_cap_finance_user,smart_construction_core.group_sc_cap_finance_manager"/>
+
+    </data>
+</odoo>

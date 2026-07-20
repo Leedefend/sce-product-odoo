@@ -1,0 +1,140 @@
+services:
+
+  # ============================================================
+  # PostgreSQL 数据库（后端核心）
+  # ============================================================
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./scripts/db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-odoo} -d ${DB_NAME} || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # Redis（缓存 / 队列）
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # Odoo 后端服务（核心）
+  # ============================================================
+  odoo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APT_MIRROR: ${APT_MIRROR:-default}
+        FRONTEND_BUILD_SHA256: ${FRONTEND_BUILD_SHA256:-}
+        NODE_BASE_IMAGE: ${NODE_BASE_IMAGE:-node:22.17.0-bookworm-slim@sha256:b04ce4ae4e95b522112c2e5c52f781471a5cbc3b594527bcddedee9bc48c03a0}
+        ODOO_BASE_IMAGE: ${ODOO_BASE_IMAGE:-odoo:17.0@sha256:f88f646a0f5fc0b225995ee28953d9ce7367cc731b1756765114691fb97d18e5}
+        SOURCE_SHA: ${SOURCE_SHA:-unknown}
+    image: ${ODOO_IMAGE:-odoo17-odoo:latest}
+    restart: unless-stopped
+
+    # 解决屏幕闪烁问题
+    tty: true
+    stdin_open: true
+
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    env_file:
+      - ${ENV_FILE:-.env}
+
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      ADMIN_PASSWD: ${ADMIN_PASSWD}
+      JWT_SECRET: ${JWT_SECRET}
+      SC_BOOTSTRAP_SECRET: ${SC_BOOTSTRAP_SECRET}
+      SC_BOOTSTRAP_LOGIN: ${SC_BOOTSTRAP_LOGIN}
+      SCENE_CHANNEL: ${SCENE_CHANNEL}
+      SCENE_USE_PINNED: ${SCENE_USE_PINNED}
+      SCENE_ROLLBACK: ${SCENE_ROLLBACK}
+
+      REDIS_HOST: redis
+      # === 新增：runtime 明确配置出口 ===
+      ODOO_CONF_OUT: /var/lib/odoo/odoo.conf
+      ODOO_DB: ${DB_NAME}
+      
+      # 终端环境变量
+      TERM: xterm-256color
+      COLORTERM: truecolor
+
+    volumes:
+      - odoo_data:/var/lib/odoo
+      # Development source mount. Immutable production candidates do not use
+      # this path; they contain only /mnt/product-addons and may mount one
+      # private customer artifact through docker-compose.customer-addons.yml.
+      - ./addons:/mnt/source-addons
+      - ./addons_external:/mnt/addons_external
+      - ./artifacts:/mnt/artifacts
+      - ./scripts:/mnt/scripts:ro
+      - ./docs:/mnt/docs:ro
+      - ./config/odoo.conf.template:/etc/odoo/odoo.conf.template:ro
+      - ./scripts/render_odoo_conf.py:/usr/local/bin/render_odoo_conf.py:ro
+      - ./scripts/odoo-entrypoint.sh:/usr/local/bin/odoo-entrypoint.sh:ro
+
+    ports:
+      - "${ODOO_PORT:-8069}:8069"
+
+    entrypoint: [ "/bin/sh", "/usr/local/bin/odoo-entrypoint.sh" ]
+    healthcheck:
+      test: [ "CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8069/web/login', timeout=8)\"" ]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 90s
+
+  # ============================================================
+  # NGINX 统一反向代理
+  # ============================================================
+  nginx:
+    image: nginx:latest
+    restart: unless-stopped
+    depends_on:
+      odoo:
+        condition: service_healthy
+    volumes:
+      - ./config/nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${FRONTEND_DIST_DIR:-./frontend/apps/web/dist}:/usr/share/nginx/html:ro
+    ports:
+      - "${NGINX_PORT:-18080}:80"
+    healthcheck:
+      test: [ "CMD-SHELL", "nginx -t || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  db_data:
+    name: ${DB_DATA}
+  redis_data:
+    name: ${REDIS_DATA}
+  odoo_data:
+    name: ${ODOO_DATA}

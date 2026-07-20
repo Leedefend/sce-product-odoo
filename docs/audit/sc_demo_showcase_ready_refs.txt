@@ -1,0 +1,13 @@
+Current legacy-field references after project showcase cleanup:
+
+- smart_construction_core/models/core/project_core.py
+  Compatibility aliases only: `sc_demo_showcase`, `sc_demo_showcase_ready`.
+- smart_construction_core/migrations/17.0.0.60/post-migration.py
+  Legacy data backfill into `sc_project_showcase` and `sc_project_showcase_ready`.
+- smart_construction_demo/data/demo/sc_demo_showcase_actions.xml
+  Demo-only action file name retained; domains now use `sc_project_showcase_ready`.
+- smart_construction_demo/tests/test_demo_showcase_gate.py
+  Gate scans core runtime Python/XML for legacy demo field leaks.
+
+Core services, handlers, actions, and XML must use the product fields:
+`sc_project_showcase` and `sc_project_showcase_ready`.

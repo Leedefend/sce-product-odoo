@@ -1,0 +1,108 @@
+{
+  "action": null,
+  "case": "capability_matrix_pm",
+  "contract_version": "v1",
+  "error": null,
+  "execute_error": null,
+  "execute_result": null,
+  "fallback": false,
+  "meta_fields": null,
+  "model": null,
+  "op": "contract.capability_matrix",
+  "record": null,
+  "record_error": null,
+  "ui_contract": null,
+  "ui_contract_raw": {
+    "sections": [
+      {
+        "icon": "briefcase",
+        "items": [
+          {
+            "action_id": 452,
+            "allowed": true,
+            "capability_state": "allow",
+            "deny_reason": [],
+            "desc": "查看项目列表与筛选",
+            "icon": "briefcase",
+            "key": "project.list.open",
+            "label": "项目列表",
+            "menu_id": 265,
+            "order": 20,
+            "scene_key": "projects.list",
+            "target_url": "/s/projects.list"
+          },
+          {
+            "action_id": 499,
+            "allowed": true,
+            "capability_state": "allow",
+            "deny_reason": [],
+            "desc": "查看项目看板与状态分布",
+            "icon": "briefcase",
+            "key": "project.board.open",
+            "label": "项目看板",
+            "menu_id": 281,
+            "order": 30,
+            "scene_key": "projects.ledger",
+            "target_url": "/s/projects.ledger"
+          },
+          {
+            "action_id": 314,
+            "allowed": true,
+            "capability_state": "allow",
+            "deny_reason": [],
+            "desc": "查看项目任务与待办",
+            "icon": "briefcase",
+            "key": "project.task.list",
+            "label": "任务列表",
+            "menu_id": null,
+            "order": 100,
+            "scene_key": "task.center",
+            "target_url": "/s/task.center"
+          }
+        ],
+        "key": "project_management",
+        "label": "项目管理",
+        "sequence": 10
+      },
+      {
+        "icon": "grid",
+        "items": [
+          {
+            "action_id": null,
+            "allowed": true,
+            "capability_state": "allow",
+            "deny_reason": [],
+            "desc": "今日关键动作工作台",
+            "icon": "grid",
+            "key": "workspace.today.focus",
+            "label": "今日关键动作",
+            "menu_id": null,
+            "order": 450,
+            "scene_key": "portal.dashboard",
+            "target_url": "/"
+          },
+          {
+            "action_id": 452,
+            "allowed": true,
+            "capability_state": "allow",
+            "deny_reason": [],
+            "desc": "从工作台进入关注项目",
+            "icon": "grid",
+            "key": "workspace.project.watch",
+            "label": "我关注的项目",
+            "menu_id": 265,
+            "order": 460,
+            "scene_key": "projects.list",
+            "target_url": "/s/projects.list"
+          }
+        ],
+        "key": "others",
+        "label": "工作台",
+        "sequence": 80
+      }
+    ]
+  },
+  "user": "pm",
+  "user_fallback": "admin",
+  "view_type": null
+}

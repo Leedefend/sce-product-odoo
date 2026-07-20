@@ -1,0 +1,111 @@
+---
+capability_stage: P0.1
+status: active
+---
+# 版本发布索引
+
+本索引用于稳定版本的发布记录与清单。
+
+## 稳定版本
+- v0.3.0-stable
+  - Release Notes：`docs/ops/release_notes_v0.3.0-stable.md`
+  - Release Checklist：`docs/ops/release_checklist_v0.3.0-stable.md`
+
+## 计划正式发布
+- v2.0.0（计划 tag：`v2.0.0`）
+  - 类型：release
+  - 状态：planned
+  - Release Notes：`docs/ops/release_notes_v2.0.0.md`
+  - Release Checklist：`docs/ops/release_checklist_v2.0.0.md`
+  - Evidence：`docs/ops/releases/v2.0.0/evidence_manifest.md`
+  - Verify Catalog：`docs/ops/verify/README.md`
+  - Verify：`make verify.release.v2_0_0.preflight`
+  - Governance Verify：`make verify.release.v2_0_0.governance.guard`
+  - Formal Evidence Verify：`PROD_SIM_ACCEPTANCE_ARTIFACT_DIR=<run_dir> make verify.release.v2_0_0.formal_evidence.schema.guard`
+  - Evidence Boundary：历史样本证据不可作为发布签发证据
+  - GitHub Release：正式 tag 后必须发布
+
+## 模板
+- Release Notes 模板：`docs/ops/releases/templates/release_notes_TEMPLATE.md`
+- Release Checklist 模板：`docs/ops/releases/templates/release_checklist_TEMPLATE.md`
+- Release Notes 模板（zh）：`docs/ops/releases/templates/release_notes_TEMPLATE.zh.md`
+- Release Checklist 模板（zh）：`docs/ops/releases/templates/release_checklist_TEMPLATE.zh.md`
+- 生产部署记录模板（zh）：`docs/ops/releases/templates/production_deployment_record_TEMPLATE.zh.md`
+
+## 当前评审基线
+- 菜单场景覆盖证据：
+  - `docs/ops/releases/current/menu_scene_coverage_evidence.md`
+- 前端契约驱动运行时（所有视图都以契约为唯一渲染依据）：
+  - `make verify.frontend.contract_route.guard`
+  - `make verify.frontend.contract_runtime.guard`
+  - `make verify.frontend.contract_normalized_fields.guard`
+  - `make verify.frontend.contract_query_context.guard`
+  - `make verify.frontend.contract_record_layout.guard`
+  - `make verify.frontend.typecheck.strict`
+  - `make verify.frontend.build`
+  - 发布检查：
+    - `/a/:actionId`、`/r/:model/:id`、`/f/:model/:id` 必须由 `ui.contract`（`head/views/fields/buttons/toolbar/permissions/workflow/search`）驱动渲染，不以 `load_view` 作为主来源
+    - 记录页运行时不得回退到 `load_view`，必须先解析 action 上下文并仅消费 `ui.contract` 的 form 载荷
+    - 功能与交互变化应通过契约内容调整实现，不再新增按场景硬编码前端分支
+    - 列表/看板需消费契约字段标签、契约筛选与契约动作（toolbar/buttons）作为运行时行为来源
+    - 表单保存需按契约字段类型归一化 payload，并仅提交可写且发生变化的字段
+    - 记录表单运行时需将 `views.form.layout` 节点数组归一化为渲染布局，并确保与契约 `fields` 字段覆盖一致（不得因 layout 不完整静默丢字段）
+    - 遗留模型页面（`ModelFormPage`/`ModelListPage`）仅允许作为兼容壳，必须委派到契约驱动运行时
+- P4 契约语义基线（产品化收敛）：
+  - `system.init` 必须包含分组能力载荷（`capability_groups`），并保持分组顺序稳定
+  - `system.init` 的 capability/tile 条目必须输出语义状态 `capability_state` 与 `capability_state_reason`
+  - `ui.contract` 的项目表单（user 模式）必须输出治理后的 `action_groups`（含 overflow），不得回退为动作平铺
+  - `ui.contract` 的项目表单（user 模式）必须输出生命周期摘要（`current_state/allowed_transitions/blockers/progress_percent`）
+- 后端证据与可观测扩展（Phase Next）：
+  - `make verify.load_view.access.contract.guard`
+    - 产物：`/mnt/artifacts/backend/load_view_access_contract_guard.json`（不可写时回落 `artifacts/backend/load_view_access_contract_guard.json`）
+    - 发布检查：finance 夹具应至少有一个业务模型可读取，同时对 `ir.ui.view` 返回 `403/PERMISSION_DENIED`
+  - `make verify.scene.catalog.governance.guard`
+    - 产物：`artifacts/scene_catalog_runtime_alignment_guard.json`
+    - 发布检查：`summary.probe_source` 应为 `prod_like_baseline`（或显式环境变量覆盖），不应依赖 demo-only 回退
+  - `make verify.role.capability_floor.prod_like`
+    - 产物：`/mnt/artifacts/backend/role_capability_floor_prod_like.json`（不可写时回落 `artifacts/backend/role_capability_floor_prod_like.json`）
+  - `make verify.contract.assembler.semantic.smoke`
+    - 产物：`/mnt/artifacts/backend/contract_assembler_semantic_smoke.json`（不可写时回落 `artifacts/backend/contract_assembler_semantic_smoke.json`）
+    - 已包含项目表单密度断言（user 模式 `project.project/form`：字段上限、layout 字段覆盖、搜索筛选上限、toolbar/header/smart 动作上限、hud 字段面 >= user）
+  - `make verify.contract.assembler.semantic.strict`
+    - 严格模式：`SC_P4_SEMANTIC_STRICT=1`，对 P4 语义字段缺失（`capability_groups`、`capability_state`、`action_groups`、`lifecycle`）直接失败
+    - 建议在严格发布窗口启用；默认流程维持 `semantic.smoke` 作为非破坏可观测门
+  - `make verify.project.form.contract.surface.guard`
+    - 产物：`/mnt/artifacts/backend/project_form_contract_surface_guard.json`（不可写时回落 `artifacts/backend/project_form_contract_surface_guard.json`）
+    - 发布检查：`project.project/form` user profile 必须保留业务必需字段、剔除技术字段，并满足密度上限
+  - `make verify.runtime.surface.dashboard.report`
+    - 产物：`/mnt/artifacts/backend/runtime_surface_dashboard_report.json`（不可写时回落 `artifacts/backend/runtime_surface_dashboard_report.json`）
+  - `make verify.scene.capability.matrix.report`
+    - 产物：`/mnt/artifacts/backend/scene_capability_matrix_report.json`（不可写时回落 `artifacts/backend/scene_capability_matrix_report.json`）
+    - 发布检查：输出全量 scene/capability 矩阵，并报告 `scene_without_binding_count`、`unused_capability_count`、`missing_capability_ref_count`
+  - `make verify.release.capability.audit`
+    - 产物：
+      - `/mnt/artifacts/backend/release_capability_report.json`（不可写时回落 `artifacts/backend/release_capability_report.json`）
+      - `/mnt/artifacts/backend/release_capability_top20_fix_backlog.json`（不可写时回落 `artifacts/backend/release_capability_top20_fix_backlog.json`）
+    - 发布检查：按 PM/Finance/Executive 各 3 条关键旅程执行审计，导出 intent trace 链路、runtime capability 覆盖矩阵、scene 可打开性审计、系统模型 ACL 探测与 Top-20 修复 backlog
+  - `make verify.release.capability.audit.schema.guard`
+    - 发布检查：约束 `release_capability_report` 与 `release_capability_top20_fix_backlog` 报告结构稳定可对比
+  - `make verify.capability.core.health.report`
+    - 产物：`/mnt/artifacts/backend/capability_core_health_report.json`（不可写时回落 `artifacts/backend/capability_core_health_report.json`）
+    - 发布检查：抽样角色在 `system.init`（user+hud）返回的 capability 必须具备有效 `group/state/capability_state` 语义
+  - `make verify.capability.registry.smoke`
+    - 产物：`artifacts/backend/capability_registry_smoke.json`
+    - 发布检查：能力 key 命名 regex、`group_key` 必填、能力总数 `>=30`、角色地板（`pm/finance/executive >=10`、最大角色 `>=20`）以及 `entry_target.scene_key` 可打开性
+  - `make verify.scene.contract.semantic.v2.guard`
+    - 产物：`/mnt/artifacts/backend/scene_contract_semantic_v2_guard.json`（不可写时回落 `artifacts/backend/scene_contract_semantic_v2_guard.json`）
+    - 发布检查：对已声明 v2 的场景严格校验 `scene_meta` 与 `list_profile` 关键字段，同时输出未迁移场景的缺口与覆盖率
+  - `make verify.boundary.import_guard`
+    - 产物：`/mnt/artifacts/backend/boundary_import_guard_report.json`（不可写时回落 `artifacts/backend/boundary_import_guard_report.json`）
+    - 发布检查：平台/业务/demo 分层之间不得出现禁用跨层 import 或禁用 manifest 依赖
+  - `make verify.boundary.import_guard.schema.guard`
+    - 发布检查：boundary import 报告 schema 固定，便于 CI 与差异审计
+  - `SC_BOUNDARY_IMPORT_STRICT=1 make verify.backend.architecture.full`
+    - 严格检查：执行 boundary import 的告警/违规阈值守卫（`SC_BOUNDARY_IMPORT_WARN_MAX`、`SC_BOUNDARY_IMPORT_VIOLATION_MAX`）
+  - `make verify.backend.architecture.full.report`
+    - 产物：`/mnt/artifacts/backend/backend_architecture_full_report.json`（不可写时回落 `artifacts/backend/backend_architecture_full_report.json`）
+  - `make verify.backend.evidence.manifest.guard`
+    - 产物：`/mnt/artifacts/backend/backend_evidence_manifest.json`（不可写时回落 `artifacts/backend/backend_evidence_manifest.json`）
+  - `make verify.contract.evidence.guard`
+    - 合同证据需包含 `load_view_access_contract` 区段（allowed model + forbidden status/code）
+    - 合同证据需包含 `boundary_import_report` 区段（warning/violation/tracked modules），用于分层治理审计

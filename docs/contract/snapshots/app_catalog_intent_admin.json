@@ -1,0 +1,39 @@
+{
+  "action": null,
+  "case": "app_catalog_intent_admin",
+  "contract_version": "v1",
+  "error": null,
+  "execute_error": null,
+  "execute_result": null,
+  "fallback": false,
+  "meta_fields": null,
+  "model": null,
+  "op": "intent.invoke",
+  "record": null,
+  "record_error": null,
+  "ui_contract": null,
+  "ui_contract_raw": {
+    "apps": [
+      {
+        "badges": {
+          "todo": 0
+        },
+        "icon": null,
+        "key": "app:workspace",
+        "label": "工作台",
+        "meta": {
+          "app_id": "workspace",
+          "category": "platform",
+          "fallback": true
+        }
+      }
+    ],
+    "meta": {
+      "fingerprint": "f2a4e65a08719ed379e8a0fd920846d4",
+      "scene": "web"
+    }
+  },
+  "user": "admin",
+  "user_fallback": null,
+  "view_type": null
+}

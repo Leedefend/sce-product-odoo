@@ -1,0 +1,551 @@
+# smart_core/controllers/intent_dispatcher.py
+# -*- coding: utf-8 -*-
+
+from odoo import http
+from odoo.http import request
+import logging, time
+import os
+from typing import Dict, Any
+
+from werkzeug.exceptions import Unauthorized, Forbidden, BadRequest, NotFound
+from odoo.exceptions import AccessError, MissingError, AccessDenied
+
+from ..core.intent_router import route_intent_payload
+from ..core.context import RequestContext
+from ..core.http_result_policy import (
+    normalize_result_ok,
+    normalize_error_result,
+    result_http_status,
+    result_is_success,
+    result_transaction_action,
+)
+from ..core.intent_access_policy import ANONYMOUS_INTENTS, is_anonymous_allowed_intent
+from ..core.intent_operation_policy import is_write_intent, nested_params, normalize_intent_operation
+from ..core.request_transaction import rollback_request_env
+from ..security.intent_permission import check_intent_permission
+from ..security.platform_admin import user_is_platform_admin
+from ..core.trace import get_trace_id
+from ..core.exceptions import (
+    BAD_REQUEST,
+    AUTH_REQUIRED,
+    PERMISSION_DENIED,
+    INTENT_NOT_FOUND,
+    INTERNAL_ERROR,
+    map_http_status_to_code,
+    build_error_envelope,
+)
+from ..utils.reason_codes import REASON_PERMISSION_DENIED, failure_meta_for_reason
+
+_logger = logging.getLogger(__name__)
+SOURCE_KIND = "http_intent_dispatch_controller"
+SOURCE_AUTHORITIES = ("odoo.http.request", "intent_router", "intent_permission", "handler_registry")
+NO_BUSINESS_FACT_AUTHORITY = True
+
+
+def source_authority_contract() -> Dict[str, Any]:
+    return {
+        "kind": SOURCE_KIND,
+        "authorities": list(SOURCE_AUTHORITIES),
+        "projection_only": True,
+        "write_proxy": True,
+        "no_business_fact_authority": NO_BUSINESS_FACT_AUTHORITY,
+        "runtime_carrier": "controllers.intent_dispatcher",
+    }
+
+# ✅ 匿名白名单（仅在“匿名请求”识别为真时生效；见 _is_anon_req）
+ANON_ALLOWLIST = set(ANONYMOUS_INTENTS)
+
+# ✅ 意图别名：统一规范后再做白名单与分发
+INTENT_ALIASES = {
+    "bootstrap": "session.bootstrap",
+    "app.init": "system.init",
+    "system.init": "system.init",
+    "auth.login": "login",
+}
+
+API_VERSION = "v1"
+CONTRACT_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.0.0"
+
+def _canon_intent(name: str) -> str:
+    return INTENT_ALIASES.get(name or "", name or "")
+
+# ===================== CORS 工具 =====================
+
+def _cors_headers() -> Dict[str, str]:
+    """
+    统一 CORS 响应头：
+    - 有 Origin：回显 Origin，并允许凭据（Cookie/Authorization）
+    - 无 Origin（同源调用）：允许 '*'
+    """
+    origin = request.httprequest.headers.get("Origin")
+    allow_origin = origin or "*"
+    headers = {
+        "Access-Control-Allow-Origin": allow_origin,
+        "Vary": "Origin",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": (
+            "Content-Type, Authorization, X-Odoo-DB, X-DB, X-Anonymous-Intent, "
+            "X-Trace-Id, X-Tenant, X-SC-Client-Type, X-SC-Delivery-Profile, "
+            "If-None-Match, If-Match, Accept, X-Requested-With"
+        ),
+        "Access-Control-Expose-Headers": "ETag",
+        "Access-Control-Max-Age": "86400",
+    }
+    # 有 Origin 才允许凭据（与 * 互斥）
+    if origin:
+        headers["Access-Control-Allow-Credentials"] = "true"
+    return headers
+
+
+def _respond_json(payload: Any, *, status: int = 200):
+    """统一 JSON 返回（所有分支必须走这里保证带 CORS 头）"""
+    return request.make_json_response(payload, status=status, headers=_cors_headers())
+
+
+def _respond_empty(*, status: int = 204, trace_id: str | None = None):
+    """统一空返回（预检/304 等）"""
+    resp = request.make_response("", status=status)
+    resp.headers.update(_cors_headers())
+    if trace_id:
+        resp.headers["X-Trace-Id"] = trace_id
+    return resp
+
+
+def _is_response(obj: Any) -> bool:
+    """鸭子类型判断是否为 Response 对象"""
+    return hasattr(obj, "headers") and hasattr(obj, "status_code") and hasattr(obj, "get_data")
+
+
+def _is_anon_req(headers) -> bool:
+    """宽松识别匿名意图触发标记"""
+    v = (headers.get("X-Anonymous-Intent") or "").strip().lower()
+    return v in {"1", "true", "yes", "on"}
+
+def _error_response(
+    code: str,
+    message: str,
+    status: int,
+    trace_id: str,
+    details: dict | None = None,
+    error_fields: dict | None = None,
+):
+    payload = build_error_envelope(
+        code=code,
+        message=message,
+        trace_id=trace_id,
+        details=details,
+        api_version=API_VERSION,
+        contract_version=CONTRACT_VERSION,
+    )
+    if error_fields and isinstance(payload.get("error"), dict):
+        payload["error"].update(error_fields)
+    resp = _respond_json(payload, status=status)
+    resp.headers["X-Trace-Id"] = trace_id
+    return resp
+
+
+def _rollback_request_env(intent_name: str | None, trace_id: str | None):
+    rollback_request_env(_logger, reason=f"intent:{intent_name or ''}", trace_id=trace_id, request_obj=request)
+
+
+def _permission_error_details(intent_name: str, params: Dict[str, Any], message: str) -> dict:
+    intent = str(intent_name or "").strip().lower()
+    business_params = nested_params(params)
+    details: Dict[str, Any] = {
+        "intent": str(intent_name or "").strip(),
+        "reason_code": REASON_PERMISSION_DENIED,
+    }
+    if message:
+        details["cause"] = str(message)
+    model = str((business_params or {}).get("model") or "").strip()
+    op = str((business_params or {}).get("op") or "").strip().lower()
+    if not op:
+        op = normalize_intent_operation(intent, business_params)
+    if intent == "api.data.batch":
+        batch_action = str((business_params or {}).get("action") or "").strip().lower()
+        if batch_action:
+            op = f"batch.{batch_action}"
+    if intent == "api.data" or intent.startswith("api.data."):
+        if model:
+            details["model"] = model
+        if op:
+            details["op"] = op
+    return details
+
+
+def _is_write_request(intent_name: str, params: Dict[str, Any]) -> bool:
+    return is_write_intent(intent_name, params)
+
+# ===================== 结果归一化 =====================
+
+def _normalize_result_shape(res: Any) -> Dict[str, Any]:
+    """
+    归一化 handler 返回：
+    - (data, meta|code)：
+        * 若第二项为 int → 视为 HTTP code
+        * 若第二项为 dict → 视为 meta（其中的 code 会被提取到顶层）
+    - 仅 data 且包含 token/user/system → {"ok": True, "data": res, "meta": {}}
+    - dict 但未含 ok/data/meta → 自动补齐
+    - 其他类型 → {"ok": True, "data": {"raw": res}, "meta": {}}
+    - 若是 Response 对象 → {"__response__": res}（上层直接透传并补 CORS）
+    """
+    if _is_response(res):
+        return {"__response__": res}
+
+    # Support dataclass-like wrappers such as IntentExecutionResult.
+    to_legacy = getattr(res, "to_legacy_dict", None)
+    if callable(to_legacy):
+        try:
+            legacy = to_legacy()
+        except Exception:
+            legacy = None
+        if isinstance(legacy, dict):
+            out = dict(legacy)
+            out.setdefault("ok", True)
+            out.setdefault("data", {})
+            out.setdefault("meta", {})
+            return out
+
+    if hasattr(res, "ok") and hasattr(res, "data"):
+        out = {
+            "ok": bool(getattr(res, "ok", True)),
+            "data": getattr(res, "data", {}) or {},
+            "meta": getattr(res, "meta", {}) or {},
+        }
+        err = getattr(res, "error", None)
+        if err is not None:
+            out["error"] = err if isinstance(err, dict) else {"raw": str(err)}
+        code = getattr(res, "code", None)
+        if isinstance(code, int):
+            out["code"] = code
+        status = getattr(res, "status", None)
+        if status is not None:
+            out["status"] = str(status)
+        return out
+
+    if isinstance(res, (list, tuple)):
+        if len(res) == 2 and isinstance(res[0], dict):
+            data, second = res
+            code = None
+            meta = {}
+            if isinstance(second, int):
+                code = second
+            elif isinstance(second, dict):
+                meta = second or {}
+                if isinstance(meta.get("code"), int):
+                    code = meta["code"]
+            out = {"ok": True, "data": data or {}, "meta": meta}
+            if code is not None:
+                out["code"] = code
+            return out
+        return {"ok": True, "data": {"raw": res}, "meta": {}}
+
+    if isinstance(res, dict):
+        # 某些 Handler 会直接返回 {"token":...,"user":...}
+        if "data" not in res and ("token" in res or "user" in res or "system" in res):
+            return {"ok": True, "data": res, "meta": {}}
+        out = dict(res)
+        out.setdefault("ok", True)
+        out.setdefault("data", {})
+        out.setdefault("meta", {})
+        return out
+
+    return {"ok": True, "data": {"raw": res}, "meta": {}}
+
+
+# ===================== 控制器 =====================
+
+class IntentDispatcher(http.Controller):
+    SOURCE_KIND = SOURCE_KIND
+    SOURCE_AUTHORITIES = SOURCE_AUTHORITIES
+    NO_BUSINESS_FACT_AUTHORITY = NO_BUSINESS_FACT_AUTHORITY
+
+    @classmethod
+    def source_authority_contract(cls) -> Dict[str, Any]:
+        return source_authority_contract()
+
+    @http.route('/api/v1/intent', type='http', auth='public', methods=['POST', 'OPTIONS'], csrf=False)
+    def handle_intent(self, **kwargs):
+        ts0 = time.time()
+        headers = request.httprequest.headers
+        trace_id = get_trace_id(headers)
+        intent_name = None  # 便于异常日志打印
+        params: Dict[str, Any] = {}
+
+        try:
+            _logger.info(
+                "[intent] controller=%s module=%s trace=%s",
+                self.__class__.__name__,
+                self.__class__.__module__,
+                trace_id,
+            )
+            # ---------- 预检短路 ----------
+            if request.httprequest.method == "OPTIONS":
+                return _respond_empty(status=204, trace_id=trace_id)
+
+            # ---------- 读取并归一请求体 ----------
+            body = request.httprequest.get_json(force=True, silent=True) or {}
+            if not isinstance(body, dict):
+                body = {}
+
+            # 统一/规范化意图名
+            intent_name_in = (body.get("intent") or "").strip()
+            intent_name = _canon_intent(intent_name_in)
+            if not intent_name:
+                return _error_response(BAD_REQUEST, "缺少 intent 参数", 400, trace_id)
+
+            # 兼容 params/payload
+            params = body.get("params")
+            params = params if isinstance(params, dict) else {}
+            if not params and isinstance(body.get("payload"), dict):
+                params = body.get("payload")
+            request_explicit_db_param = "db" in params or "database" in params
+
+            # 仅接收 dict 的 context
+            context_in: Dict[str, Any] = body.get("context") if isinstance(body.get("context"), dict) else {}
+
+            # 兼容：旧 context 里可能混入业务字段，不覆盖 params 显式给出的
+            for k in (
+                "db",
+                "database",
+                "login",
+                "username",
+                "password",
+                "lang",
+                "tz",
+                "company_id",
+                "current_company_id",
+                "current_project_id",
+                "project_id",
+                "operation_strategy",
+                "operationStrategy",
+            ):
+                if k in context_in and k not in params:
+                    params[k] = context_in[k]
+
+            # 修复 Header 传 DB 但后端不读的问题：统一 DB 解析优先级 + 安全边界
+            hdr = request.httprequest.headers
+            x_db_locked_hdr = hdr.get("X-Odoo-DB-Locked")
+            x_db_hdr = hdr.get("X-Odoo-DB") or hdr.get("X-DB")
+
+            def _is_local_request() -> bool:
+                try:
+                    remote = request.httprequest.remote_addr or ""
+                    host = request.httprequest.host or ""
+                except Exception:
+                    return False
+                if remote in {"127.0.0.1", "::1"}:
+                    return True
+                return "localhost" in host or "127.0.0.1" in host
+
+            def _env_is_dev() -> bool:
+                env = (os.environ.get("ENV") or "").lower()
+                if env in {"dev", "test", "local"}:
+                    return True
+                # 未设置 ENV 时，允许本地请求作为 DEV
+                if not env and _is_local_request():
+                    return True
+                return False
+
+            def _user_is_admin() -> bool:
+                try:
+                    return user_is_platform_admin(request.env.user)
+                except Exception:
+                    return False
+
+            def _default_db() -> str | None:
+                if request.session.db:
+                    return request.session.db
+                if hasattr(request.env, "cr") and request.env.cr:
+                    return request.env.cr.dbname
+                return None
+
+            # DB 解析优先级: locked header > params > query > header > session > env
+            effective_db = None
+            db_source = "unknown"
+
+            if x_db_locked_hdr:
+                effective_db = x_db_locked_hdr
+                db_source = "locked_header"
+            elif params.get("db"):
+                effective_db = params.get("db")
+                db_source = "params"
+            elif kwargs.get("db"):
+                effective_db = kwargs.get("db")
+                db_source = "query"
+            elif x_db_hdr:
+                effective_db = x_db_hdr
+                db_source = "header"
+            elif request.session.db:
+                effective_db = request.session.db
+                db_source = "session"
+
+            # 非 DEV 且非管理员：禁止通过 params/query/header 覆盖 DB；反代锁库头除外。
+            if effective_db and db_source in {"params", "query", "header"} and not _env_is_dev() and not _user_is_admin():
+                _logger.warning("Blocked db override from %s in non-dev env", db_source)
+                effective_db = _default_db()
+                db_source = "session" if request.session.db else "env_default"
+
+            if not effective_db:
+                effective_db = _default_db()
+                db_source = "session" if request.session.db else "env_default"
+
+            if effective_db:
+                db_is_login_routing_context = (
+                    intent_name in {"login", "auth.login"}
+                    and not request_explicit_db_param
+                    and db_source in {"locked_header", "query", "header", "session", "env_default"}
+                )
+                if not db_is_login_routing_context:
+                    params["db"] = params.get("db") or effective_db
+                elif intent_name in {"login", "auth.login"}:
+                    params["_login_routing_db"] = effective_db
+                if request.session.db != effective_db:
+                    request.session.db = effective_db
+
+            is_anon = _is_anon_req(hdr) or intent_name == "session.bootstrap"
+
+            # 统一 payload 下发给路由
+            payload = {
+                "intent": intent_name,
+                "params": params,
+                "context": context_in,
+                "meta": body.get("meta") or {}
+            }
+
+            # ---------- 统一上下文 ----------
+            ctx = RequestContext.from_payload(payload)
+            setattr(ctx, "trace_id", trace_id)
+            setattr(ctx, "is_anonymous", is_anon)
+            setattr(ctx, "db", params.get("db"))
+            # 将 trace_id 透传给 handler
+            context_in["trace_id"] = trace_id
+
+            _logger.info(
+                "[intent] trace=%s intent=%s anon=%s db=%s params.keys=%s",
+                trace_id, intent_name, is_anon, params.get("db"),
+                ",".join(sorted(params.keys())) if params else "-"
+            )
+
+            # ---------- 权限校验 ----------
+            skip_auth = is_anon and is_anonymous_allowed_intent(intent_name)
+            if intent_name == "session.bootstrap":
+                skip_auth = True
+            if not skip_auth:
+                check_intent_permission(ctx)
+
+            # ---------- 分发（关键：传递正确的 ctx） ----------
+            raw_result = route_intent_payload(payload, ctx=ctx)
+
+            # Handler 若直接返回 Response：补 CORS 后原样返回
+            if _is_response(raw_result):
+                resp = raw_result
+                resp.headers.update(_cors_headers())
+                return resp
+
+            result = _normalize_result_shape(raw_result)
+            normalize_result_ok(result)
+
+            # Backward-compat: legacy load_view handlers may return view payload at top-level
+            if intent_name == "load_view" and isinstance(result, dict):
+                data = result.get("data")
+                if not data and any(k in result for k in ("layout", "view_type", "model", "permissions", "fields")):
+                    legacy_data = {
+                        k: result.pop(k)
+                        for k in list(result.keys())
+                        if k not in {"ok", "data", "meta", "code", "error", "status"}
+                    }
+                    result["data"] = legacy_data
+
+            # ---------- 统一响应（含 CORS/ETag/304） ----------
+            status = 200
+            headers = _cors_headers()
+            headers["X-Trace-Id"] = trace_id
+
+            if isinstance(result, dict):
+                status = result_http_status(result)
+                etag = (result.get("meta") or {}).get("etag")
+                if etag:
+                    headers["ETag"] = f'"{etag}"'
+
+                meta = result.setdefault("meta", {})
+                meta.setdefault("trace_id", trace_id)
+                meta.setdefault("intent", intent_name)
+                meta.setdefault("elapsed_ms", int((time.time() - ts0) * 1000))
+                meta.setdefault("api_version", API_VERSION)
+                meta.setdefault("contract_version", CONTRACT_VERSION)
+                meta.setdefault("schema_version", SCHEMA_VERSION)
+
+                # 标准化错误结构
+                if not result_is_success(result):
+                    result = normalize_error_result(
+                        result,
+                        status,
+                        status_code_mapper=map_http_status_to_code,
+                        error_envelope_builder=build_error_envelope,
+                        trace_id=trace_id,
+                        api_version=API_VERSION,
+                        contract_version=CONTRACT_VERSION,
+                    )
+                    if status < 400:
+                        status = status if status and status >= 400 else 500
+
+            if status == 304:
+                # 304 必须空体，但要带 ETag/CORS 头
+                resp = request.make_response("", status=304)
+                resp.headers.update(headers)
+                return resp
+
+            # type='http' 路由不会自动提交事务；写请求成功才提交，失败写请求显式回滚。
+            tx_action = result_transaction_action(intent_name, params, result if isinstance(result, dict) else None, status)
+            if tx_action == "commit":
+                try:
+                    request.env.cr.commit()
+                except Exception:
+                    _logger.exception("intent commit failed: intent=%s trace=%s", intent_name, trace_id)
+                    return _error_response(INTERNAL_ERROR, "内部错误", 500, trace_id)
+            elif tx_action == "rollback":
+                try:
+                    request.env.cr.rollback()
+                except Exception:
+                    _logger.exception("intent rollback failed: intent=%s trace=%s", intent_name, trace_id)
+                    return _error_response(INTERNAL_ERROR, "内部错误", 500, trace_id)
+
+            return request.make_json_response(result, status=status, headers=headers)
+        except AccessDenied:
+            _rollback_request_env(intent_name, trace_id)
+            return _error_response(AUTH_REQUIRED, "认证失败或 token 无效", 401, trace_id)
+        except AccessError as e:
+            _rollback_request_env(intent_name, trace_id)
+            msg = str(e)
+            if msg.startswith("FEATURE_DISABLED"):
+                return _error_response("FEATURE_DISABLED", msg, 403, trace_id)
+            if msg.startswith("LIMIT_EXCEEDED"):
+                return _error_response("LIMIT_EXCEEDED", msg, 429, trace_id)
+            return _error_response(
+                PERMISSION_DENIED,
+                msg,
+                403,
+                trace_id,
+                details=_permission_error_details(intent_name, params, msg),
+                error_fields={
+                    "reason_code": REASON_PERMISSION_DENIED,
+                    **failure_meta_for_reason(REASON_PERMISSION_DENIED),
+                },
+            )
+        except MissingError as e:
+            _rollback_request_env(intent_name, trace_id)
+            return _error_response(INTENT_NOT_FOUND, str(e), 404, trace_id)
+        except (BadRequest, Unauthorized, Forbidden, NotFound) as e:
+            _rollback_request_env(intent_name, trace_id)
+            status = getattr(e, "code", 400) or 400
+            code = map_http_status_to_code(status)
+            return _error_response(code, str(e), status, trace_id)
+        except Exception as e:
+            if isinstance(e, AccessDenied) or e.__class__.__name__ == "AccessDenied":
+                _rollback_request_env(intent_name, trace_id)
+                return _error_response(AUTH_REQUIRED, "认证失败或 token 无效", 401, trace_id)
+            _rollback_request_env(intent_name, trace_id)
+            _logger.exception("intent dispatcher failed: %s", e)
+            return _error_response(INTERNAL_ERROR, "内部错误", 500, trace_id)

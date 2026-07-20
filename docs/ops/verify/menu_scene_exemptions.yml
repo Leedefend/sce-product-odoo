@@ -1,0 +1,22 @@
+# Menu → Scene Exemptions
+#
+# Use this list for menus that should not be enforced by menu→scene coverage.
+# Each entry requires a menu xmlid and a short reason.
+
+exemptions:
+  # system/technical menus not part of scene semantic routing
+  - xmlid: mail.menu_root_discuss
+    reason: system messaging root (act_client)
+  - xmlid: project_todo.menu_todo_todos
+    reason: todo helper menu (server action)
+  - xmlid: spreadsheet_dashboard.spreadsheet_dashboard_menu_root
+    reason: spreadsheet dashboard shell (act_client)
+  - xmlid: spreadsheet_dashboard.spreadsheet_dashboard_menu_dashboard
+    reason: spreadsheet dashboard entry (act_client)
+  - xmlid: spreadsheet_dashboard.spreadsheet_dashboard_menu_configuration_dashboards
+    reason: spreadsheet dashboard config
+  # dual-track action/menu compatibility entries; scene_key alone is not owner signal
+  - xmlid: smart_construction_core.menu_sc_project_quick_create
+    reason: project quick-create action/menu entry, not a scene owner
+  - xmlid: smart_construction_demo.menu_sc_project_list_showcase
+    reason: demo showcase action/menu entry, not canonical projects.list scene owner

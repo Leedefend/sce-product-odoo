@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo noupdate="1">
+  <record id="param_portal_lifecycle_enabled" model="ir.config_parameter">
+    <field name="key">sc.portal.lifecycle.enabled</field>
+    <field name="value">1</field>
+  </record>
+  <record id="param_portal_capability_matrix_enabled" model="ir.config_parameter">
+    <field name="key">sc.portal.capability_matrix.enabled</field>
+    <field name="value">1</field>
+  </record>
+  <record id="param_portal_dashboard_enabled" model="ir.config_parameter">
+    <field name="key">sc.portal.dashboard.enabled</field>
+    <field name="value">1</field>
+  </record>
+</odoo>

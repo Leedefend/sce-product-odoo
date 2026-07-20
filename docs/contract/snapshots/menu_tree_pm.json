@@ -1,0 +1,19 @@
+{
+  "action": null,
+  "case": "menu_tree_pm",
+  "contract_version": "v1",
+  "error": null,
+  "execute_error": null,
+  "execute_result": null,
+  "fallback": false,
+  "meta_fields": null,
+  "model": null,
+  "op": "nav",
+  "record": null,
+  "record_error": null,
+  "ui_contract": null,
+  "ui_contract_raw": {},
+  "user": "pm",
+  "user_fallback": "admin",
+  "view_type": null
+}

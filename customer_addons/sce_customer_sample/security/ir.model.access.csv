@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_sample_payload_company_service,sample.payload.company.service,base.model_res_company,smart_core.group_smart_core_tenant_payload_importer,1,1,1,0
+access_sample_payload_partner_service,sample.payload.partner.service,base.model_res_partner,smart_core.group_smart_core_tenant_payload_importer,1,1,1,0
+access_sample_payload_project_service,sample.payload.project.service,project.model_project_project,smart_core.group_smart_core_tenant_payload_importer,1,1,1,0
+access_sample_payload_attachment_service,sample.payload.attachment.service,base.model_ir_attachment,smart_core.group_smart_core_tenant_payload_importer,1,1,1,0

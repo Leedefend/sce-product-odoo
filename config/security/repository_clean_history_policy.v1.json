@@ -1,0 +1,37 @@
+{
+  "schema_version": "sce.repository_clean_history_policy.v1",
+  "allowed_remotes": {
+    "origin": [
+      "https://github.com/Leedefend/sce-product-odoo.git",
+      "git@gitee.com:leegege/sce-product-odoo.git"
+    ],
+    "gitee": "git@gitee.com:leegege/sce-product-odoo.git"
+  },
+  "forbidden_repository_tokens": [
+    "sce-backend-odoo"
+  ],
+  "forbidden_commit_objects": [
+    "3b2820179ae7f1e3644024063a57ce9714cd4b13",
+    "c93e40c5e2613c0b9389492f185365c1d498e7d2",
+    "e8cbc880f692d504f2849f75d099aeabd0fb7220"
+  ],
+  "forbidden_path_prefixes": [
+    "addons/smart_construction_custom/",
+    "artifacts/migration/",
+    "docs/migration_alignment/",
+    "migration_assets/",
+    "tmp/raw/"
+  ],
+  "forbidden_archive_suffixes": [
+    ".age",
+    ".bak",
+    ".dump",
+    ".rar",
+    ".tar",
+    ".tar.gz",
+    ".tgz",
+    ".zip",
+    ".zst"
+  ],
+  "maximum_blob_bytes": 5242880
+}

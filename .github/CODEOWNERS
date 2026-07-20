@@ -1,0 +1,38 @@
+# v1.1 Engineering Convergence code ownership
+
+# Default owner for any unmatched path.
+* @Leedefend
+
+# GitHub governance and release process.
+/.github/ @Leedefend
+/docs/engineering_convergence/ @Leedefend
+
+# CI, local quality gates, deployment, and operations.
+/Makefile @Leedefend
+/docker-compose*.yml @Leedefend
+/Dockerfile @Leedefend
+/scripts/ci/ @Leedefend
+/scripts/deploy/ @Leedefend
+/scripts/dev/ @Leedefend
+/scripts/common/ @Leedefend
+
+# Platform core and low-code configuration engine.
+/addons/smart_core/ @Leedefend
+/addons/smart_core/app_config_engine/ @Leedefend
+
+# Construction business domains.
+/addons/smart_construction_core/ @Leedefend
+/addons/smart_construction_portal/ @Leedefend
+/addons/smart_construction_scene/ @Leedefend
+/addons/smart_construction_bundle/ @Leedefend
+
+# Demo and seed data must not influence production release decisions.
+/addons/smart_construction_demo/ @Leedefend
+/addons/smart_construction_seed/ @Leedefend
+
+# Frontend application.
+/frontend/ @Leedefend
+
+# Migration and generated data tooling.
+/migration_assets/ @Leedefend
+/scripts/migration/ @Leedefend

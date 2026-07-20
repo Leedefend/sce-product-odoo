@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- S90 demo users for capability groups (passwords are demo-only) -->
+        <record id="sc_demo_user_pm" model="res.users">
+            <field name="name">Demo-项目经理</field>
+            <field name="login">demo_pm</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="groups_id" eval="[(6, 0, [
+                ref('smart_construction_core.group_sc_cap_project_manager'),
+                ref('smart_construction_core.group_sc_cap_contract_read'),
+                ref('smart_construction_core.group_sc_cap_cost_read'),
+                ref('smart_construction_core.group_sc_cap_purchase_read'),
+                ref('smart_construction_core.group_sc_cap_material_read'),
+                ref('smart_construction_core.group_sc_cap_settlement_read'),
+                ref('smart_construction_core.group_sc_cap_finance_read'),
+                ref('smart_construction_core.group_sc_cap_data_read')
+            ])]"/>
+        </record>
+
+        <record id="sc_demo_user_finance" model="res.users">
+            <field name="name">Demo-财务经办</field>
+            <field name="login">demo_finance</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_construction_core.group_sc_cap_finance_user')])]"/>
+        </record>
+
+        <record id="sc_demo_user_cost" model="res.users">
+            <field name="name">Demo-成控经办</field>
+            <field name="login">demo_cost</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_construction_core.group_sc_cap_cost_user')])]"/>
+        </record>
+
+        <record id="sc_demo_user_audit" model="res.users">
+            <field name="name">Demo-数据审计</field>
+            <field name="login">demo_audit</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_construction_core.group_sc_cap_data_read')])]"/>
+        </record>
+
+        <record id="sc_demo_user_readonly" model="res.users">
+            <field name="name">Demo-只读</field>
+            <field name="login">demo_readonly</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_construction_core.group_sc_cap_project_read')])]"/>
+        </record>
+
+        <record id="sc_demo_user_test_admin" model="res.users">
+            <field name="name">Demo-全能力</field>
+            <field name="login">sc_test_admin</field>
+            <field name="lang">zh_CN</field>
+            <field name="tz">Asia/Shanghai</field>
+            <field name="company_id" ref="base.main_company"/>
+            <field name="company_ids" eval="[(6, 0, [ref('base.main_company')])]"/>
+            <field name="groups_id" eval="[(6, 0, [
+                ref('base.group_user'),
+                ref('project.group_project_manager'),
+                ref('smart_core.group_smart_core_admin'),
+                ref('smart_construction_core.group_sc_super_admin')
+            ])]"/>
+        </record>
+
+    </data>
+
+    <!-- Canonical replay for Demo-owned admin roles on databases created under noupdate=1. -->
+    <data noupdate="0">
+        <function model="res.users" name="write">
+            <function model="res.users" name="search">
+                <value eval="[('id', '=', ref('smart_construction_demo.sc_demo_user_test_admin'))]"/>
+            </function>
+            <value eval="{'groups_id': [(6, 0, [
+                ref('base.group_user'),
+                ref('project.group_project_manager'),
+                ref('smart_core.group_smart_core_admin'),
+                ref('smart_construction_core.group_sc_super_admin')
+            ])]}"/>
+        </function>
+    </data>
+</odoo>

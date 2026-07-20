@@ -1,0 +1,131 @@
+{
+  "version": "v1",
+  "menu_tree": [
+    {
+      "menu_key": "project_delivery",
+      "menu_name": "项目交付",
+      "entries": [
+        "workspace.home",
+        "my_work.workspace",
+        "project.management",
+        "projects.intake",
+        "projects.list",
+        "projects.dashboard",
+        "projects.ledger",
+        "projects.execution",
+        "task.center",
+        "risk.center",
+        "risk.monitor"
+      ]
+    },
+    {
+      "menu_key": "finance_control",
+      "menu_name": "财务管控",
+      "entries": [
+        "finance.center",
+        "finance.workspace",
+        "finance.payment_requests",
+        "finance.payment_ledger",
+        "finance.treasury_ledger",
+        "finance.settlement_orders"
+      ]
+    },
+    {
+      "menu_key": "cost_purchase",
+      "menu_name": "成本与采购",
+      "entries": [
+        "cost.analysis",
+        "cost.project_boq",
+        "cost.project_budget",
+        "cost.project_cost_ledger",
+        "cost.cost_compare",
+        "cost.profit_compare",
+        "cost.project_progress",
+        "material.center",
+        "material.catalog",
+        "material.procurement",
+        "material.rfq",
+        "material.acceptance",
+        "material.inbound",
+        "material.outbound",
+        "material.price_library",
+        "material.settlement",
+        "material.rental",
+        "material.rental_order",
+        "material.rental_settlement",
+        "labor.management",
+        "labor.request",
+        "labor.attendance",
+        "labor.settlement",
+        "equipment.management",
+        "equipment.request",
+        "equipment.usage",
+        "equipment.settlement",
+        "subcontract.management",
+        "subcontract.request",
+        "subcontract.register",
+        "subcontract.settlement"
+      ]
+    },
+    {
+      "menu_key": "site_execution",
+      "menu_name": "现场执行",
+      "entries": [
+        "construction.execution",
+        "construction.plan",
+        "construction.plan_report",
+        "construction.diary",
+        "quality.center",
+        "quality.rectification",
+        "quality.recheck",
+        "safety.center",
+        "safety.rectification",
+        "safety.recheck"
+      ]
+    },
+    {
+      "menu_key": "exec_insight",
+      "menu_name": "经营洞察",
+      "entries": [
+        "portal.dashboard",
+        "finance.operating_metrics",
+        "contract.center",
+        "contracts.workspace"
+      ]
+    },
+    {
+      "menu_key": "governance_config",
+      "menu_name": "治理与配置",
+      "entries": [
+        "portal.lifecycle",
+        "portal.capability_matrix",
+        "data.dictionary"
+      ]
+    }
+  ],
+  "hidden_for_delivery_roles": [
+    "scene_smoke_default",
+    "cost.budget_alloc"
+  ],
+  "delivery_role_keys": [
+    "pm",
+    "finance",
+    "purchase_manager",
+    "executive",
+    "ops"
+  ],
+  "visibility_mechanism": {
+    "scene_tag_field": "visibility_tags",
+    "tag_values": {
+      "delivery_visible": "delivery_visible",
+      "internal_only": "internal_only"
+    },
+    "role_resolution_source": "docs/product/delivery/v1/role_package_source_v1.json:roles[].role_key",
+    "filter_layer": "backend contract service (system.init/ui.contract response shaping)",
+    "frontend_behavior": "frontend renders only filtered entries from contract payload"
+  },
+  "visibility_tags": {
+    "hidden_for_delivery_roles": "internal_only",
+    "default_visible": "delivery_visible"
+  }
+}

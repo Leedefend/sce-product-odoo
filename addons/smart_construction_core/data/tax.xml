@@ -1,0 +1,7 @@
+<odoo>
+    <!--
+        默认税率与税组改由 hooks.ensure_core_taxes 以幂等方式创建/绑定。
+        这里留空，避免升级时 data/tax.xml 重新创建导致
+        “Tax names must be unique!” 报错。
+    -->
+</odoo>

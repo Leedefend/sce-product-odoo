@@ -1,0 +1,39 @@
+
+services:
+  sc-dev:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile.dev
+
+    container_name: sc-dev
+
+    # DevContainer 不跑任何服务，只保持常驻
+    command: ["bash", "-lc", "sleep infinity"]
+
+    # 关键：解决屏幕闪烁问题
+    tty: true
+    stdin_open: true
+    
+    # 设置终端环境变量
+    environment:
+      TERM: xterm-256color
+      COLORTERM: truecolor
+      DEBIAN_FRONTEND: noninteractive
+
+    # 与宿主机代码同步
+    volumes:
+      - .:/workspaces/sc-backend-odoo:cached
+
+      # 关键：让 sc-dev 能控制 docker / compose
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/run/docker.sock
+
+    # docker group（通常是 999，若不通再校准）
+    group_add:
+      - "999"
+
+    working_dir: /workspaces/sc-backend-odoo
+
+    # 与 runtime 共享网络，便于 compose exec
+    networks:
+      - default

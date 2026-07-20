@@ -1,0 +1,1205 @@
+[
+  {
+    "case": "menu_tree_admin",
+    "user": "admin",
+    "op": "nav"
+  },
+  {
+    "case": "menu_tree_pm",
+    "user": "pm",
+    "op": "nav"
+  },
+  {
+    "case": "project_list_pm",
+    "user": "pm",
+    "model": "project.project",
+    "view_type": "list",
+    "op": "model",
+    "include_meta": true
+  },
+  {
+    "case": "project_form_pm",
+    "user": "pm",
+    "model": "project.project",
+    "view_type": "form",
+    "id": 1,
+    "op": "model",
+    "include_meta": true
+  },
+  {
+    "case": "execute_button_pm",
+    "user": "pm",
+    "model": "project.project",
+    "view_type": "form",
+    "id": 1,
+    "op": "model",
+    "execute_method": "action_sc_submit"
+  },
+  {
+    "case": "execute_button_missing_method",
+    "user": "pm",
+    "model": "project.project",
+    "view_type": "form",
+    "id": 1,
+    "op": "model",
+    "execute_method": "action_missing_method"
+  },
+  {
+    "case": "execute_button_missing_record",
+    "user": "pm",
+    "model": "project.project",
+    "view_type": "form",
+    "id": 999999,
+    "op": "model",
+    "execute_method": "action_sc_submit"
+  },
+  {
+    "case": "execute_button_not_allowed",
+    "user": "pm",
+    "model": "project.project",
+    "view_type": "form",
+    "id": 1,
+    "op": "model",
+    "execute_method": "action_sc_project_manage"
+  },
+  {
+    "case": "execute_button_error",
+    "user": "pm",
+    "model": "project.project",
+    "view_type": "form",
+    "id": 1,
+    "op": "model",
+    "execute_method": "action_sc_submit"
+  },
+  {
+    "case": "form_save_simple_pm",
+    "user": "pm",
+    "model": "project.project",
+    "view_type": "form",
+    "id": 1,
+    "op": "model"
+  },
+  {
+    "case": "attachment_list_pm",
+    "user": "pm",
+    "model": "ir.attachment",
+    "view_type": "list",
+    "op": "model"
+  },
+  {
+    "case": "project_kanban_lifecycle_pm",
+    "user": "pm",
+    "op": "action_open",
+    "model": "project.project",
+    "view_type": "kanban",
+    "action_xmlid": "smart_construction_core.action_sc_project_kanban_lifecycle",
+    "include_meta": true
+  },
+  {
+    "case": "project_capability_matrix_pm",
+    "user": "pm",
+    "op": "meta.describe_project_capabilities",
+    "model": "project.project",
+    "project_id": 1
+  },
+  {
+    "case": "capability_matrix_pm",
+    "user": "pm",
+    "op": "contract.capability_matrix"
+  },
+  {
+    "case": "portal_lifecycle_dashboard_pm",
+    "user": "pm",
+    "op": "ui.contract",
+    "route": "/portal/lifecycle",
+    "trace_id": "portal_snapshot"
+  },
+  {
+    "case": "portal_lifecycle_dashboard_pm_contractmeta",
+    "user": "pm",
+    "op": "ui.contract",
+    "route": "/portal/lifecycle",
+    "trace_id": "portal_snapshot_contractmeta"
+  },
+  {
+    "case": "portal_dashboard_pm",
+    "user": "pm",
+    "op": "contract.portal_dashboard"
+  },
+  {
+    "case": "portal_execute_button_pm",
+    "user": "pm",
+    "op": "contract.portal_execute_button"
+  },
+  {
+    "case": "portal_execute_button_not_allowed",
+    "user": "pm",
+    "op": "contract.portal_execute_button",
+    "model": "project.project",
+    "id": 1,
+    "execute_method": "action_sc_project_manage"
+  },
+  {
+    "case": "my_work_summary_pm",
+    "user": "pm",
+    "op": "intent.invoke",
+    "intent": "my.work.summary",
+    "intent_params": {
+      "limit": 10,
+      "page": 1,
+      "section": "all",
+      "source": "all",
+      "reason_code": "all",
+      "search": ""
+    }
+  },
+  {
+    "case": "my_work_complete_batch_pm",
+    "user": "pm",
+    "op": "intent.invoke",
+    "intent": "my.work.complete_batch",
+    "intent_params": {
+      "source": "mail.activity",
+      "ids": [
+        999999991
+      ],
+      "request_id": "snapshot_my_work_batch_1"
+    }
+  },
+  {
+    "case": "my_work_complete_pm",
+    "user": "pm",
+    "op": "intent.invoke",
+    "intent": "my.work.complete",
+    "intent_params": {
+      "source": "mail.activity",
+      "id": 999999991,
+      "note": "snapshot"
+    }
+  },
+  {
+    "case": "api_data_batch_pm",
+    "user": "pm",
+    "op": "intent.invoke",
+    "intent": "api.data.batch",
+    "intent_params": {
+      "model": "res.partner",
+      "ids": [
+        999999991
+      ],
+      "action": "archive",
+      "request_id": "snapshot_api_data_batch_1"
+    }
+  },
+  {
+    "case": "usage_report_pm",
+    "user": "pm",
+    "compare_mode": "shape",
+    "op": "intent.invoke",
+    "intent": "usage.report",
+    "intent_params": {
+      "top": 10,
+      "days": 7
+    }
+  },
+  {
+    "case": "usage_track_intent_pm",
+    "user": "pm",
+    "op": "intent.invoke",
+    "intent": "usage.track",
+    "intent_params": {
+      "event_type": "scene_open",
+      "scene_key": "my.work"
+    }
+  },
+  {
+    "case": "usage_export_csv_intent_pm",
+    "user": "pm",
+    "compare_mode": "shape",
+    "op": "intent.invoke",
+    "intent": "usage.export.csv",
+    "intent_params": {
+      "days": 7,
+      "top": 10,
+      "export_filtered_only": true,
+      "hidden_reason": "ALL"
+    }
+  },
+  {
+    "case": "system_ping_construction_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "system.ping.construction",
+    "intent_params": {}
+  },
+  {
+    "case": "system_init_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "system.init",
+    "intent_params": {
+      "scene": "web",
+      "with_preload": false
+    }
+  },
+  {
+    "case": "scene_health_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "scene.health",
+    "intent_params": {
+      "mode": "summary",
+      "with_details": false
+    }
+  },
+  {
+    "case": "ui_contract_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "ui.contract",
+    "intent_params": {
+      "op": "nav"
+    }
+  },
+  {
+    "case": "api_onchange_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "api.onchange",
+    "intent_params": {
+      "model": "project.project",
+      "values": {
+        "name": "Snapshot Project"
+      },
+      "changed_fields": [
+        "name"
+      ],
+      "changed": [
+        "name"
+      ],
+      "context": {}
+    }
+  },
+  {
+    "case": "meta_intent_catalog_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "meta.intent_catalog",
+    "intent_params": {}
+  },
+  {
+    "case": "telemetry_track_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "telemetry.track",
+    "intent_params": {
+      "event_type": "scene_open"
+    }
+  },
+  {
+    "case": "cost_tracking_enter_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "cost.tracking.enter",
+    "intent_params": {
+      "project_id": 1
+    }
+  },
+  {
+    "case": "project_dashboard_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "project.dashboard",
+    "intent_params": {
+      "project_id": 1
+    }
+  },
+  {
+    "case": "project_dashboard_enter_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "project.dashboard.enter",
+    "intent_params": {
+      "project_id": 1
+    }
+  },
+  {
+    "case": "risk_action_execute_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "risk.action.execute",
+    "intent_params": {
+      "action": "claim",
+      "project_id": 1,
+      "name": "Snapshot Risk Action"
+    }
+  },
+  {
+    "case": "payment_request_available_actions_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "payment.request.available_actions",
+    "intent_params": {
+      "id": 1
+    }
+  },
+  {
+    "case": "payment_request_execute_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "payment.request.execute",
+    "allow_error_response": true,
+    "intent_params": {
+      "id": 1,
+      "action": "submit",
+      "request_id": "snapshot_payment_request_execute_1"
+    }
+  },
+  {
+    "case": "payment_request_submit_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "payment.request.submit",
+    "allow_error_response": true,
+    "intent_params": {
+      "id": 1,
+      "request_id": "snapshot_payment_request_submit_1"
+    }
+  },
+  {
+    "case": "payment_request_approve_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "payment.request.approve",
+    "allow_error_response": true,
+    "intent_params": {
+      "id": 1,
+      "request_id": "snapshot_payment_request_approve_1"
+    }
+  },
+  {
+    "case": "payment_request_reject_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "payment.request.reject",
+    "allow_error_response": true,
+    "intent_params": {
+      "id": 1,
+      "reason": "snapshot reject reason",
+      "request_id": "snapshot_payment_request_reject_1"
+    }
+  },
+  {
+    "case": "payment_request_done_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "payment.request.done",
+    "allow_error_response": true,
+    "intent_params": {
+      "id": 1,
+      "request_id": "snapshot_payment_request_done_1"
+    }
+  },
+  {
+    "case": "capability_visibility_report_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "capability.visibility.report",
+    "intent_params": {}
+  },
+  {
+    "case": "scene_package_list_intent_admin",
+    "user": "admin",
+    "compare_mode": "shape",
+    "op": "intent.invoke",
+    "intent": "scene.package.list",
+    "intent_params": {}
+  },
+  {
+    "case": "scene_packages_installed_intent_admin",
+    "user": "admin",
+    "compare_mode": "shape",
+    "op": "intent.invoke",
+    "intent": "scene.packages.installed",
+    "intent_params": {}
+  },
+  {
+    "case": "scene_governance_set_channel_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "scene.governance.set_channel",
+    "intent_params": {
+      "channel": "dev",
+      "reason": "contract snapshot"
+    }
+  },
+  {
+    "case": "scene_governance_rollback_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "scene.governance.rollback",
+    "intent_params": {
+      "reason": "contract snapshot"
+    }
+  },
+  {
+    "case": "scene_governance_export_contract_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "scene.governance.export_contract",
+    "intent_params": {
+      "channel": "stable",
+      "reason": "contract snapshot"
+    }
+  },
+  {
+    "case": "scene_package_export_intent_admin",
+    "user": "admin",
+    "compare_mode": "shape",
+    "op": "intent.invoke",
+    "intent": "scene.package.export",
+    "intent_params": {
+      "package_name": "snapshot.pkg",
+      "package_version": "0.0.1",
+      "scene_channel": "stable",
+      "reason": "contract snapshot"
+    }
+  },
+  {
+    "case": "scene_package_dry_run_import_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "scene.package.dry_run_import",
+    "intent_params": {
+      "package": {
+        "package_name": "snapshot.pkg",
+        "package_version": "0.0.1",
+        "schema_version": "v2",
+        "scene_version": "1",
+        "previous_versions": [],
+        "upgrade": {
+          "type": "inplace",
+          "supported_from": [],
+          "breaking": false
+        },
+        "scenes": [],
+        "profiles": {},
+        "defaults": {
+          "scene_channel": "stable",
+          "rollback_active": false,
+          "use_pinned": false
+        },
+        "policies": {
+          "auto_degrade": {
+            "enabled": true,
+            "critical_threshold": {
+              "resolve_errors": 1,
+              "drift_warn": 1
+            },
+            "action": "rollback_pinned"
+          },
+          "channel_defaults": {
+            "default": "stable"
+          }
+        },
+        "compatibility": {
+          "min_core_version": "10.6.0",
+          "supported_schema_versions": [
+            "v2"
+          ]
+        },
+        "generated_at": "2026-02-10T00:00:00Z",
+        "checksum": "3f6a3127419458814029b8fe124a081d4bd6f4a18cd60446c036b90beaba5870"
+      }
+    }
+  },
+  {
+    "case": "scene_package_import_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "scene.package.import",
+    "intent_params": {
+      "strategy": "skip_existing",
+      "reason": "contract snapshot",
+      "package": {
+        "package_name": "snapshot.pkg",
+        "package_version": "0.0.1",
+        "schema_version": "v2",
+        "scene_version": "1",
+        "previous_versions": [],
+        "upgrade": {
+          "type": "inplace",
+          "supported_from": [],
+          "breaking": false
+        },
+        "scenes": [],
+        "profiles": {},
+        "defaults": {
+          "scene_channel": "stable",
+          "rollback_active": false,
+          "use_pinned": false
+        },
+        "policies": {
+          "auto_degrade": {
+            "enabled": true,
+            "critical_threshold": {
+              "resolve_errors": 1,
+              "drift_warn": 1
+            },
+            "action": "rollback_pinned"
+          },
+          "channel_defaults": {
+            "default": "stable"
+          }
+        },
+        "compatibility": {
+          "min_core_version": "10.6.0",
+          "supported_schema_versions": [
+            "v2"
+          ]
+        },
+        "generated_at": "2026-02-10T00:00:00Z",
+        "checksum": "3f6a3127419458814029b8fe124a081d4bd6f4a18cd60446c036b90beaba5870"
+      }
+    }
+  },
+  {
+    "case": "api_data_intent_pm",
+    "user": "pm",
+    "op": "intent.invoke",
+    "intent": "api.data",
+    "intent_params": {
+      "op": "list",
+      "model": "project.project",
+      "limit": 5,
+      "offset": 0,
+      "order": "id desc",
+      "fields": [
+        "id",
+        "name"
+      ]
+    }
+  },
+  {
+    "case": "api_data_create_intent_pm",
+    "user": "pm",
+    "compare_mode": "shape",
+    "op": "intent.invoke",
+    "intent": "api.data.create",
+    "intent_params": {
+      "model": "project.task",
+      "values": {
+        "name": "Snapshot Dry Run Task"
+      },
+      "dry_run": true,
+      "request_id": "snapshot_api_data_create_1"
+    }
+  },
+  {
+    "case": "api_data_unlink_intent_pm",
+    "user": "pm",
+    "op": "intent.invoke",
+    "intent": "api.data.unlink",
+    "intent_params": {
+      "model": "project.task",
+      "ids": [
+        1
+      ],
+      "dry_run": true,
+      "request_id": "snapshot_api_data_unlink_1"
+    },
+    "allow_error_response": true
+  },
+  {
+    "case": "chatter_post_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "chatter.post",
+    "intent_params": {
+      "model": "project.project",
+      "res_id": 1,
+      "body": "Contract snapshot message"
+    },
+    "allow_error_response": true
+  },
+  {
+    "case": "load_view_intent_pm",
+    "user": "pm",
+    "compare_mode": "shape",
+    "op": "intent.invoke",
+    "intent": "load_view",
+    "allow_error_response": true,
+    "intent_params": {
+      "model": "project.project",
+      "view_type": "form"
+    }
+  },
+  {
+    "case": "capability_describe_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "capability.describe",
+    "allow_error_response": true,
+    "intent_params": {
+      "capability_key": "capability.matrix"
+    }
+  },
+  {
+    "case": "file_upload_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "file.upload",
+    "allow_error_response": true,
+    "intent_params": {
+      "model": "project.project",
+      "res_id": 1,
+      "name": "snapshot-upload.txt",
+      "mimetype": "text/plain",
+      "data": "aGVsbG8="
+    }
+  },
+  {
+    "case": "file_download_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "file.download",
+    "allow_error_response": true,
+    "intent_params": {
+      "model": "project.project",
+      "res_id": 1,
+      "name": "snapshot-upload.txt"
+    }
+  },
+  {
+    "case": "login_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "login",
+    "allow_error_response": true,
+    "intent_params": {
+      "login": "admin",
+      "password": "wrong_password"
+    }
+  },
+  {
+    "case": "session_bootstrap_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "session.bootstrap",
+    "allow_error_response": true,
+    "intent_params": {
+      "secret": "invalid_secret",
+      "login": "admin"
+    }
+  },
+  {
+    "case": "scene_governance_pin_stable_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "scene.governance.pin_stable",
+    "allow_error_response": true,
+    "intent_params": {
+      "reason": "contract snapshot"
+    }
+  },
+  {
+    "case": "chatter_timeline_intent_pm",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "chatter.timeline",
+    "intent_params": {
+      "model": "res.partner",
+      "res_id": 1,
+      "limit": 10,
+      "include_audit": false
+    }
+  },
+  {
+    "case": "execute_button_intent_dry_run_pm",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "execute_button",
+    "intent_params": {
+      "model": "res.partner",
+      "res_id": 1,
+      "dry_run": true,
+      "button": {
+        "type": "object",
+        "name": "write"
+      }
+    }
+  },
+  {
+    "case": "app_catalog_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "app.catalog",
+    "intent_params": {
+      "scene": "web"
+    }
+  },
+  {
+    "case": "app_nav_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "app.nav",
+    "intent_params": {
+      "app": "project_management"
+    }
+  },
+  {
+    "case": "app_open_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "app.open",
+    "intent_params": {
+      "app": "project_management",
+      "feature": "config_stage"
+    }
+  },
+  {
+    "case": "load_metadata_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "load_metadata",
+    "intent_params": {
+      "model": "res.country"
+    }
+  },
+  {
+    "case": "permission_check_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "permission.check",
+    "intent_params": {
+      "capability_key": "project.view_all",
+      "required_flag": "project_enabled",
+      "debug": true
+    }
+  },
+  {
+    "case": "load_contract_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "load_contract",
+    "intent_params": {
+      "model": "project.project",
+      "view_type": "form",
+      "include": "all"
+    }
+  },
+  {
+    "case": "meta_describe_model_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "meta.describe_model",
+    "intent_params": {
+      "model": "project.project"
+    }
+  },
+  {
+    "case": "project_dashboard_action_pm",
+    "user": "pm",
+    "op": "action_open",
+    "model": "project.project",
+    "view_type": "kanban",
+    "action_xmlid": "smart_construction_core.action_project_dashboard",
+    "include_meta": true
+  },
+  {
+    "case": "project_list_action_pm",
+    "user": "pm",
+    "op": "action_open",
+    "model": "project.project",
+    "view_type": "list",
+    "action_xmlid": "smart_construction_core.action_sc_project_list",
+    "include_meta": true
+  },
+  {
+    "case": "contract_list_action_pm",
+    "user": "pm",
+    "op": "action_open",
+    "model": "construction.contract",
+    "view_type": "list",
+    "action_xmlid": "smart_construction_core.action_construction_contract",
+    "include_meta": true
+  },
+  {
+    "case": "contract_income_action_pm",
+    "user": "pm",
+    "op": "action_open",
+    "model": "construction.contract",
+    "view_type": "list",
+    "action_xmlid": "smart_construction_core.action_construction_contract_income",
+    "include_meta": true
+  },
+  {
+    "case": "contract_expense_action_pm",
+    "user": "pm",
+    "op": "action_open",
+    "model": "construction.contract",
+    "view_type": "list",
+    "action_xmlid": "smart_construction_core.action_construction_contract_expense",
+    "include_meta": true
+  },
+  {
+    "case": "cost_ledger_action_pm",
+    "user": "pm",
+    "op": "action_open",
+    "model": "project.cost.ledger",
+    "view_type": "list",
+    "action_xmlid": "smart_construction_core.action_project_cost_ledger",
+    "include_meta": true
+  },
+  {
+    "case": "cost_compare_action_pm",
+    "user": "pm",
+    "op": "action_open",
+    "model": "project.cost.ledger",
+    "view_type": "list",
+    "action_xmlid": "smart_construction_core.action_project_cost_compare",
+    "include_meta": true
+  },
+  {
+    "case": "payment_request_action_pm",
+    "user": "pm",
+    "op": "action_open",
+    "model": "payment.request",
+    "view_type": "list",
+    "action_xmlid": "smart_construction_core.action_payment_request",
+    "include_meta": true
+  },
+  {
+    "case": "operating_risk_drill_action_pm",
+    "user": "pm",
+    "op": "action_open",
+    "model": "payment.request",
+    "view_type": "list",
+    "action_xmlid": "smart_construction_core.action_sc_operating_drill_overpay_risk_pr",
+    "include_meta": true
+  },
+  {
+    "case": "project_task_all_action_pm",
+    "user": "pm",
+    "op": "action_open",
+    "model": "project.task",
+    "view_type": "list",
+    "action_xmlid": "project.action_view_all_task",
+    "include_meta": true
+  },
+  {
+    "case": "business_evidence_trace_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "business.evidence.trace",
+    "intent_params": {}
+  },
+  {
+    "case": "chatter_activity_schedule_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "chatter.activity.schedule",
+    "intent_params": {}
+  },
+  {
+    "case": "chatter_activity_update_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "chatter.activity.update",
+    "intent_params": {}
+  },
+  {
+    "case": "collaboration_users_search_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "collaboration.users.search",
+    "intent_params": {}
+  },
+  {
+    "case": "cost_tracking_block_fetch_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "cost.tracking.block.fetch",
+    "intent_params": {}
+  },
+  {
+    "case": "cost_tracking_record_create_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "cost.tracking.record.create",
+    "intent_params": {}
+  },
+  {
+    "case": "dashboard_company_enter_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "dashboard.company.enter",
+    "intent_params": {}
+  },
+  {
+    "case": "global_message_conversations_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "global.message.conversations",
+    "intent_params": {}
+  },
+  {
+    "case": "global_message_inbox_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "global.message.inbox",
+    "intent_params": {}
+  },
+  {
+    "case": "global_message_read_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "global.message.read",
+    "intent_params": {}
+  },
+  {
+    "case": "global_message_send_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "global.message.send",
+    "intent_params": {}
+  },
+  {
+    "case": "payment_block_fetch_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "payment.block.fetch",
+    "intent_params": {}
+  },
+  {
+    "case": "payment_enter_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "payment.enter",
+    "intent_params": {}
+  },
+  {
+    "case": "payment_record_create_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "payment.record.create",
+    "intent_params": {}
+  },
+  {
+    "case": "project_connection_transition_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "project.connection.transition",
+    "intent_params": {}
+  },
+  {
+    "case": "project_context_search_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "project.context.search",
+    "intent_params": {}
+  },
+  {
+    "case": "project_dashboard_block_fetch_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "project.dashboard.block.fetch",
+    "intent_params": {}
+  },
+  {
+    "case": "project_dashboard_open_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "project.dashboard.open",
+    "intent_params": {}
+  },
+  {
+    "case": "project_entry_context_options_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "project.entry.context.options",
+    "intent_params": {}
+  },
+  {
+    "case": "project_entry_context_resolve_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "project.entry.context.resolve",
+    "intent_params": {}
+  },
+  {
+    "case": "project_execution_advance_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "project.execution.advance",
+    "intent_params": {}
+  },
+  {
+    "case": "project_execution_block_fetch_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "project.execution.block.fetch",
+    "intent_params": {}
+  },
+  {
+    "case": "project_execution_enter_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "project.execution.enter",
+    "intent_params": {}
+  },
+  {
+    "case": "project_initiation_enter_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "project.initiation.enter",
+    "intent_params": {}
+  },
+  {
+    "case": "project_plan_bootstrap_block_fetch_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "project.plan_bootstrap.block.fetch",
+    "intent_params": {}
+  },
+  {
+    "case": "project_plan_bootstrap_enter_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "project.plan_bootstrap.enter",
+    "intent_params": {}
+  },
+  {
+    "case": "release_operator_approve_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "release.operator.approve",
+    "intent_params": {}
+  },
+  {
+    "case": "release_operator_freeze_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "release.operator.freeze",
+    "intent_params": {}
+  },
+  {
+    "case": "release_operator_promote_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "release.operator.promote",
+    "intent_params": {}
+  },
+  {
+    "case": "release_operator_rollback_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "release.operator.rollback",
+    "intent_params": {}
+  },
+  {
+    "case": "release_operator_runtime_probe_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "release.operator.runtime_probe",
+    "intent_params": {}
+  },
+  {
+    "case": "release_operator_set_page_enabled_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "release.operator.set_page_enabled",
+    "intent_params": {}
+  },
+  {
+    "case": "release_operator_surface_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "release.operator.surface",
+    "intent_params": {}
+  },
+  {
+    "case": "release_operator_sync_policy_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "release.operator.sync_policy",
+    "intent_params": {}
+  },
+  {
+    "case": "release_operator_update_page_policy_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "release.operator.update_page_policy",
+    "intent_params": {}
+  },
+  {
+    "case": "release_operator_update_policy_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "release.operator.update_policy",
+    "intent_params": {}
+  },
+  {
+    "case": "search_favorite_set_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "search.favorite.set",
+    "intent_params": {}
+  },
+  {
+    "case": "settlement_block_fetch_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "settlement.block.fetch",
+    "intent_params": {}
+  },
+  {
+    "case": "settlement_enter_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "settlement.enter",
+    "intent_params": {}
+  },
+  {
+    "case": "terminal_shell_v2_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "terminal.shell.v2",
+    "intent_params": {}
+  },
+  {
+    "case": "ui_contract_v2_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "ui.contract.v2",
+    "intent_params": {}
+  },
+  {
+    "case": "user_view_preference_get_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "user.view.preference.get",
+    "intent_params": {}
+  },
+  {
+    "case": "user_view_preference_set_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "user.view.preference.set",
+    "intent_params": {}
+  },
+  {
+    "case": "workspace_home_enter_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "workspace.home.enter",
+    "intent_params": {}
+  },
+  {
+    "case": "auth_logout_intent_admin",
+    "user": "admin",
+    "op": "intent.invoke",
+    "intent": "auth.logout",
+    "intent_params": {}
+  }
+]

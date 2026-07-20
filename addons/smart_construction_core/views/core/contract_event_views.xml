@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="action_sc_contract_event" model="ir.actions.act_window">
+        <field name="name">合同履约事件</field>
+        <field name="res_model">sc.contract.event</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{'search_default_group_project': 1}</field>
+    </record>
+
+    <record id="view_sc_contract_event_tree" model="ir.ui.view">
+        <field name="name">sc.contract.event.tree</field>
+        <field name="model">sc.contract.event</field>
+        <field name="arch" type="xml">
+            <tree string="合同履约事件" default_order="event_date desc">
+                <field name="name"/>
+                <field name="event_no"/>
+                <field name="event_type"/>
+                <field name="project_id"/>
+                <field name="contract_id"/>
+                <field name="partner_id"/>
+                <field name="source_channel"/>
+                <field name="event_date"/>
+                <field name="amount_impact" sum="金额影响"/>
+                <field name="tax_excluded_amount" sum="不含税金额"/>
+                <field name="tax_amount" sum="税额"/>
+                <field name="change_limit_amount" sum="变更控制上限"/>
+                <field name="limit_control_result"/>
+                <field name="settlement_included"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_sc_contract_event_form" model="ir.ui.view">
+        <field name="name">sc.contract.event.form</field>
+        <field name="model">sc.contract.event</field>
+        <field name="arch" type="xml">
+            <form string="合同履约事件">
+                <header>
+                    <button name="action_submit" string="提交" type="object" class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_approve" string="审批通过" type="object" class="btn-primary" invisible="state != 'submitted'"/>
+                    <button name="action_reject" string="驳回" type="object" invisible="state != 'submitted'"/>
+                    <button name="action_done" string="完成" type="object" class="btn-primary" invisible="state != 'approved'"/>
+                    <button name="action_cancel" string="取消" type="object" invisible="state in ('done', 'cancel')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,approved,done"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="event_no"/>
+                            <field name="event_type"/>
+                            <field name="source_channel"/>
+                            <field name="project_id"/>
+                            <field name="contract_id"/>
+                            <field name="partner_id"/>
+                        </group>
+                        <group>
+                            <field name="event_date"/>
+                            <field name="applicant_id"/>
+                            <field name="department_id"/>
+                            <field name="cost_code_id"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="amount_impact"/>
+                            <field name="tax_excluded_amount"/>
+                            <field name="tax_amount"/>
+                            <field name="change_limit_amount"/>
+                            <field name="limit_control_result"/>
+                            <field name="settlement_included"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="说明">
+                            <field name="description" nolabel="1"/>
+                        </page>
+                        <page string="依据">
+                            <field name="basis" nolabel="1"/>
+                        </page>
+                        <page string="附件">
+                            <field name="attachment_ids" widget="many2many_binary"/>
+                        </page>
+                        <page string="来源追溯">
+                            <group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_sc_contract_event_search" model="ir.ui.view">
+        <field name="name">sc.contract.event.search</field>
+        <field name="model">sc.contract.event</field>
+        <field name="arch" type="xml">
+            <search string="合同履约事件">
+                <field name="name"/>
+                <field name="event_no"/>
+                <field name="project_id"/>
+                <field name="contract_id"/>
+                <field name="partner_id"/>
+                <field name="source_channel"/>
+                <filter string="未完成" name="not_done" domain="[('state', 'not in', ['done', 'cancel'])]"/>
+                <filter string="超限阻断" name="limit_block" domain="[('limit_control_result', '=', 'block')]"/>
+                <filter string="纳入结算" name="settlement_included" domain="[('settlement_included', '=', True)]"/>
+                <filter string="按类型" name="group_type" context="{'group_by': 'event_type'}"/>
+                <filter string="按项目" name="group_project" context="{'group_by': 'project_id'}"/>
+                <filter string="按来源端" name="group_source_channel" context="{'group_by': 'source_channel'}"/>
+                <filter string="按状态" name="group_state" context="{'group_by': 'state'}"/>
+            </search>
+        </field>
+    </record>
+</odoo>

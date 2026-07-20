@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="sc_sidebar_templates" xml:space="preserve">
+    <t t-name="smart_construction_core.ScSidebar">
+        <t t-if="state.visible">
+            <nav class="sc-sidebar" aria-label="主导航">
+                <ScSidebarHeader/>
+                <t t-if="state.debugMessage">
+                    <div class="sc-sidebar__debug">
+                        <t t-esc="state.debugMessage"/>
+                    </div>
+                </t>
+                <t t-if="state.enableRoleEntries &amp;&amp; state.roleEntries.length">
+                    <section class="sc-sidebar__section sc-sidebar__section--role">
+                        <div class="sc-sidebar__title sc-sidebar__title--meta">
+                            <span class="sc-sidebar__titleText">我的工作</span>
+                        </div>
+                        <div class="sc-sidebar__items">
+                            <t t-foreach="state.roleEntries" t-as="entry" t-key="entry.key">
+                                <div class="sc-sidebar__roleEntry">
+                                    <a class="sc-sidebar__item sc-sidebar__item--role"
+                                       t-att-class="isRoleEntryActive(entry) ? 'is-active' : ''"
+                                       t-on-click.prevent="() => openRoleEntry(entry)"
+                                       t-attf-href="#menu_id=#{entry.menuId}&amp;action=#{entry.actionId}">
+                                        <span class="sc-sidebar__roleIcon" t-if="entry.icon" aria-hidden="true">
+                                            <t t-esc="entry.icon"/>
+                                        </span>
+                                        <span class="sc-sidebar__itemLabel"><t t-esc="entry.label"/></span>
+                                    </a>
+                                    <div class="sc-sidebar__roleQuick" t-if="entry.quickActions &amp;&amp; entry.quickActions.length">
+                                        <t t-foreach="entry.quickActions" t-as="quick" t-key="quick.actionId">
+                                            <button type="button"
+                                                    class="sc-sidebar__roleQuickButton"
+                                                    t-on-click.stop="() => openRoleQuickAction(quick)">
+                                                <t t-esc="quick.label"/>
+                                            </button>
+                                        </t>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+                    </section>
+                </t>
+                <div class="sc-sidebar__search">
+                    <input type="text"
+                           class="o_input sc-sidebar__searchInput"
+                           placeholder="搜索..."
+                           t-att-value="state.searchTerm"
+                           t-on-input="onSearchInput"/>
+                </div>
+                <t t-if="state.pinnedEntries.length">
+                    <section class="sc-sidebar__section sc-sidebar__section--pinned">
+                        <div class="sc-sidebar__title sc-sidebar__title--meta">
+                            <span class="sc-sidebar__titleText">主入口</span>
+                        </div>
+                        <div class="sc-sidebar__items">
+                            <t t-foreach="state.pinnedEntries" t-as="entry" t-key="entry.key">
+                                <t t-if="!entry.disabled">
+                                    <a class="sc-sidebar__item sc-sidebar__item--pinned"
+                                       t-att-class="entry.menuId &amp;&amp; entry.menuId === state.activeMenuId ? 'is-active' : ''"
+                                       t-on-click.prevent="() => openPinnedEntry(entry)"
+                                       t-att-href="entry.href">
+                                        <span class="sc-sidebar__pinIcon" t-if="entry.icon" aria-hidden="true">
+                                            <t t-esc="entry.icon"/>
+                                        </span>
+                                        <span class="sc-sidebar__itemLabel"><t t-esc="entry.name"/></span>
+                                        <span class="sc-sidebar__tag" t-if="entry.tag"><t t-esc="entry.tag"/></span>
+                                    </a>
+                                </t>
+                                <t t-else="">
+                                    <span class="sc-sidebar__item sc-sidebar__item--pinned is-disabled" aria-disabled="true">
+                                        <span class="sc-sidebar__pinIcon" t-if="entry.icon" aria-hidden="true">
+                                            <t t-esc="entry.icon"/>
+                                        </span>
+                                        <span class="sc-sidebar__itemLabel"><t t-esc="entry.name"/></span>
+                                        <span class="sc-sidebar__tag" t-if="entry.tag"><t t-esc="entry.tag"/></span>
+                                    </span>
+                                </t>
+                            </t>
+                        </div>
+                    </section>
+                </t>
+                <div class="sc-sidebar__body">
+                    <t t-if="favoritesForRender.length">
+                        <section class="sc-sidebar__section">
+                            <div class="sc-sidebar__title sc-sidebar__title--meta">
+                                <span class="sc-sidebar__titleText">收藏</span>
+                                <button type="button"
+                                        class="sc-sidebar__metaButton"
+                                        t-on-click.stop="clearFavoriteMenus">
+                                    清空
+                                </button>
+                            </div>
+                            <div class="sc-sidebar__items">
+                                <t t-foreach="favoritesForRender" t-as="fav" t-key="fav.menuId">
+                                    <a class="sc-sidebar__item"
+                                       t-att-class="fav.menuId === state.activeMenuId ? 'is-active' : ''"
+                                       t-on-click.prevent="() => openMenu(fav.menuId, fav.actionId, fav.name)"
+                                       t-attf-href="#menu_id=#{fav.menuId}&amp;action=#{fav.actionId}">
+                                        <span class="sc-sidebar__itemLabel">
+                                            <t t-if="fav._label">
+                                                <t t-foreach="fav._label" t-as="token" t-key="token_index">
+                                                    <span t-att-class="token.match ? 'sc-sidebar__highlight' : ''">
+                                                        <t t-esc="token.text"/>
+                                                    </span>
+                                                </t>
+                                            </t>
+                                            <t t-else=""><t t-esc="fav.name"/></t>
+                                        </span>
+                                        <button type="button"
+                                                class="sc-sidebar__favButton is-active"
+                                                t-on-click.stop="() => toggleFavorite(fav.menuId, fav.actionId, fav.name)"
+                                                aria-label="取消收藏">
+                                            ★
+                                        </button>
+                                    </a>
+                                </t>
+                            </div>
+                        </section>
+                    </t>
+                    <t t-if="recentForRender.length">
+                        <section class="sc-sidebar__section">
+                            <div class="sc-sidebar__title sc-sidebar__title--meta">
+                                <span class="sc-sidebar__titleText">最近</span>
+                                <button type="button"
+                                        class="sc-sidebar__metaButton"
+                                        t-on-click.stop="clearRecentMenus">
+                                    清空
+                                </button>
+                            </div>
+                            <div class="sc-sidebar__items">
+                                <t t-foreach="recentForRender" t-as="recent" t-key="recent.menuId">
+                                    <a class="sc-sidebar__item"
+                                       t-att-class="recent.menuId === state.activeMenuId ? 'is-active' : ''"
+                                       t-on-click.prevent="() => openMenu(recent.menuId, recent.actionId, recent.name)"
+                                       t-attf-href="#menu_id=#{recent.menuId}&amp;action=#{recent.actionId}">
+                                        <span class="sc-sidebar__itemLabel">
+                                            <t t-if="recent._label">
+                                                <t t-foreach="recent._label" t-as="token" t-key="token_index">
+                                                    <span t-att-class="token.match ? 'sc-sidebar__highlight' : ''">
+                                                        <t t-esc="token.text"/>
+                                                    </span>
+                                                </t>
+                                            </t>
+                                            <t t-else=""><t t-esc="recent.name"/></t>
+                                        </span>
+                                    </a>
+                                </t>
+                            </div>
+                        </section>
+                    </t>
+                    <t t-foreach="sectionsForRender" t-as="domain" t-key="domain.id">
+                        <section class="sc-sidebar__section sc-sidebar__section--domain">
+                            <div class="sc-sidebar__title sc-sidebar__title--domain">
+                                <button type="button"
+                                        class="sc-sidebar__titleButton"
+                                        t-on-click="() => onDomainTitleClick(domain)">
+                                    <span class="sc-sidebar__domainIcon" t-if="domain.icon" aria-hidden="true">
+                                        <t t-esc="domain.icon"/>
+                                    </span>
+                                    <span class="sc-sidebar__titleText">
+                                        <t t-if="domain._label">
+                                            <t t-foreach="domain._label" t-as="token" t-key="token_index">
+                                                <span t-att-class="token.match ? 'sc-sidebar__highlight' : ''">
+                                                    <t t-esc="token.text"/>
+                                                </span>
+                                            </t>
+                                        </t>
+                                        <t t-else=""><t t-esc="domain.name"/></t>
+                                    </span>
+                                </button>
+                                <button type="button"
+                                        class="sc-sidebar__toggleButton"
+                                        t-att-aria-expanded="domain.isOpen || state.searchTerm ? 'true' : 'false'"
+                                        t-on-click="() => toggleDomain(domain.id)"
+                                        aria-label="展开或收起">
+                                    <span class="sc-sidebar__chev" t-att-class="domain.isOpen ? 'is-open' : ''">▸</span>
+                                </button>
+                            </div>
+                            <div class="sc-sidebar__items"
+                                 t-att-class="domain.isOpen || state.searchTerm ? '' : 'is-collapsed'">
+                                <t t-foreach="domain.sections" t-as="section" t-key="section.id">
+                                    <section class="sc-sidebar__section">
+                                        <t t-if="!section._hideTitle">
+                                            <div class="sc-sidebar__title">
+                                                <button type="button"
+                                                        class="sc-sidebar__titleButton"
+                                                        t-on-click="() => onSectionTitleClick(section)">
+                                                    <span class="sc-sidebar__titleText">
+                                                        <t t-if="section._label">
+                                                            <t t-foreach="section._label" t-as="token" t-key="token_index">
+                                                                <span t-att-class="token.match ? 'sc-sidebar__highlight' : ''">
+                                                                    <t t-esc="token.text"/>
+                                                                </span>
+                                                            </t>
+                                                        </t>
+                                                        <t t-else=""><t t-esc="section.name"/></t>
+                                                    </span>
+                                                </button>
+                                                <button type="button"
+                                                        class="sc-sidebar__toggleButton"
+                                                        t-att-aria-expanded="section.isOpen || state.searchTerm ? 'true' : 'false'"
+                                                        t-on-click="() => toggleSection(section.id)"
+                                                        aria-label="展开或收起">
+                                                    <span class="sc-sidebar__chev" t-att-class="section.isOpen ? 'is-open' : ''">▸</span>
+                                                </button>
+                                            </div>
+                                        </t>
+                                        <div class="sc-sidebar__items"
+                                             t-att-class="{'is-collapsed': !(section.isOpen || state.searchTerm), 'is-flattened': section._hideTitle}">
+                                            <t t-if="section.showOverviewEntry">
+                                                <a class="sc-sidebar__item"
+                                                   t-att-class="section.id === state.activeMenuId ? 'is-active' : ''"
+                                                   t-on-click.prevent="() => openMenu(section.id, section.overviewActionId || section.actionId, section.name)"
+                                                   t-attf-href="#menu_id=#{section.id}&amp;action=#{section.overviewActionId || section.actionId}">
+                                                    <span class="sc-sidebar__itemLabel">概览</span>
+                                                    <button type="button"
+                                                            class="sc-sidebar__favButton"
+                                                            t-att-class="isFavorite(section.id) ? 'is-active' : ''"
+                                                            t-on-click.stop="() => toggleFavorite(section.id, section.actionId, section.name)"
+                                                            aria-label="收藏">
+                                                        ★
+                                                    </button>
+                                                </a>
+                                            </t>
+                                            <t t-foreach="section.children" t-as="child" t-key="child.id">
+                                                <t t-if="!child.disabled">
+                                                    <a class="sc-sidebar__item"
+                                                       t-att-class="{'sc-sidebar__item--child': !section._hideTitle, 'is-active': child.id === state.activeMenuId}"
+                                                       t-on-click.prevent="() => openMenu(child.id, child.actionId, child.name)"
+                                                       t-attf-href="#menu_id=#{child.id}&amp;action=#{child.actionId}">
+                                                        <span class="sc-sidebar__itemLabel">
+                                                            <t t-if="child._label">
+                                                                <t t-foreach="child._label" t-as="token" t-key="token_index">
+                                                                    <span t-att-class="token.match ? 'sc-sidebar__highlight' : ''">
+                                                                        <t t-esc="token.text"/>
+                                                                    </span>
+                                                                </t>
+                                                            </t>
+                                                            <t t-else=""><t t-esc="child.name"/></t>
+                                                        </span>
+                                                        <button type="button"
+                                                                class="sc-sidebar__favButton"
+                                                                t-att-class="isFavorite(child.id) ? 'is-active' : ''"
+                                                                t-on-click.stop="() => toggleFavorite(child.id, child.actionId, child.name)"
+                                                                aria-label="收藏">
+                                                            ★
+                                                        </button>
+                                                    </a>
+                                                </t>
+                                                <t t-else="">
+                                                    <span class="sc-sidebar__item is-disabled"
+                                                          t-att-class="{'sc-sidebar__item--child': !section._hideTitle}"
+                                                          aria-disabled="true">
+                                                        <span class="sc-sidebar__itemLabel">
+                                                            <t t-if="child._label">
+                                                                <t t-foreach="child._label" t-as="token" t-key="token_index">
+                                                                    <span t-att-class="token.match ? 'sc-sidebar__highlight' : ''">
+                                                                        <t t-esc="token.text"/>
+                                                                    </span>
+                                                                </t>
+                                                            </t>
+                                                            <t t-else=""><t t-esc="child.name"/></t>
+                                                        </span>
+                                                    </span>
+                                                </t>
+                                            </t>
+                                        </div>
+                                    </section>
+                                </t>
+                            </div>
+                        </section>
+                    </t>
+                </div>
+            </nav>
+        </t>
+    </t>
+    <t t-name="smart_construction_core.ScCompanySwitcherSidebar">
+        <div class="sc-company-switcher" t-att-class="state.open ? 'is-open' : ''">
+            <button type="button"
+                    class="sc-company-switcher__button"
+                    t-on-click="toggleOpen"
+                    t-att-disabled="canSwitch ? undefined : 'disabled'"
+                    t-att-aria-expanded="state.open ? 'true' : 'false'">
+                <span class="sc-company-switcher__label"><t t-esc="currentCompanyName"/></span>
+                <span class="sc-company-switcher__chev"
+                      t-if="canSwitch"
+                      t-att-class="state.open ? 'is-open' : ''">▾</span>
+            </button>
+            <div class="sc-company-switcher__menu" t-if="canSwitch" t-att-class="state.open ? 'is-open' : ''">
+                <t t-foreach="allowedCompanies" t-as="company" t-key="company.id">
+                    <button type="button"
+                            class="sc-company-switcher__item"
+                            t-att-class="company.id === currentCompanyId ? 'is-active' : ''"
+                            t-on-click="() => this.switchCompany(company.id)">
+                        <span class="sc-company-switcher__name"><t t-esc="company.name"/></span>
+                    </button>
+                </t>
+            </div>
+        </div>
+    </t>
+</templates>

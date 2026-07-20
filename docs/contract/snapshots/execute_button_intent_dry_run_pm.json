@@ -1,0 +1,35 @@
+{
+  "action": null,
+  "case": "execute_button_intent_dry_run_pm",
+  "contract_version": "v1",
+  "error": null,
+  "execute_error": null,
+  "execute_result": null,
+  "fallback": false,
+  "meta_fields": null,
+  "model": null,
+  "op": "intent.invoke",
+  "record": null,
+  "record_error": null,
+  "ui_contract": null,
+  "ui_contract_raw": {
+    "effect": {
+      "message": "dry_run",
+      "type": "toast"
+    },
+    "result": {
+      "button_type": "object",
+      "message": "后端已完成 dry run 校验",
+      "method": "write",
+      "reason_code": "DRY_RUN",
+      "res_id": 1,
+      "res_model": "res.partner",
+      "status": "success",
+      "success": true,
+      "type": "dry_run"
+    }
+  },
+  "user": "admin",
+  "user_fallback": null,
+  "view_type": null
+}

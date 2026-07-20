@@ -1,0 +1,277 @@
+#!/usr/bin/env node
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const http = require('http');
+const https = require('https');
+const { assertIntentEnvelope } = require('./intent_smoke_utils');
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:8070';
+const DB_NAME = process.env.E2E_DB || process.env.DB_NAME || process.env.DB || '';
+const LOGIN = process.env.E2E_LOGIN || 'admin';
+const PASSWORD = process.env.E2E_PASSWORD || process.env.ADMIN_PASSWD || 'admin';
+const AUTH_TOKEN = process.env.AUTH_TOKEN || '';
+const BOOTSTRAP_SECRET = process.env.BOOTSTRAP_SECRET || '';
+const BOOTSTRAP_LOGIN = process.env.BOOTSTRAP_LOGIN || '';
+const MODEL = process.env.MVP_MODEL || 'project.project';
+const VIEW_TYPE = process.env.MVP_VIEW_TYPE || 'form';
+const ALLOWED_MISSING = (process.env.ALLOWED_MISSING || '').split(',').map((s) => s.trim()).filter(Boolean);
+const REQUIRED_NODES = (process.env.REQUIRED_NODES || 'field,group,notebook,page,headerButtons,statButtons,ribbon,chatter')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const ARTIFACTS_DIR = process.env.ARTIFACTS_DIR || 'artifacts';
+
+const now = new Date();
+const ts = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
+const outDir = path.join(ARTIFACTS_DIR, 'codex', 'portal-shell-v0_8-semantic', ts);
+
+function log(msg) {
+  console.log(`[fe_view_contract_coverage_smoke] ${msg}`);
+}
+
+function writeJson(file, obj) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(obj, null, 2));
+}
+
+function writeSummary(lines) {
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, 'summary.md'), lines.join('\n'));
+}
+
+function requestJson(url, payload, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const body = JSON.stringify(payload);
+    const opts = {
+      method: 'POST',
+      hostname: u.hostname,
+      port: u.port || (u.protocol === 'https:' ? 443 : 80),
+      path: u.pathname + u.search,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+        ...headers,
+      },
+    };
+    const client = u.protocol === 'https:' ? https : http;
+    const req = client.request(opts, (res) => {
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        let parsed = {};
+        try {
+          parsed = JSON.parse(data || '{}');
+        } catch {
+          parsed = { raw: data };
+        }
+        resolve({ status: res.statusCode || 0, body: parsed });
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+function asArray(value) {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === 'object') return [value];
+  return [];
+}
+
+function countLayoutNodes(nodes) {
+  const counts = {
+    field: 0,
+    group: 0,
+    notebook: 0,
+    page: 0,
+    header: 0,
+    sheet: 0,
+  };
+  const walk = (node) => {
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
+    if (!node || typeof node !== 'object') return;
+    const type = String(node.type || node.kind || '').trim();
+    if (Object.prototype.hasOwnProperty.call(counts, type)) {
+      counts[type] += 1;
+    }
+    ['children', 'tabs', 'pages', 'nodes', 'items'].forEach((key) => {
+      if (Array.isArray(node[key])) {
+        node[key].forEach(walk);
+      }
+    });
+  };
+  walk(nodes);
+  return counts;
+}
+
+function resolvePrimaryViewData(viewData, viewType) {
+  const views = viewData && typeof viewData.views === 'object' ? viewData.views : {};
+  const primary = views && typeof views[viewType] === 'object' ? views[viewType] : {};
+  return primary && Object.keys(primary).length ? primary : viewData;
+}
+
+function isModelMissing(resp) {
+  const msg = String((((resp || {}).body || {}).error || {}).message || '');
+  return (
+    msg.includes('未知模型') ||
+    msg.toLowerCase().includes('unknown model') ||
+    /^'[a-z0-9_.]+'$/i.test(msg.trim())
+  );
+}
+
+async function main() {
+  if (!DB_NAME) {
+    throw new Error('DB_NAME is required (set DB_NAME or E2E_DB)');
+  }
+
+  const intentUrl = `${BASE_URL}/api/v1/intent`;
+  const summary = [];
+
+  let token = AUTH_TOKEN;
+  if (!token && BOOTSTRAP_SECRET) {
+    log('bootstrap: session.bootstrap');
+    const bootstrapPayload = {
+      intent: 'bootstrap',
+      params: { db: DB_NAME, login: BOOTSTRAP_LOGIN },
+    };
+    const bootstrapResp = await requestJson(intentUrl, bootstrapPayload, {
+      'X-Bootstrap-Secret': BOOTSTRAP_SECRET,
+      'X-Anonymous-Intent': '1',
+    });
+    try {
+      assertIntentEnvelope(bootstrapResp, 'bootstrap', { allowMetaIntentAliases: ['session.bootstrap'] });
+    } catch (_err) {
+      writeJson(path.join(outDir, 'bootstrap.log'), bootstrapResp);
+      throw new Error(`bootstrap failed: status=${bootstrapResp.status || 0}`);
+    }
+    token = (bootstrapResp.body.data || {}).token || '';
+  }
+  if (!token) {
+    log(`login: ${LOGIN} db=${DB_NAME}`);
+    const loginPayload = { intent: 'login', params: { db: DB_NAME, login: LOGIN, password: PASSWORD } };
+    const loginResp = await requestJson(intentUrl, loginPayload, { 'X-Anonymous-Intent': '1' });
+    try {
+      assertIntentEnvelope(loginResp, 'login');
+    } catch (_err) {
+      writeJson(path.join(outDir, 'login.log'), loginResp);
+      throw new Error(`login failed: status=${loginResp.status || 0}`);
+    }
+    token = (loginResp.body.data || {}).token || '';
+    if (!token) {
+      throw new Error('login response missing token');
+    }
+  }
+
+  const authHeader = {
+    Authorization: `Bearer ${token}`,
+    'X-Odoo-DB': DB_NAME,
+  };
+
+  log('load_view');
+  const candidateModels = Array.from(new Set([MODEL, 'res.partner']));
+  let viewResp = null;
+  let modelUsed = '';
+  for (const candidate of candidateModels) {
+    const viewPayload = { intent: 'load_view', params: { model: candidate, view_type: VIEW_TYPE } };
+    const resp = await requestJson(intentUrl, viewPayload, authHeader);
+    writeJson(path.join(outDir, `load_view.${candidate.replace(/\./g, '_')}.log`), resp);
+    try {
+      assertIntentEnvelope(resp, 'load_view');
+      viewResp = resp;
+      modelUsed = candidate;
+      break;
+    } catch (_err) {
+      // try next candidate model
+    }
+    if (!isModelMissing(resp)) {
+      viewResp = resp;
+      break;
+    }
+  }
+  if (!viewResp || !modelUsed) {
+    throw new Error(`load_view failed for all models: ${candidateModels.join(',')}`);
+  }
+  writeJson(path.join(outDir, 'load_view.log'), { model_used: modelUsed, response: viewResp });
+
+  const requiredNodes =
+    modelUsed !== MODEL && !process.env.REQUIRED_NODES
+      ? ['field', 'group']
+      : REQUIRED_NODES;
+
+  const viewData = viewResp.body.data || {};
+  const primaryView = resolvePrimaryViewData(viewData, VIEW_TYPE);
+  const layout = primaryView.layout || viewData.layout;
+  const layoutOk = Boolean(layout && typeof layout === 'object');
+  if (!layoutOk) {
+    throw new Error('layout missing');
+  }
+
+  const present = new Set();
+  const layoutCounts = countLayoutNodes(layout);
+  if (layoutCounts.field > 0) present.add('field');
+  if (layoutCounts.group > 0) present.add('group');
+  if (layoutCounts.notebook > 0) present.add('notebook');
+  if (layoutCounts.page > 0) present.add('page');
+
+  if (primaryView.statusbar && typeof primaryView.statusbar === 'object') present.add('statusbar');
+  if (asArray(primaryView.header_buttons).length || asArray(primaryView.headerButtons).length) present.add('headerButtons');
+  if (
+    asArray(primaryView.stat_buttons).length
+    || asArray(primaryView.statButtons).length
+    || asArray(primaryView.button_box).length
+    || asArray(primaryView.buttonBox).length
+  ) present.add('statButtons');
+  if (primaryView.ribbon || layout.ribbon) present.add('ribbon');
+  const chatter = primaryView.chatter || layout.chatter;
+  if (chatter && typeof chatter === 'object' ? chatter.enabled !== false : Boolean(chatter)) present.add('chatter');
+
+  const supported = new Set(['field', 'group', 'notebook', 'page', 'statusbar', 'headerButtons', 'statButtons', 'ribbon', 'chatter']);
+  const missing = requiredNodes.filter((node) => !present.has(node));
+  const allowedMissing = new Set(ALLOWED_MISSING);
+  const blockingMissing = missing.filter((node) => !allowedMissing.has(node));
+
+  summary.push(`layout_ok: ${layoutOk ? 'true' : 'false'}`);
+  summary.push(`model_used: ${modelUsed}`);
+  summary.push(`present_count: ${present.size}`);
+  summary.push(`required_count: ${requiredNodes.length}`);
+  summary.push(`missing_count: ${missing.length}`);
+  summary.push(`present_nodes: ${[...present].sort().join(',') || '-'}`);
+  summary.push(`required_nodes: ${requiredNodes.join(',')}`);
+  summary.push(`supported_nodes: ${[...supported].sort().join(',')}`);
+  summary.push(`missing_nodes: ${missing.join(',') || '-'}`);
+  summary.push(`allowed_missing: ${ALLOWED_MISSING.join(',') || '-'}`);
+
+  writeJson(path.join(outDir, 'coverage.json'), {
+    model: modelUsed,
+    view_type: VIEW_TYPE,
+    present_count: present.size,
+    required_count: requiredNodes.length,
+    missing_count: missing.length,
+    present_nodes: [...present].sort(),
+    required_nodes: requiredNodes,
+    missing_nodes: missing,
+    allowed_missing: ALLOWED_MISSING,
+    blocking_missing: blockingMissing,
+    layout_counts: layoutCounts,
+  });
+  writeSummary(summary);
+
+  if (blockingMissing.length) {
+    throw new Error(`missing nodes: ${blockingMissing.join(',')}`);
+  }
+
+  log('PASS contract coverage');
+  log(`artifacts: ${outDir}`);
+}
+
+main().catch((err) => {
+  console.error(`[fe_view_contract_coverage_smoke] FAIL: ${err.message}`);
+  process.exit(1);
+});

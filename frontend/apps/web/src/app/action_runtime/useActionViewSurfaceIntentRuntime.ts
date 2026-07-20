@@ -1,0 +1,43 @@
+import { computed, type Ref } from 'vue';
+import { resolveUnifiedPageContractV2SurfacePolicies } from '../contracts/unifiedPageContractV2';
+
+type Dict = Record<string, unknown>;
+
+type ActionContractLike = {
+  surface_policies?: {
+    intent_profile?: unknown;
+  };
+};
+
+type UseActionViewSurfaceIntentRuntimeOptions = {
+  actionContract: Ref<ActionContractLike | null>;
+  strictContractMode: Ref<boolean>;
+  strictSurfaceContract: Ref<Dict>;
+  pageText: (key: string, fallback?: string) => string;
+  resolveActionViewSurfaceIntent: (input: Dict) => unknown;
+};
+
+export function useActionViewSurfaceIntentRuntime(options: UseActionViewSurfaceIntentRuntimeOptions) {
+  const contractSurfaceIntent = computed<Dict>(() => {
+    const surfacePolicies = resolveUnifiedPageContractV2SurfacePolicies(options.actionContract.value);
+    const fromSurfacePolicies = surfacePolicies.intent_profile;
+    if (fromSurfacePolicies && typeof fromSurfacePolicies === 'object' && !Array.isArray(fromSurfacePolicies)) {
+      return fromSurfacePolicies as Dict;
+    }
+    return {};
+  });
+
+  const surfaceIntent = computed(() => {
+    return options.resolveActionViewSurfaceIntent({
+      strictContractMode: options.strictContractMode.value,
+      strictSurfaceContract: options.strictSurfaceContract.value,
+      contractSurfaceIntent: contractSurfaceIntent.value,
+      pageText: options.pageText,
+    });
+  });
+
+  return {
+    contractSurfaceIntent,
+    surfaceIntent,
+  };
+}

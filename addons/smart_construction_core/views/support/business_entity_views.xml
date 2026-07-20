@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+        <record id="view_sc_business_entity_search" model="ir.ui.view">
+            <field name="name">sc.business.entity.search</field>
+            <field name="model">sc.business.entity</field>
+            <field name="arch" type="xml">
+                <search string="业务核算主体">
+                    <field name="name"/>
+                    <field name="partner_id"/>
+                    <filter string="平台主体" name="type_platform" domain="[('entity_type', '=', 'platform')]"/>
+                    <filter string="按隔离公司" name="group_company" context="{'group_by': 'company_id'}"/>
+                    <filter string="按往来单位" name="group_partner" context="{'group_by': 'partner_id'}"/>
+                    <filter string="按类型" name="group_type" context="{'group_by': 'entity_type'}"/>
+                </search>
+            </field>
+        </record>
+        <record id="view_sc_business_entity_tree" model="ir.ui.view">
+            <field name="name">sc.business.entity.tree</field>
+            <field name="model">sc.business.entity</field>
+            <field name="arch" type="xml">
+                <tree string="业务核算主体">
+                    <field name="sequence" widget="handle"/>
+                    <field name="name"/>
+                    <field name="company_id"/>
+                    <field name="entity_type"/>
+                    <field name="partner_id"/>
+                    <field name="project_name" optional="hide"/>
+                    <field name="cooperation_type" optional="show"/>
+                    <field name="bank_name" optional="hide"/>
+                    <field name="bank_account_no" optional="hide"/>
+                    <field name="social_credit_code" optional="hide"/>
+                    <field name="payment_amount" optional="hide" sum="付款金额合计"/>
+                    <field name="receipt_amount" optional="hide" sum="收款金额合计"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+        <record id="view_sc_business_entity_form" model="ir.ui.view">
+            <field name="name">sc.business.entity.form</field>
+            <field name="model">sc.business.entity</field>
+            <field name="arch" type="xml">
+                <form string="业务核算主体">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="name"/><field name="company_id"/>
+                                <field name="partner_id"/><field name="active"/>
+                            </group>
+                            <group>
+                                <field name="entity_type"/><field name="document_state_text"/>
+                                <field name="push_result"/><field name="sequence"/>
+                            </group>
+                        </group>
+                        <group string="业务信息">
+                            <group>
+                                <field name="project_name"/><field name="cooperation_type"/>
+                                <field name="social_credit_code"/><field name="main_tax_rate"/>
+                            </group>
+                            <group>
+                                <field name="bank_name"/><field name="bank_account_no"/>
+                                <field name="bank_account_holder"/><field name="receipt_amount"/>
+                                <field name="payment_amount"/><field name="currency_id" invisible="1"/>
+                            </group>
+                        </group>
+                        <group string="录入信息"><field name="entry_user_name"/><field name="entry_time"/></group>
+                        <group string="备注"><field name="note"/></group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="action_sc_business_entity" model="ir.actions.act_window">
+            <field name="name">业务核算主体</field>
+            <field name="res_model">sc.business.entity</field>
+            <field name="view_mode">tree,form</field>
+            <field name="search_view_id" ref="view_sc_business_entity_search"/>
+            <field name="groups_id" eval="[(6, 0, [ref('smart_construction_core.group_sc_cap_business_config_admin')])]"/>
+        </record>
+        <menuitem id="menu_sc_business_entity" name="业务核算主体"
+                  parent="smart_construction_core.menu_sc_data_center"
+                  action="action_sc_business_entity" sequence="11"
+                  groups="smart_construction_core.group_sc_cap_business_config_admin"/>
+    </data>
+</odoo>

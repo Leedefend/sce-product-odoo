@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sce.local/schemas/tenant_delivery/tenant_payload_v1.schema.json",
+  "title": "SCE tenant payload v1 manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "payload_id",
+    "tenant_key",
+    "customer_module",
+    "customer_module_version",
+    "product_interface_version",
+    "source_snapshot_id",
+    "source_version",
+    "source_database_fingerprint",
+    "created_at_utc",
+    "record_counts",
+    "amount_summaries",
+    "relationship_summaries",
+    "filestore_file_count",
+    "filestore_bytes",
+    "payload_checksum",
+    "encryption",
+    "signature_algorithm",
+    "signature_key_id",
+    "files",
+    "import_order"
+  ],
+  "properties": {
+    "schema_version": {"const": "tenant_payload_v1"},
+    "payload_id": {"type": "string", "minLength": 3, "maxLength": 128},
+    "tenant_key": {"type": "string", "pattern": "^[a-z][a-z0-9_]{2,62}$"},
+    "customer_module": {"type": "string", "pattern": "^sce_customer_[a-z0-9_]+$"},
+    "customer_module_version": {"type": "string", "minLength": 1},
+    "product_interface_version": {"const": "1"},
+    "source_snapshot_id": {"type": "string", "minLength": 3, "maxLength": 128},
+    "source_version": {"type": "string", "minLength": 1},
+    "source_database_fingerprint": {"type": "string", "minLength": 1},
+    "created_at_utc": {"type": "string", "format": "date-time"},
+    "record_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "amount_summaries": {"type": "object"},
+    "relationship_summaries": {"type": "object"},
+    "filestore_file_count": {"type": "integer", "minimum": 0},
+    "filestore_bytes": {"type": "integer", "minimum": 0},
+    "payload_checksum": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "encryption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "key_id", "at_rest_encrypted"],
+      "properties": {
+        "algorithm": {"type": "string", "not": {"enum": ["", "none", "plaintext"]}},
+        "key_id": {"type": "string", "minLength": 1},
+        "at_rest_encrypted": {"const": true},
+        "envelope_format": {"type": "string"}
+      }
+    },
+    "signature_algorithm": {"enum": ["ed25519", "hmac-sha256"]},
+    "signature_key_id": {"type": "string", "minLength": 1},
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "bytes", "rows", "sha256"],
+        "properties": {
+          "path": {"type": "string"},
+          "bytes": {"type": "integer", "minimum": 0},
+          "rows": {"type": "integer", "minimum": 0},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "import_order": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+  }
+}

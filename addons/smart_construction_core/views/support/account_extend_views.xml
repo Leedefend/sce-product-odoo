@@ -1,0 +1,350 @@
+<odoo>
+    <record id="view_move_form_sc_cost" model="ir.ui.view">
+        <field name="name">account.move.form.sc.cost</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet/group/group" position="inside">
+                <field name="project_id" groups="account.group_account_invoice,account.group_account_readonly" />
+            </xpath>
+            <xpath expr="//field[@name='line_ids']/tree/field[@name='name']" position="after">
+                <field name="project_id" />
+                <field name="wbs_id" />
+                <field name="cost_code_id" />
+            </xpath>
+        </field>
+    </record>
+    <record id="view_partner_form_sc_complete_name_contract" model="ir.ui.view">
+        <field name="name">res.partner.form.sc.complete.name.contract</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <field name="complete_name" invisible="1" />
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sc_customer_partner_tree" model="ir.ui.view">
+        <field name="name">res.partner.sc.customer.tree</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <tree string="客户" default_order="name">
+                <field name="company_type" string="客户类型" />
+                <field name="name" string="单位名称" />
+                <field name="sc_supplier_type_label" string="供应商类型" optional="hide" />
+                <field name="vat" string="统一社会信用代码" optional="hide" />
+                <field name="sc_default_tax_rate_text" string="主税率" optional="hide" />
+                <field name="phone" string="电话" optional="hide" />
+                <field name="mobile" string="手机" optional="hide" />
+                <field name="email" string="电子邮件" optional="hide" />
+                <field name="sc_region" optional="hide" />
+                <field name="sc_bank_name" string="开户银行" optional="hide" />
+                <field name="sc_bank_account" string="账号" optional="hide" />
+                <field name="sc_default_tax_rate" optional="hide" />
+                <field name="active" string="启用" optional="hide" />
+                <field name="user_id" string="负责人" optional="hide" />
+                <field name="category_id" widget="many2many_tags" string="标签" optional="hide" />
+                <field name="comment" string="备注" optional="hide" />
+                <field name="is_company" string="企业/组织" optional="hide" />
+                <field name="sc_registered_capital" optional="hide" />
+                <field name="sc_account_name" optional="hide" />
+                <field name="street" string="地址" optional="hide" />
+                <field name="sc_business_scope" optional="hide" />
+            </tree>
+        </field>
+    </record>
+    <record id="view_sc_customer_partner_form" model="ir.ui.view">
+        <field name="name">res.partner.sc.customer.form</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <form string="客户">
+                <sheet>
+                    <group col="3">
+                        <group string="客户身份" col="3">
+                            <field name="name" string="客户名称" />
+                            <field name="company_type" string="客户类型" />
+                            <field name="is_company" string="企业/组织" />
+                            <field name="active" string="启用" />
+                            <field name="user_id" string="负责人" />
+                            <field name="category_id" widget="many2many_tags" string="标签" />
+                            <field name="sc_supplier_type_label" string="供应商类型" readonly="1" />
+                        </group>
+                        <group string="企业资质与联系" col="3">
+                            <field name="vat" string="统一社会信用代码" />
+                            <field name="company_registry" string="工商注册号" />
+                            <field name="industry_id" string="行业" />
+                            <field name="sc_region" />
+                            <field name="sc_registered_capital" />
+                            <field name="sc_establishment_date" />
+                            <field name="sc_business_term" />
+                            <field name="sc_legal_representative" />
+                            <field name="sc_contact_name" />
+                            <field name="phone" string="电话" />
+                            <field name="mobile" string="手机" />
+                            <field name="email" string="电子邮件" />
+                            <field name="website" string="网站" />
+                            <field name="street" string="街道地址" />
+                            <field name="street2" string="详细地址" />
+                            <field name="city" string="城市" />
+                            <field name="state_id" string="省/州" />
+                            <field name="zip" string="邮编" />
+                            <field name="country_id" string="国家/地区" />
+                            <field name="sc_business_scope" />
+                        </group>
+                        <group string="账户与业务画像" col="3">
+                            <field name="sc_account_name" string="账户名称" />
+                            <field name="sc_bank_name" string="开户银行" />
+                            <field name="sc_bank_account" string="银行账号" />
+                            <field name="property_payment_term_id" string="客户付款条件" />
+                            <field name="property_account_position_id" string="财政状况" />
+                            <field name="property_account_receivable_id" string="应收账款科目" />
+                            <field name="sc_default_tax_rate" />
+                            <field name="sc_default_tax_rate_text" string="主税率" />
+                        </group>
+                    </group>
+                    <group col="3">
+                        <group string="联系人" col="3">
+                            <field name="child_ids" mode="tree,form" context="{'default_parent_id': id}" nolabel="1">
+                                <tree editable="bottom">
+                                    <field name="name" />
+                                    <field name="function" />
+                                    <field name="phone" />
+                                    <field name="mobile" />
+                                    <field name="email" />
+                                </tree>
+                                <form>
+                                    <sheet>
+                                        <group col="3">
+                                            <field name="name" />
+                                            <field name="function" />
+                                            <field name="phone" />
+                                            <field name="mobile" />
+                                            <field name="email" />
+                                            <field name="street" />
+                                            <field name="comment" />
+                                        </group>
+                                    </sheet>
+                                </form>
+                            </field>
+                        </group>
+                        <group string="账户明细" col="3">
+                            <field name="bank_ids" nolabel="1">
+                                <tree editable="bottom">
+                                    <field name="acc_number" />
+                                    <field name="bank_id" />
+                                    <field name="acc_holder_name" />
+                                </tree>
+                            </field>
+                        </group>
+                        <group string="附件与备注" col="3">
+                            <field name="sc_attachment_ids" widget="many2many_binary" string="附件" />
+                            <field name="comment" nolabel="1" />
+                        </group>
+                    </group>
+                    <group string="业务信息" col="3">
+                        </group>
+                    <group string="关联业务明细" col="3">
+                        </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_sc_customer_partner_search" model="ir.ui.view">
+        <field name="name">res.partner.sc.customer.search</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <search string="客户">
+                <field name="name" string="名称" />
+                <field name="vat" string="统一社会信用代码" />
+                <field name="sc_region" />
+                <field name="sc_default_tax_rate" />
+                <field name="sc_default_tax_rate_text" string="主税率" />
+                <field name="sc_bank_name" />
+                <field name="sc_bank_account" />
+                <field name="phone" />
+                <field name="mobile" />
+                <field name="email" />
+                <field name="sc_supplier_type_label" string="供应商类型" />
+                <field name="category_id" string="标签" />
+                <field name="user_id" string="负责人" />
+                <field name="active" string="启用" />
+                <field name="comment" string="备注" />
+                <field name="street" string="地址" />
+                <field name="sc_business_scope" string="经营范围" />
+                <filter string="企业/组织" name="customer_company" domain="[('is_company', '=', True)]" />
+                <filter string="个人" name="customer_person" domain="[('is_company', '=', False)]" />
+                <filter string="客户兼供应商" name="customer_supplier_mixed" domain="[('supplier_rank', '&gt;', 0)]" />
+                <filter string="含银行账户" name="customer_with_bank_account" domain="[('sc_bank_account', '!=', False)]" />
+                <filter string="已归档" name="customer_inactive" domain="[('active', '=', False)]" />
+                <separator />
+                <filter string="按企业组织/个人" name="group_is_company" context="{'group_by': 'is_company'}" />
+                <filter string="按负责人" name="group_user" context="{'group_by': 'user_id'}" />
+                <filter string="按地区" name="group_region" context="{'group_by': 'sc_region'}" />
+                <filter string="按默认税率" name="group_default_tax_rate" context="{'group_by': 'sc_default_tax_rate'}" />
+            </search>
+        </field>
+    </record>
+    <record id="view_sc_supplier_partner_tree" model="ir.ui.view">
+        <field name="name">res.partner.sc.supplier.tree</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <tree string="供应商" default_order="name">
+                <field name="name" string="单位名称" />
+                <field name="sc_supplier_type_label" string="供应商类型" />
+                <field name="vat" string="统一社会信用代码" optional="hide" />
+                <field name="sc_default_tax_rate_text" string="主税率" optional="hide" />
+                <field name="phone" string="电话" optional="hide" />
+                <field name="mobile" string="手机" optional="hide" />
+                <field name="email" string="电子邮件" optional="hide" />
+                <field name="sc_region" optional="hide" />
+                <field name="sc_bank_name" string="开户银行" optional="hide" />
+                <field name="sc_bank_account" string="账号" optional="hide" />
+                <field name="sc_default_tax_rate" optional="hide" />
+                <field name="active" string="启用" optional="hide" />
+                <field name="user_id" string="负责人" optional="hide" />
+                <field name="category_id" widget="many2many_tags" string="标签" optional="hide" />
+                <field name="comment" string="备注" optional="hide" />
+                <field name="is_company" string="企业/组织" optional="hide" />
+                <field name="sc_registered_capital" optional="hide" />
+                <field name="sc_account_name" optional="hide" />
+                <field name="street" string="地址" optional="hide" />
+                <field name="sc_business_scope" optional="hide" />
+            </tree>
+        </field>
+    </record>
+    <record id="view_sc_supplier_partner_form" model="ir.ui.view">
+        <field name="name">res.partner.sc.supplier.form</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <form string="供应商">
+                <sheet>
+                    <group col="3">
+                        <group string="供应商身份" col="3">
+                            <field name="name" string="供应商名称" />
+                            <field name="company_type" string="主体类型" />
+                            <field name="is_company" string="企业/组织" />
+                            <field name="active" string="启用" />
+                            <field name="sc_supplier_type_ids" widget="many2many_tags" string="业务类型" />
+                            <field name="sc_supplier_type_label" string="供应商类型" readonly="1" />
+                            <field name="user_id" string="负责人" />
+                            <field name="category_id" widget="many2many_tags" string="标签" />
+                        </group>
+                        <group string="企业资质与联系" col="3">
+                            <field name="vat" string="统一社会信用代码" />
+                            <field name="company_registry" string="工商注册号" />
+                            <field name="industry_id" string="行业" />
+                            <field name="sc_region" />
+                            <field name="sc_registered_capital" />
+                            <field name="sc_establishment_date" />
+                            <field name="sc_business_term" />
+                            <field name="sc_legal_representative" />
+                            <field name="sc_contact_name" />
+                            <field name="phone" string="电话" />
+                            <field name="mobile" string="手机" />
+                            <field name="email" string="电子邮件" />
+                            <field name="website" string="网站" />
+                            <field name="street" string="街道地址" />
+                            <field name="street2" string="详细地址" />
+                            <field name="city" string="城市" />
+                            <field name="state_id" string="省/州" />
+                            <field name="zip" string="邮编" />
+                            <field name="country_id" string="国家/地区" />
+                            <field name="sc_business_scope" />
+                        </group>
+                        <group string="账户与业务画像" col="3">
+                            <field name="sc_account_name" string="账户名称" />
+                            <field name="sc_bank_name" string="开户银行" />
+                            <field name="sc_bank_account" string="银行账号" />
+                            <field name="property_supplier_payment_term_id" string="供应商付款条件" />
+                            <field name="property_account_position_id" string="财政状况" />
+                            <field name="property_account_payable_id" string="应付账款科目" />
+                            <field name="sc_default_tax_rate" />
+                            <field name="sc_default_tax_rate_text" string="主税率" />
+                        </group>
+                    </group>
+                    <group col="3">
+                        <group string="联系人" col="3">
+                            <field name="child_ids" mode="tree,form" context="{'default_parent_id': id}" nolabel="1">
+                                <tree editable="bottom">
+                                    <field name="name" />
+                                    <field name="function" />
+                                    <field name="phone" />
+                                    <field name="mobile" />
+                                    <field name="email" />
+                                </tree>
+                                <form>
+                                    <sheet>
+                                        <group col="3">
+                                            <field name="name" />
+                                            <field name="function" />
+                                            <field name="phone" />
+                                            <field name="mobile" />
+                                            <field name="email" />
+                                            <field name="street" />
+                                            <field name="comment" />
+                                        </group>
+                                    </sheet>
+                                </form>
+                            </field>
+                        </group>
+                        <group string="账户明细" col="3">
+                            <field name="bank_ids" nolabel="1">
+                                <tree editable="bottom">
+                                    <field name="acc_number" />
+                                    <field name="bank_id" />
+                                    <field name="acc_holder_name" />
+                                </tree>
+                            </field>
+                        </group>
+                        <group string="附件与备注" col="3">
+                            <field name="sc_attachment_ids" widget="many2many_binary" string="附件" />
+                            <field name="sc_supplier_note" nolabel="1" />
+                            <field name="comment" nolabel="1" />
+                        </group>
+                    </group>
+                    <group string="业务信息" col="3">
+                        </group>
+                    <group string="关联业务明细" col="3">
+                        </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_sc_supplier_partner_search" model="ir.ui.view">
+        <field name="name">res.partner.sc.supplier.search</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <search string="供应商">
+                <field name="name" string="名称" />
+                <field name="sc_supplier_type_ids" string="供应商类型" />
+                <field name="sc_supplier_type_label" />
+                <field name="vat" string="统一社会信用代码" />
+                <field name="sc_region" />
+                <field name="sc_default_tax_rate" />
+                <field name="sc_default_tax_rate_text" string="主税率" />
+                <field name="sc_bank_name" />
+                <field name="sc_bank_account" />
+                <field name="phone" />
+                <field name="mobile" />
+                <field name="email" />
+                <field name="category_id" string="标签" />
+                <field name="user_id" string="负责人" />
+                <field name="active" string="启用" />
+                <field name="comment" string="备注" />
+                <field name="street" string="地址" />
+                <field name="sc_business_scope" string="经营范围" />
+                <filter string="企业/组织" name="supplier_company" domain="[('is_company', '=', True)]" />
+                <filter string="个人" name="supplier_person" domain="[('is_company', '=', False)]" />
+                <filter string="供应商兼客户" name="supplier_customer_mixed" domain="[('customer_rank', '&gt;', 0)]" />
+                <filter string="含银行账户" name="supplier_with_bank_account" domain="[('sc_bank_account', '!=', False)]" />
+                <filter string="已归档" name="supplier_inactive" domain="[('active', '=', False)]" />
+                <separator />
+                <filter string="按企业组织/个人" name="group_is_company" context="{'group_by': 'is_company'}" />
+                <filter string="按负责人" name="group_user" context="{'group_by': 'user_id'}" />
+                <filter string="按主供应商类型" name="group_supplier_type" context="{'group_by': 'sc_supplier_type'}" />
+                <filter string="按地区" name="group_region" context="{'group_by': 'sc_region'}" />
+                <filter string="按默认税率" name="group_default_tax_rate" context="{'group_by': 'sc_default_tax_rate'}" />
+            </search>
+        </field>
+    </record>
+</odoo>

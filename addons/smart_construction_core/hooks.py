@@ -1,0 +1,266 @@
+# -*- coding: utf-8 -*-
+import json
+import zlib
+from odoo import SUPERUSER_ID, api
+from odoo.addons.smart_core.utils.backend_contract_boundaries import ensure_lowcode_contract_source_status
+
+
+REQUIRED_CORE_TAXES = (
+    ("销项VAT 9%", 9.0, "sale"),
+    ("进项VAT 13%", 13.0, "purchase"),
+)
+
+
+def _tax_key(company_id, type_tax_use, name, amount, amount_type, price_include=False):
+    raw = f"{company_id}|{type_tax_use}|{amount_type}|{amount}|{int(bool(price_include))}|{name}".encode("utf-8")
+    return zlib.crc32(raw) & 0xFFFFFFFF
+
+
+def _advisory_xact_lock(cr, key_int):
+    cr.execute("SELECT pg_advisory_xact_lock(%s)", (int(key_int),))
+
+
+def _find_or_create_tax(
+    env,
+    *,
+    company,
+    type_tax_use,
+    name,
+    amount,
+    amount_type="percent",
+    price_include=False,
+    tax_group=None,
+    country=None,
+):
+    """Idempotent tax getter with tx-level lock to avoid duplicate create under concurrency."""
+    Tax = env["account.tax"].with_context(active_test=False).sudo()
+    domain = [
+        ("company_id", "=", company.id),
+        ("type_tax_use", "=", type_tax_use),
+        ("amount_type", "=", amount_type),
+        ("amount", "=", amount),
+        ("price_include", "=", bool(price_include)),
+        ("name", "=", name),
+    ]
+    tax = Tax.search(domain, limit=1)
+    if tax:
+        return tax
+
+    legacy_domain = [
+        ("company_id", "=", company.id),
+        ("type_tax_use", "=", type_tax_use),
+        ("amount_type", "=", amount_type),
+        ("amount", "=", amount),
+        ("price_include", "=", bool(price_include)),
+    ]
+    legacy_tax = Tax.search(legacy_domain, order="active desc, id asc", limit=1)
+    if legacy_tax:
+        return legacy_tax
+
+    lock_key = _tax_key(company.id, type_tax_use, name, amount, amount_type, price_include)
+    _advisory_xact_lock(env.cr, lock_key)
+
+    tax = Tax.search(domain, limit=1)
+    if tax:
+        return tax
+
+    legacy_tax = Tax.search(legacy_domain, order="active desc, id asc", limit=1)
+    if legacy_tax:
+        return legacy_tax
+
+    vals = {
+        "name": name,
+        "amount_type": amount_type,
+        "amount": amount,
+        "type_tax_use": type_tax_use,
+        "price_include": bool(price_include),
+        "company_id": company.id,
+        "active": True,
+    }
+    if tax_group:
+        vals["tax_group_id"] = tax_group.id
+    if country:
+        vals["country_id"] = country.id
+    return Tax.create(vals)
+
+
+def ensure_core_taxes(env_or_cr, registry=None):
+    """Guarantee税组与税率存在，即便被意外删除也能自愈."""
+    if registry:
+        env = api.Environment(env_or_cr, SUPERUSER_ID, {})
+    else:
+        env = env_or_cr
+    company = env.ref("base.main_company")
+    country = env.ref("base.cn", raise_if_not_found=False)
+
+    tax_group_vals = {
+        "name": "增值税",
+        "sequence": 10,
+        "company_id": company.id,
+    }
+    if country:
+        tax_group_vals["country_id"] = country.id
+    tax_group = (
+        env["account.tax.group"]
+        .sudo()
+        .with_context(active_test=False)
+        .search(
+            [
+                ("name", "=", tax_group_vals["name"]),
+                ("company_id", "=", company.id),
+            ],
+            limit=1,
+        )
+    )
+    if not tax_group:
+        tax_group = env["account.tax.group"].sudo().create(tax_group_vals)
+
+    # Neutral contract reference rates belong to smart_construction_seed.
+    # Core owns only the two operational sale/purchase defaults below.
+    tax_defs = list(REQUIRED_CORE_TAXES)
+    for name, amount, tax_use in tax_defs:
+        tax = _find_or_create_tax(
+            env,
+            company=company,
+            type_tax_use=tax_use,
+            name=name,
+            amount=amount,
+            amount_type="percent",
+            price_include=False,
+            tax_group=tax_group,
+            country=country,
+        )
+
+
+def pre_init_hook(env):
+    """Protect legacy tax/tax group xmlids from upgrade-time cleanup.
+
+    Odoo passes env to pre_init_hook. Use env.cr to run SQL.
+    """
+    env.cr.execute(
+        """
+        UPDATE ir_model_data
+           SET noupdate = TRUE,
+               module   = 'smart_construction_legacy'
+         WHERE module = 'smart_construction_core'
+           AND name IN (
+                'tax_default_sale_9',
+                'tax_default_purchase_13',
+                'tax_purchase_vat_13',
+                'tax_purchase_vat_3',
+                'tax_purchase_vat_1',
+                'tax_sale_vat_9',
+                'tax_group_vat_cn'
+           );
+        """
+    )
+
+
+def post_init_hook(env):
+    """Install-time hook to ensure core taxes are present."""
+    ensure_core_taxes(env)
+    _ensure_signup_defaults(env)
+    _task_sc_state_backfill(env)
+    _backfill_lowcode_contract_source_status(env)
+
+
+def _backfill_lowcode_contract_source_status(env):
+    Contract = env["ui.business.config.contract"].sudo()
+    for rec in Contract.search([], order="id"):
+        payload = rec.contract_json if isinstance(rec.contract_json, dict) else {}
+        next_payload = ensure_lowcode_contract_source_status(payload)
+        if next_payload == payload:
+            continue
+        env.cr.execute(
+            """
+            UPDATE ui_business_config_contract
+               SET contract_json = %s::jsonb,
+                   write_date = NOW()
+             WHERE id = %s
+            """,
+            (json.dumps(next_payload, ensure_ascii=False), rec.id),
+        )
+
+
+def _ensure_cny_company_currency(env):
+    """The business product is RMB-only for users; keep company defaults aligned."""
+    env["res.company"]._sc_ensure_cny_currency()
+
+
+def _archive_default_project_stages(env):
+    """Archive Odoo default project stages to keep lifecycle stages canonical."""
+    Stage = env["project.project.stage"].sudo()
+    builtin_names = [
+        "To Do",
+        "In Progress",
+        "Done",
+        "Canceled",
+        "Cancelled",
+        "New",
+    ]
+    for name in builtin_names:
+        stages = Stage.search([("name", "ilike", name), ("active", "=", True)])
+        if stages:
+            stages.write({"active": False})
+
+
+def _ensure_signup_defaults(env):
+    """Seed signup defaults once; never override explicit operator config."""
+    ICP = env["ir.config_parameter"].sudo()
+    if not ICP.get_param("sc.signup.mode"):
+        login_env = ICP.get_param("sc.login.env", "prod")
+        mode = "invite" if login_env in ("prod", "production") else "open"
+        ICP.set_param("sc.signup.mode", mode)
+
+    if ICP.get_param("sc.signup.require_email_verify") in (None, False, ""):
+        ICP.set_param("sc.signup.require_email_verify", "true")
+    if ICP.get_param("sc.signup.default_group_xmlids") in (None, False, ""):
+        ICP.set_param("sc.signup.default_group_xmlids", "base.group_portal")
+    if ICP.get_param("sc.signup.domain_whitelist") in (None, False):
+        ICP.set_param("sc.signup.domain_whitelist", "")
+    if ICP.get_param("sc.signup.recaptcha.mode") in (None, False, ""):
+        ICP.set_param("sc.signup.recaptcha.mode", "soft")
+    if ICP.get_param("sc.signup.token_expiration_hours") in (None, False, ""):
+        ICP.set_param("sc.signup.token_expiration_hours", "24")
+    if ICP.get_param("sc.signup.ratelimit.window_sec") in (None, False, ""):
+        ICP.set_param("sc.signup.ratelimit.window_sec", "60")
+    if ICP.get_param("sc.signup.ratelimit.max_per_ip") in (None, False, ""):
+        ICP.set_param("sc.signup.ratelimit.max_per_ip", "3")
+    if ICP.get_param("sc.signup.ratelimit.max_per_email") in (None, False, ""):
+        ICP.set_param("sc.signup.ratelimit.max_per_email", "2")
+    if ICP.get_param("sc.signup.ratelimit.gc_days") in (None, False, ""):
+        ICP.set_param("sc.signup.ratelimit.gc_days", "7")
+
+
+_TASK_SC_STATE_BACKFILL_KEY = "sc.task_sc_state.backfill.v0_1"
+_TASK_SC_STATE_BACKFILL_COUNT_KEY = "sc.task_sc_state.backfill.v0_1.count"
+
+
+def _task_sc_state_backfill(env):
+    """Backfill sc_state once for legacy tasks; never overwrite user data."""
+    ICP = env["ir.config_parameter"].sudo()
+    if ICP.get_param(_TASK_SC_STATE_BACKFILL_KEY) == "1":
+        return
+
+    Task = env["project.task"].sudo()
+    ids = Task.search([("sc_state", "=", False)]).ids
+    if not ids:
+        ICP.set_param(_TASK_SC_STATE_BACKFILL_KEY, "1")
+        ICP.set_param(_TASK_SC_STATE_BACKFILL_COUNT_KEY, "0")
+        return
+
+    updated = 0
+    batch_size = 2000
+    for i in range(0, len(ids), batch_size):
+        batch = Task.browse(ids[i : i + batch_size])
+        for task in batch:
+            if task.sc_state:
+                continue
+            inferred = "draft"
+            if getattr(task, "state", None) == "done":
+                inferred = "done"
+            task.with_context(allow_transition=True).write({"sc_state": inferred})
+            updated += 1
+
+    ICP.set_param(_TASK_SC_STATE_BACKFILL_KEY, "1")
+    ICP.set_param(_TASK_SC_STATE_BACKFILL_COUNT_KEY, str(updated))

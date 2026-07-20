@@ -1,0 +1,1741 @@
+# -*- coding: utf-8 -*-
+from __future__ import annotations
+
+from importlib import import_module
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
+import re
+from typing import Any, Dict
+from odoo.addons.smart_core.core.source_authority import build_source_authority_contract
+from odoo.addons.smart_core.core.page_contract_semantic_orchestration_bridge import (
+    apply_page_contract_semantic_orchestration_bridge,
+)
+from odoo.addons.smart_core.core.page_contract_parser_semantic_bridge import apply_page_contract_parser_semantic_bridge
+
+def _load_semantics_registry() -> Dict[str, Any]:
+    registry_path = Path(__file__).with_name("orchestration_semantics.py")
+    try:
+        spec = spec_from_file_location("smart_core_orchestration_semantics_page_contracts", registry_path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError("spec unavailable")
+        module = module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return {
+            "STATE_TONES": tuple(getattr(module, "STATE_TONES", ()) or ()),
+            "PROGRESS_STATES": tuple(getattr(module, "PROGRESS_STATES", ()) or ()),
+        }
+    except Exception:
+        return {}
+
+
+_SEM = _load_semantics_registry()
+STATE_TONES = _SEM.get("STATE_TONES") or ("success", "warning", "danger", "info", "neutral")
+PROGRESS_STATES = _SEM.get("PROGRESS_STATES") or ("overdue", "blocked", "pending", "running", "completed")
+SUPPORTED_ROLE_CODES = {"pm", "finance", "owner"}
+_ACTION_TARGET_RESOLVER = None
+_DATA_PROVIDER_MODULE = None
+SOURCE_KIND = "page_contract_projection"
+SOURCE_AUTHORITIES = (
+    "page_contracts_builder",
+    "page_profile_overrides",
+    "page_orchestration_data_provider",
+    "page_text_overrides",
+)
+NO_BUSINESS_FACT_AUTHORITY = True
+PAGE_TEXT_OVERRIDE_SOURCE_KIND = "page_text_override_projection"
+
+
+def source_authority_contract() -> Dict[str, Any]:
+    return build_source_authority_contract(
+        kind=SOURCE_KIND,
+        authorities=SOURCE_AUTHORITIES,
+        no_business_fact_authority=NO_BUSINESS_FACT_AUTHORITY,
+        page_text_override_source=PAGE_TEXT_OVERRIDE_SOURCE_KIND,
+    )
+
+
+def page_text_override_source_authority_contract() -> Dict[str, Any]:
+    return build_source_authority_contract(
+        kind=PAGE_TEXT_OVERRIDE_SOURCE_KIND,
+        authorities=("builtin_page_texts", "page_profile_overrides.page_texts"),
+        rebuildable=None,
+        no_business_fact_authority=True,
+        extension_policy=True,
+    )
+
+
+def _resolve_page_profile_overrides(data: Dict[str, Any]) -> Dict[str, Any]:
+    if not isinstance(data, dict):
+        return {}
+    direct_payload = data.get("page_profile_overrides")
+    if isinstance(direct_payload, dict):
+        return direct_payload
+    ext_facts = data.get("ext_facts") if isinstance(data.get("ext_facts"), dict) else {}
+    ext_payload = ext_facts.get("page_profile_overrides") if isinstance(ext_facts.get("page_profile_overrides"), dict) else {}
+    return ext_payload or {}
+
+
+def _apply_page_text_overrides(payload: Dict[str, Any], profile_overrides: Dict[str, Any] | None) -> None:
+    if not isinstance(payload, dict) or not isinstance(profile_overrides, dict):
+        return
+    pages = payload.get("pages") if isinstance(payload.get("pages"), dict) else {}
+    overrides = profile_overrides.get("page_texts") if isinstance(profile_overrides.get("page_texts"), dict) else {}
+    for page_key, text_overrides in overrides.items():
+        page = pages.get(str(page_key or "").strip())
+        if not isinstance(page, dict) or not isinstance(text_overrides, dict):
+            continue
+        texts = page.get("texts") if isinstance(page.get("texts"), dict) else {}
+        next_texts = dict(texts)
+        for key, value in text_overrides.items():
+            text_key = str(key or "").strip()
+            if not text_key:
+                continue
+            next_texts[text_key] = str(value or "")
+        page["texts"] = next_texts
+
+
+def _resolve_override_list(overrides: Dict[str, Any] | None, bucket: str, key: str) -> list[str]:
+    if not isinstance(overrides, dict):
+        return []
+    bucket_payload = overrides.get(bucket)
+    if not isinstance(bucket_payload, dict):
+        return []
+    raw = bucket_payload.get(str(key or "").strip().lower())
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for item in raw:
+        token = str(item or "").strip()
+        if token:
+            out.append(token)
+    return out
+
+
+def _resolve_override_actions(overrides: Dict[str, Any] | None, key: str) -> list[Dict[str, Any]]:
+    if not isinstance(overrides, dict):
+        return []
+    bucket_payload = overrides.get("default_page_actions")
+    if not isinstance(bucket_payload, dict):
+        return []
+    raw = bucket_payload.get(str(key or "").strip().lower())
+    if not isinstance(raw, list):
+        return []
+    out: list[Dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        action_key = str(item.get("key") or "").strip()
+        if not action_key:
+            continue
+        out.append(
+            {
+                "key": action_key,
+                "label": str(item.get("label") or action_key),
+                "intent": str(item.get("intent") or "ui.contract"),
+            }
+        )
+    return out
+
+
+def _shared_action_target(action_key: str, page_key: str) -> Dict[str, Any]:
+    global _ACTION_TARGET_RESOLVER
+    if callable(_ACTION_TARGET_RESOLVER):
+        return _ACTION_TARGET_RESOLVER(action_key, page_key)
+    try:
+        module = import_module("odoo.addons.smart_core.core.action_target_schema")
+        resolver = getattr(module, "resolve_action_target", None)
+        if callable(resolver):
+            _ACTION_TARGET_RESOLVER = resolver
+            return resolver(action_key, page_key)
+    except Exception:
+        pass
+    helper_path = Path(__file__).with_name("action_target_schema.py")
+    try:
+        spec = spec_from_file_location("smart_core_action_target_schema_page_contracts", helper_path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError("spec unavailable")
+        module = module_from_spec(spec)
+        spec.loader.exec_module(module)
+        resolver = getattr(module, "resolve_action_target", None)
+        if callable(resolver):
+            _ACTION_TARGET_RESOLVER = resolver
+            return resolver(action_key, page_key)
+    except Exception:
+        pass
+    fallback_key = str(action_key or "").strip().lower()
+    if fallback_key in {"open_workbench", "open_landing"}:
+        return {"kind": "scene.key", "scene_key": "workspace.home"}
+    if fallback_key in {"open_my_work", "open_workspace_overview"}:
+        return {"kind": "scene.key", "scene_key": "my_work.workspace"}
+    if fallback_key in {"refresh_page", "refresh"}:
+        return {"kind": "page.refresh"}
+    fallback_scene = str(page_key or "").strip().lower() or "workspace.home"
+    return {"kind": "scene.key", "scene_key": fallback_scene}
+
+
+def _load_data_provider():
+    global _DATA_PROVIDER_MODULE
+    if _DATA_PROVIDER_MODULE is not None:
+        return _DATA_PROVIDER_MODULE
+    provider_path = Path(__file__).with_name("page_orchestration_data_provider.py")
+    try:
+        spec = spec_from_file_location("smart_core_page_orchestration_data_provider", provider_path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError("spec unavailable")
+        module = module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _DATA_PROVIDER_MODULE = module
+        return module
+    except Exception:
+        _DATA_PROVIDER_MODULE = False
+        return None
+
+
+def _resolve_role_source_code(data: Dict[str, Any]) -> str:
+    role_surface = data.get("role_surface") if isinstance(data.get("role_surface"), dict) else {}
+    role_code = str(role_surface.get("role_code") or "").strip().lower()
+    if role_code:
+        return role_code
+    return "owner"
+
+
+def _normalize_role_code(data: Dict[str, Any]) -> str:
+    role_code = _resolve_role_source_code(data)
+    if role_code in SUPPORTED_ROLE_CODES:
+        return role_code
+    return "owner"
+
+
+def _normalize_page_type(page_key: str) -> str:
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_page_type", None)
+        if callable(fn):
+            value = str(fn(page_key) or "").strip()
+            if value:
+                return value
+    key = str(page_key or "").strip().lower()
+    if key in {"home", "workbench"}:
+        return "workspace"
+    if key in {"login", "menu", "placeholder"}:
+        return "entry_hub"
+    if key in {"my_work"}:
+        return "approval"
+    if key in {"scene_health", "usage_analytics"}:
+        return "monitor"
+    if key in {"action", "record", "scene"}:
+        return "detail"
+    return "list"
+
+
+def _page_audience(page_key: str, profile_overrides: Dict[str, Any] | None = None) -> list[str]:
+    override_value = _resolve_override_list(profile_overrides, "page_audience", page_key)
+    if override_value:
+        return override_value
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_page_audience", None)
+        if callable(fn):
+            value = fn(page_key)
+            if isinstance(value, list) and value:
+                return value
+    key = str(page_key or "").strip().lower()
+    if key in {"usage_analytics", "scene_health"}:
+        return ["executive", "owner", "internal_user"]
+    if key in {"my_work", "action", "record"}:
+        return ["internal_user", "owner", "reviewer"]
+    if key in {"home", "workbench"}:
+        return ["internal_user", "owner", "executive"]
+    return ["generic_user"]
+
+
+def _role_section_policy(role_code: str) -> Dict[str, Dict[str, list[str]]]:
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_role_section_policy", None)
+        if callable(fn):
+            value = fn(role_code)
+            if isinstance(value, dict):
+                return value
+    policies: Dict[str, Dict[str, Dict[str, list[str]]]] = {
+        "pm": {
+            "usage_analytics": {"disable": ["tables_role_user"]},
+            "scene_health": {"disable": ["details_debt"]},
+        },
+        "finance": {
+            "action": {"disable": ["group_view"]},
+            "record": {"disable": ["dev_context"]},
+        },
+        "owner": {
+            "workbench": {"disable": ["hud_details"]},
+            "action": {"disable": ["advanced_view", "dev_context"]},
+            "record": {"disable": ["dev_context"]},
+            "scene_health": {"disable": ["details_drift", "details_debt"]},
+        },
+    }
+    return policies.get(role_code, {})
+
+
+def _apply_role_section_policy(payload: Dict[str, Any], role_code: str) -> None:
+    pages = payload.get("pages") if isinstance(payload.get("pages"), dict) else {}
+    if not isinstance(pages, dict):
+        return
+    policies = _role_section_policy(role_code)
+    if not policies:
+        return
+    for page_key, cfg in policies.items():
+        page = pages.get(page_key) if isinstance(pages.get(page_key), dict) else {}
+        sections = page.get("sections") if isinstance(page.get("sections"), list) else []
+        disable = {str(key).strip() for key in (cfg.get("disable") or []) if str(key).strip()}
+        if not disable:
+            continue
+        for section in sections:
+            if not isinstance(section, dict):
+                continue
+            section_key = str(section.get("key") or "").strip()
+            if section_key in disable:
+                section["enabled"] = False
+
+
+def _role_zone_order(role_code: str, page_type: str, page_key: str = "") -> list[str]:
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_role_zone_order", None)
+        if callable(fn):
+            value = fn(role_code, page_type, page_key)
+            if isinstance(value, list) and value:
+                return value
+    page = str(page_key or "").strip().lower()
+    if page == "action":
+        if role_code == "finance":
+            return ["secondary", "primary", "hero", "supporting"]
+        if role_code == "owner":
+            return ["primary", "secondary", "hero", "supporting"]
+        return ["primary", "secondary", "hero", "supporting"]
+    if page_type == "monitor":
+        return ["hero", "secondary", "primary", "supporting"] if role_code == "finance" else ["hero", "primary", "secondary", "supporting"]
+    if page_type == "approval":
+        return ["hero", "primary", "supporting", "secondary"] if role_code == "pm" else ["hero", "secondary", "primary", "supporting"]
+    if page_type == "detail":
+        return ["hero", "primary", "secondary", "supporting"] if role_code != "owner" else ["hero", "supporting", "primary", "secondary"]
+    return ["hero", "primary", "secondary", "supporting"]
+
+
+def _role_focus_sections(
+    role_code: str,
+    page_key: str,
+    profile_overrides: Dict[str, Any] | None = None,
+) -> list[str]:
+    override_key = f"{str(role_code or '').strip().lower()}::{str(page_key or '').strip().lower()}"
+    override_value = _resolve_override_list(profile_overrides, "role_focus_sections", override_key)
+    if override_value:
+        return override_value
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_role_focus_sections", None)
+        if callable(fn):
+            value = fn(role_code, page_key)
+            if isinstance(value, list):
+                return value
+    page = str(page_key or "").strip().lower()
+    mapping: Dict[str, Dict[str, list[str]]] = {
+        "pm": {
+            "workbench": ["status_panel", "tiles"],
+            "action": ["quick_actions", "quick_filters"],
+            "record": ["project_summary", "next_actions"],
+            "my_work": ["todo_focus", "list_main"],
+        },
+        "finance": {
+            "workbench": ["status_panel"],
+            "action": ["quick_filters", "group_summary"],
+            "record": ["project_summary"],
+            "usage_analytics": ["summary_usage", "tables_daily"],
+        },
+        "owner": {
+            "workbench": ["header", "status_panel"],
+            "scene_health": ["cards", "governance"],
+            "usage_analytics": ["summary_visibility", "tables_top"],
+            "action": ["focus_strip"],
+        },
+    }
+    return mapping.get(role_code, {}).get(page, [])
+
+
+def _zone_from_tag(tag: str) -> Dict[str, str]:
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_zone_from_tag", None)
+        if callable(fn):
+            payload = fn(tag)
+            if isinstance(payload, dict) and payload:
+                return payload
+    normalized = str(tag or "").strip().lower()
+    if normalized == "header":
+        return {"key": "hero", "title": "页面头部", "zone_type": "hero", "display_mode": "stack"}
+    if normalized == "details":
+        return {"key": "supporting", "title": "辅助信息", "zone_type": "supporting", "display_mode": "accordion"}
+    if normalized == "div":
+        return {"key": "secondary", "title": "扩展信息", "zone_type": "secondary", "display_mode": "flow"}
+    return {"key": "primary", "title": "主体内容", "zone_type": "primary", "display_mode": "stack"}
+
+
+def _zone_for_section(page_key: str, section_key: str, tag: str) -> Dict[str, str]:
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_zone_for_section", None)
+        if callable(fn):
+            payload = fn(page_key, section_key, tag)
+            if isinstance(payload, dict) and payload:
+                return payload
+    payload = _zone_from_tag(tag)
+    page = str(page_key or "").strip().lower()
+    section = str(section_key or "").strip().lower()
+    if page == "my_work":
+        if section == "hero":
+            payload["title"] = "工作概览"
+            payload["description"] = "角色上下文、建议入口与工作总览。"
+            return payload
+        if section in {"todo_focus", "list_main"}:
+            payload["title"] = "当前工作项"
+            payload["description"] = "按优先级查看待办、关注和相关动态。"
+            return payload
+        if section == "retry_panel":
+            payload["title"] = "失败与重试"
+            payload["description"] = "集中处理失败项、重试请求与证据。"
+            return payload
+    payload["description"] = ""
+    return payload
+
+
+def _semantic_from_section(page_key: str, section_key: str, tag: str) -> Dict[str, Any]:
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_semantic_from_section", None)
+        if callable(fn):
+            payload = fn(page_key, section_key, tag)
+            if isinstance(payload, dict) and payload:
+                return payload
+    key = str(section_key or "").strip().lower()
+    page = str(page_key or "").strip().lower()
+    normalized_tag = str(tag or "").strip().lower()
+
+    if normalized_tag == "header":
+        return {"block_type": "record_summary", "tone": "info", "progress": "running", "importance": "high"}
+    if normalized_tag == "details":
+        return {"block_type": "accordion_group", "tone": "neutral", "progress": "completed", "importance": "medium"}
+    if normalized_tag == "div":
+        return {"block_type": "activity_feed", "tone": "neutral", "progress": "running", "importance": "medium"}
+
+    if any(token in key for token in ("error", "forbidden", "risk", "warning", "blocked")):
+        return {"block_type": "alert_panel", "tone": "danger", "progress": "blocked", "importance": "high"}
+    if any(token in key for token in ("loading", "pending", "status_loading")):
+        return {"block_type": "progress_summary", "tone": "info", "progress": "running", "importance": "medium"}
+    if any(token in key for token in ("summary", "kpi", "metric", "cards", "hero", "project_summary")):
+        return {"block_type": "metric_row", "tone": "info", "progress": "running", "importance": "high"}
+    if any(token in key for token in ("todo", "approval", "quick_actions", "next_actions")):
+        return {"block_type": "todo_list", "tone": "warning", "progress": "pending", "importance": "high"}
+    if any(token in key for token in ("filter", "group", "slice", "preset", "tiles")):
+        return {"block_type": "entry_grid", "tone": "neutral", "progress": "completed", "importance": "medium"}
+    if any(token in key for token in ("table", "list", "daily", "top", "visibility")):
+        return {"block_type": "activity_feed", "tone": "neutral", "progress": "running", "importance": "medium"}
+    if page in {"login", "menu", "placeholder"}:
+        return {"block_type": "record_summary", "tone": "neutral", "progress": "running", "importance": "medium"}
+    return {"block_type": "record_summary", "tone": "neutral", "progress": "running", "importance": "medium"}
+
+
+def _action_templates(section_key: str) -> list[Dict[str, Any]]:
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_action_templates", None)
+        if callable(fn):
+            payload = fn(section_key)
+            if isinstance(payload, list):
+                return payload
+    key = str(section_key or "").strip().lower()
+    if "risk" in key:
+        return [{"key": "open_workspace_overview", "label": "查看重点事项", "intent": "ui.contract"}]
+    if any(token in key for token in ("approval", "todo", "next_actions")):
+        return [{"key": "open_my_work", "label": "进入工作区", "intent": "ui.contract"}]
+    if any(token in key for token in ("filter", "group", "slice")):
+        return [{"key": "apply_filters", "label": "应用筛选", "intent": "ui.contract"}]
+    if any(token in key for token in ("table", "list", "records")):
+        return [{"key": "open_list", "label": "查看明细", "intent": "ui.contract"}]
+    return []
+
+
+def _action_templates_for_page(page_key: str, section_key: str) -> list[Dict[str, Any]]:
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_action_templates_for_page", None)
+        if callable(fn):
+            payload = fn(page_key, section_key)
+            if isinstance(payload, list):
+                return payload
+    page = str(page_key or "").strip().lower()
+    section = str(section_key or "").strip().lower()
+    if page == "my_work":
+        if section == "todo_focus":
+            return [{"key": "open_my_work", "label": "进入工作区", "intent": "ui.contract"}]
+        if section == "list_main":
+            return [{"key": "open_list", "label": "查看全部事项", "intent": "ui.contract"}]
+        if section == "retry_panel":
+            return [{"key": "open_failed", "label": "查看失败项", "intent": "ui.contract"}]
+    return _action_templates(section_key)
+
+
+def _block_title(page_key: str, section_key: str) -> str:
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_block_title", None)
+        if callable(fn):
+            value = str(fn(page_key, section_key) or "").strip()
+            if value:
+                return value
+    page = str(page_key or "").strip().lower()
+    section = str(section_key or "").strip().lower()
+    if page == "my_work":
+        titles = {
+            "hero": "工作概览",
+            "todo_focus": "待我处理",
+            "list_main": "事项动态",
+            "retry_panel": "失败与重试",
+        }
+        if section in titles:
+            return titles[section]
+    return str(section_key or "").strip()
+
+
+def _action_target(action_key: str, page_key: str) -> Dict[str, Any]:
+    page = str(page_key or "").strip().lower()
+    key = str(action_key or "").strip().lower()
+    if page == "my_work":
+        if key == "open_list":
+            return {"kind": "route.path", "path": "/my-work"}
+        if key == "open_failed":
+            return {"kind": "route.path", "path": "/my-work"}
+    return _shared_action_target(action_key, page_key)
+
+
+def _data_source_key(section_key: str) -> str:
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_section_data_source_key", None)
+        if callable(fn):
+            value = str(fn(section_key) or "").strip()
+            if value:
+                return value
+    token = re.sub(r"[^a-z0-9_]+", "_", str(section_key or "").strip().lower())
+    token = re.sub(r"_+", "_", token).strip("_")
+    if not token:
+        token = "section"
+    return f"ds_section_{token}"
+
+
+def _base_data_sources() -> Dict[str, Dict[str, Any]]:
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_base_data_sources", None)
+        if callable(fn):
+            payload = fn()
+            if isinstance(payload, dict) and payload:
+                return payload
+    return {
+        "ds_sections": {"source_type": "static", "provider": "page_contract.sections", "section_keys": ["_all"]},
+    }
+
+
+def _section_data_source(page_key: str, section_key: str, section_tag: str) -> Dict[str, Any]:
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_section_data_source", None)
+        if callable(fn):
+            payload = fn(page_key, section_key, section_tag)
+            if isinstance(payload, dict) and payload:
+                return payload
+    return {
+        "source_type": "scene_context",
+        "provider": "page_contract.section",
+        "page_key": page_key,
+        "section_key": section_key,
+        "section_tag": section_tag,
+        "section_keys": [section_key],
+    }
+
+
+def _default_page_actions(page_key: str, profile_overrides: Dict[str, Any] | None = None) -> list[Dict[str, Any]]:
+    override_value = _resolve_override_actions(profile_overrides, page_key)
+    if override_value:
+        return override_value
+    provider = _load_data_provider()
+    if provider:
+        fn = getattr(provider, "build_default_page_actions", None)
+        if callable(fn):
+            payload = fn(page_key)
+            if isinstance(payload, list):
+                return payload
+    key = str(page_key or "").strip().lower()
+    if key == "home":
+        return [
+            {"key": "open_my_work", "label": "我的工作", "intent": "ui.contract"},
+            {"key": "open_usage_analytics", "label": "使用分析", "intent": "ui.contract"},
+        ]
+    if key == "my_work":
+        return [
+            {"key": "open_workbench", "label": "返回角色首页", "intent": "ui.contract"},
+            {"key": "refresh_page", "label": "刷新", "intent": "api.data"},
+        ]
+    if key == "workbench":
+        return [
+            {"key": "open_workbench", "label": "返回角色首页", "intent": "ui.contract"},
+            {"key": "open_menu", "label": "打开菜单", "intent": "ui.contract"},
+            {"key": "refresh_page", "label": "刷新", "intent": "api.data"},
+        ]
+    if key in {"scene_health", "usage_analytics", "scene_packages"}:
+        return [
+            {"key": "open_workbench", "label": "返回角色首页", "intent": "ui.contract"},
+            {"key": "refresh_page", "label": "刷新", "intent": "api.data"},
+        ]
+    if key in {"action", "record", "scene"}:
+        return [
+            {"key": "open_my_work", "label": "进入工作区", "intent": "ui.contract"},
+            {"key": "open_workspace_overview", "label": "查看我的工作概览", "intent": "ui.contract"},
+            {"key": "refresh_page", "label": "刷新", "intent": "api.data"},
+        ]
+    return [{"key": "refresh_page", "label": "刷新", "intent": "api.data"}]
+
+
+def _build_page_orchestration_v1(
+    page_key: str,
+    page: Dict[str, Any],
+    role_code: str,
+    role_source_code: str | None = None,
+    profile_overrides: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    source_role_code = str(role_source_code or "").strip().lower() or role_code
+    sections = page.get("sections") if isinstance(page.get("sections"), list) else []
+    title = ""
+    texts = page.get("texts") if isinstance(page.get("texts"), dict) else {}
+    if isinstance(texts, dict):
+        title = str(texts.get("title") or "").strip()
+    if not title:
+        title = page_key.replace("_", " ").strip().title() or "Page"
+
+    audience = _page_audience(page_key, profile_overrides=profile_overrides)
+    page_type = _normalize_page_type(page_key)
+    zone_buckets: Dict[str, Dict[str, Any]] = {}
+    data_sources: Dict[str, Dict[str, Any]] = _base_data_sources()
+    focus_sections = {
+        key: idx + 1
+        for idx, key in enumerate(
+            _role_focus_sections(role_code, page_key, profile_overrides=profile_overrides)
+        )
+    }
+    for idx, section in enumerate(sections):
+        if not isinstance(section, dict):
+            continue
+        section_key = str(section.get("key") or "").strip()
+        if not section_key:
+            continue
+        tag = str(section.get("tag") or "section").strip().lower()
+        enabled = bool(section.get("enabled") is True)
+        order_raw = section.get("order")
+        order = int(order_raw) if isinstance(order_raw, int) and order_raw > 0 else idx + 1
+        zone_cfg = _zone_for_section(page_key, section_key, tag)
+        zone_key = zone_cfg["key"]
+        zone = zone_buckets.get(zone_key)
+        if zone is None:
+            zone = {
+                "key": zone_key,
+                "title": zone_cfg.get("title", ""),
+                "description": zone_cfg.get("description", ""),
+                "zone_type": zone_cfg["zone_type"],
+                "display_mode": zone_cfg["display_mode"],
+                "priority": 100 - (len(zone_buckets) * 10),
+                "visibility": {"roles": audience, "capabilities": [], "expr": None},
+                "blocks": [],
+            }
+            zone_buckets[zone_key] = zone
+
+        semantic = _semantic_from_section(page_key, section_key, tag)
+        data_source = _data_source_key(section_key)
+        data_sources[data_source] = _section_data_source(page_key, section_key, tag)
+        zone["blocks"].append(
+            {
+                "key": f"{page_key}.{section_key}",
+                "block_type": semantic["block_type"],
+                "title": _block_title(page_key, section_key),
+                "priority": max(1, 100 - order),
+                "importance": semantic["importance"],
+                "tone": semantic["tone"],
+                "progress": semantic["progress"] if enabled else "pending",
+                "section_key": section_key,
+                "data_source": data_source,
+                "loading_strategy": "eager" if tag == "header" else "lazy",
+                "refreshable": True,
+                "collapsible": bool(tag == "details"),
+                "visibility": {"roles": audience, "capabilities": [], "expr": None},
+                "actions": _action_templates_for_page(page_key, section_key),
+                "payload": {"tag": tag, "enabled": enabled, "open": bool(section.get("open") is True)},
+            }
+        )
+
+        if section_key in focus_sections:
+            zone["blocks"][-1]["priority"] = 200 - focus_sections[section_key]
+            zone["blocks"][-1]["focus"] = True
+        else:
+            zone["blocks"][-1]["focus"] = False
+
+    zones = list(zone_buckets.values())
+    zone_rank = {key: idx + 1 for idx, key in enumerate(_role_zone_order(role_code, page_type, page_key))}
+    for zone in zones:
+        zone_key = str(zone.get("key") or "").strip()
+        zone["priority"] = 100 - ((zone_rank.get(zone_key, 99) - 1) * 10)
+    for zone in zones:
+        zone["blocks"] = sorted(
+            zone.get("blocks") if isinstance(zone.get("blocks"), list) else [],
+            key=lambda item: int(item.get("priority") or 0),
+            reverse=True,
+        )
+
+    action_schema_actions: Dict[str, Any] = {}
+    page_actions = _default_page_actions(page_key, profile_overrides=profile_overrides)
+    for action in page_actions:
+        action_key = str(action.get("key") or "").strip()
+        if not action_key:
+            continue
+        action_schema_actions[action_key] = {
+            "label": str(action.get("label") or action_key),
+            "intent": str(action.get("intent") or "ui.contract"),
+            "target": _action_target(action_key, page_key),
+            "visibility": {"roles": [role_code], "capabilities": [], "expr": None},
+        }
+    for zone in zones:
+        blocks = zone.get("blocks") if isinstance(zone.get("blocks"), list) else []
+        for block in blocks:
+            if not isinstance(block, dict):
+                continue
+            actions = block.get("actions") if isinstance(block.get("actions"), list) else []
+            for action in actions:
+                if not isinstance(action, dict):
+                    continue
+                action_key = str(action.get("key") or "").strip()
+                if not action_key:
+                    continue
+                if action_key in action_schema_actions:
+                    continue
+                action_schema_actions[action_key] = {
+                    "label": str(action.get("label") or action_key),
+                    "intent": str(action.get("intent") or "ui.contract"),
+                    "target": _action_target(action_key, page_key),
+                    "visibility": {"roles": [role_code], "capabilities": [], "expr": None},
+                }
+
+    return {
+        "contract_version": "page_orchestration_v1",
+        "scene_key": page_key,
+        "page": {
+            "key": page_key,
+            "title": title,
+            "subtitle": "",
+            "page_type": page_type,
+            "intent": "ui.contract",
+            "scene_key": page_key,
+            "layout_mode": "monitoring" if page_type == "monitor" else "single_flow",
+            "audience": audience,
+            "priority_model": "risk_first" if page_type == "monitor" else "task_first" if page_type == "approval" else "role_first",
+            "status": "ready",
+            "breadcrumbs": [],
+            "header": {},
+            "global_actions": page_actions,
+            "filters": [],
+            "context": {"role_code": source_role_code},
+        },
+        "zones": zones,
+        "data_sources": data_sources,
+        "state_schema": {
+            "tones": {key: {"icon": key} for key in STATE_TONES},
+            "business_states": {
+                key: {"tone": ("danger" if key in {"blocked", "overdue"} else "success" if key == "completed" else "info"), "label": key}
+                for key in PROGRESS_STATES
+            },
+        },
+        "action_schema": {"actions": action_schema_actions},
+        "render_hints": {
+            "dense_mode": False,
+            "preferred_columns": 2 if page_type in {"monitor", "dashboard"} else 1,
+            "mobile_priority": [zone.get("key") for zone in zones if isinstance(zone, dict)],
+            "sticky_header": True,
+        },
+        "meta": {
+            "generated_by": "smart_core.page_contracts_builder",
+            "schema_version": "1.0.0",
+            "page_key": page_key,
+            "role_variant": role_code,
+            "role_source_code": source_role_code,
+            "semantic_profile": page_type,
+            "role_zone_order": _role_zone_order(role_code, page_type, page_key),
+            "role_focus_sections": list(focus_sections.keys()),
+        },
+    }
+
+
+def build_page_contracts(_data: Dict[str, Any]) -> Dict[str, Any]:
+    safe_data = _data if isinstance(_data, dict) else {}
+    profile_overrides = _resolve_page_profile_overrides(safe_data)
+    role_source_code = _resolve_role_source_code(safe_data)
+    role_code = _normalize_role_code(safe_data)
+    payload = {
+        "schema_version": "v1",
+        "source_authority": source_authority_contract(),
+        "diagnostics": {
+            "page_text_override_source_authority": page_text_override_source_authority_contract(),
+            "page_profile_overrides_present": bool(profile_overrides),
+        },
+        "pages": {
+            "home": {
+                "schema_version": "v1",
+                "texts": {
+                    "title": "角色首页",
+                    "hero_lead": "围绕关键事项、风险与审批，优先处理今天最重要的工作。",
+                    "minimum_workspace_title": "工作区已就绪",
+                    "minimum_workspace_hint": "当前环境未返回完整首页契约，已切换到最小可用视图。",
+                    "minimum_workspace_open_landing": "进入默认场景",
+                    "minimum_workspace_open_my_work": "进入我的工作",
+                    "entry_error_title_prefix": "进入失败：",
+                    "action_retry": "重试",
+                    "action_acknowledge": "知道了",
+                    "search_placeholder": "搜索功能名称或说明",
+                    "search_clear": "清空搜索",
+                    "ready_only_label": "仅显示可进入功能",
+                    "state_all": "全部",
+                    "state_ready": "可进入",
+                    "state_locked": "暂不可用",
+                    "state_preview": "即将开放",
+                    "capability_state_all": "功能语义：全部",
+                    "capability_state_allow": "可用",
+                    "capability_state_readonly": "只读",
+                    "capability_state_deny": "禁止",
+                    "capability_state_pending": "待开放",
+                    "capability_state_coming_soon": "建设中",
+                    "filter_tip_ready_only": "已启用“仅显示可进入功能”，暂不可用与即将开放不会展示。",
+                    "lock_reason_all": "锁定原因：全部",
+                    "action_clear_all_filters": "清空全部筛选",
+                    "action_expand_all_groups": "展开全部分组",
+                    "action_collapse_all_groups": "折叠全部分组",
+                    "action_clear_recent": "清空最近使用",
+                    "empty_ready_only_no_result": "当前启用了“仅显示可进入功能”，暂时没有可进入功能。",
+                    "empty_search_no_result_prefix": "未找到与“",
+                    "empty_search_no_result_suffix": "”相关的功能，请调整筛选条件。",
+                    "empty_filter_no_result": "未找到相关功能，请调整筛选条件。",
+                    "action_clear_lock_reason": "清除锁定原因",
+                    "action_show_all_capabilities": "显示全部功能",
+                    "action_clear_search_filters": "清空搜索与筛选",
+                    "empty_no_capability": "当前账号暂无可用功能，可能因为角色权限未开通或角色首页尚未配置。",
+                    "action_switch_role": "切换角色",
+                    "action_back_home": "返回首页",
+                    "action_expand_help": "查看帮助",
+                    "action_collapse_help": "收起帮助",
+                    "empty_help_detail": "建议先点击“切换角色”确认当前角色；若仍无功能，请联系管理员开通角色权限或配置角色首页目录。",
+                    "entry_subtitle_empty": "无说明",
+                    "role_fallback_owner": "负责人",
+                    "role_label_executive": "高管",
+                    "role_label_owner": "负责人",
+                    "role_landing_fallback": "角色首页",
+                    "tile_title_fallback_prefix": "功能 ",
+                    "scene_title_uncategorized": "未分类模块",
+                    "scene_title_uncategorized_with_key_prefix": "未分类模块（",
+                    "scene_title_uncategorized_with_key_suffix": ")",
+                    "metric_title_fallback_prefix": "指标 ",
+                    "todo_title_fallback_prefix": "待办 ",
+                    "todo_desc_fallback": "点击进入处理",
+                    "today_actions.status_urgent": "紧急",
+                    "today_actions.status_normal": "普通",
+                    "risk_summary_fallback": "当前未出现严重风险，建议保持日常巡检节奏。",
+                    "risk_action_title_fallback_prefix": "风险事项 ",
+                    "risk_source_label_fallback_prefix": "来源 ",
+                    "advice_title_fallback_prefix": "建议 ",
+                    "risk_trend_label_prefix": "T-",
+                    "level_red": "严重",
+                    "level_amber": "关注",
+                    "level_green": "正常",
+                    "trend_up_prefix": "↑ ",
+                    "trend_down_prefix": "↓ ",
+                    "trend_flat": "→ 0%",
+                    "todo_label_approval": "处理审批事项",
+                    "todo_label_contract": "查看业务异常",
+                    "todo_label_risk": "处理风险事项",
+                    "todo_label_change": "确认变更事项",
+                    "todo_label_overdue": "处理逾期任务",
+                    "todo_label_default": "查看详情",
+                    "todo_keywords_approval": "approval,审批",
+                    "todo_keywords_contract": "contract",
+                    "todo_keywords_risk": "风险,risk",
+                    "todo_keywords_change": "变更,change",
+                    "todo_keywords_overdue": "逾期,任务,todo",
+                    "diagnostic_summary_prefix": "当前显示 ",
+                    "diagnostic_summary_middle": " / ",
+                    "diagnostic_summary_suffix": " 项功能",
+                    "diagnostic_summary_state_prefix": "状态：",
+                    "diagnostic_summary_capability_state_prefix": "功能语义：",
+                    "diagnostic_summary_reason_prefix": "原因：",
+                    "chip_search_prefix": "搜索：",
+                    "chip_ready_only": "仅显示可进入",
+                    "chip_state_prefix": "状态：",
+                    "chip_capability_state_prefix": "功能语义：",
+                    "chip_reason_prefix": "锁定原因：",
+                    "scene_summary_prefix": "覆盖场景：",
+                    "scene_summary_more": "…",
+                    "group_overview.aria_label": "辅助入口区",
+                    "recent_group_title": "最近使用",
+                    "lock_reason_permission_denied": "权限不足",
+                    "lock_reason_feature_disabled": "订阅未开通",
+                    "lock_reason_role_scope_mismatch": "角色范围不匹配",
+                    "lock_reason_scope_missing": "缺少前置条件",
+                    "lock_reason_scope_cycle": "功能依赖异常",
+                    "lock_reason_coming_soon": "功能建设中",
+                    "lock_reason_waiting_open": "待审批开放",
+                    "lock_reason_default": "当前不可用",
+                    "action_enter_disabled": "暂不可用",
+                    "action_enter_preview": "即将开放",
+                    "action_enter_readonly": "只读进入",
+                    "action_enter_approval": "处理审批事项",
+                    "action_enter_contract": "查看业务异常",
+                    "action_enter_risk": "处理风险事项",
+                    "action_enter_change": "确认变更事项",
+                    "action_enter_task": "处理任务",
+                    "action_enter_default": "进入处理",
+                    "action_enter_keywords_approval": "approval,审批",
+                    "action_enter_keywords_contract": "contract",
+                    "action_enter_keywords_risk": "risk,风险,预警",
+                    "action_enter_keywords_change": "change,变更",
+                    "action_enter_keywords_task": "task,任务,todo,待办",
+                    "enter_error_message_fallback": "功能入口暂时不可用",
+                    "enter_error_hint_permission_denied": "请联系管理员开通对应权限后重试。",
+                    "enter_error_hint_route_not_found": "入口配置异常，请稍后重试或联系管理员。",
+                    "enter_error_hint_timeout": "网络连接超时，请检查网络后点击重试。",
+                    "enter_error_hint_default": "请稍后重试；如果问题持续，请联系管理员。",
+                },
+            },
+            "login": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "card", "enabled": True, "order": 1, "tag": "section"},
+                    {"key": "form", "enabled": True, "order": 2, "tag": "section"},
+                    {"key": "error", "enabled": True, "order": 3, "tag": "section"},
+                ],
+                "texts": {
+                    "title": "登录",
+                    "brand_name": "业务管理平台",
+                    "brand_subtitle": "企业业务协同管理系统",
+                    "brand_slogan": "让业务透明 · 让流程可控 · 让协同高效 · 让风险可预警",
+                    "username_label": "账号",
+                    "username_placeholder": "请输入账号",
+                    "password_label": "密码",
+                    "password_placeholder": "请输入密码",
+                    "db_label": "数据库",
+                    "db_placeholder": "请输入数据库名称",
+                    "submit_idle": "登录",
+                    "submit_loading": "系统正在登录，请稍候…",
+                    "error_login_failed": "登录失败，请稍后重试",
+                    "error_invalid_credentials": "账号或密码错误，请重新输入",
+                    "error_network": "网络异常，请稍后重试",
+                    "capability_project": "业务全过程管理",
+                    "capability_contract_cost": "业务协同",
+                    "capability_fund": "协同处理",
+                    "capability_risk": "风险预警概览",
+                    "value_line_1": "让业务透明",
+                    "value_line_2": "让流程可控",
+                    "value_line_3": "让协同高效",
+                    "value_line_4": "让风险可预警",
+                },
+            },
+            "menu": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "status_loading", "enabled": True, "order": 1, "tag": "section"},
+                    {"key": "status_info", "enabled": True, "order": 2, "tag": "section"},
+                    {"key": "status_error", "enabled": True, "order": 3, "tag": "section"},
+                ],
+                "texts": {
+                    "loading_title": "Resolving menu...",
+                    "info_title": "Menu group",
+                    "error_title": "Menu resolve failed",
+                    "error_invalid_menu_id": "invalid menu id",
+                    "error_resolve_failed": "resolve menu failed",
+                },
+            },
+            "placeholder": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "card", "enabled": True, "order": 1, "tag": "section"},
+                ],
+                "texts": {
+                    "title": "Dynamic View Placeholder",
+                    "route_label": "Route",
+                    "params_label": "Params",
+                },
+            },
+            "business_config": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "root", "enabled": True, "order": 1, "tag": "section"},
+                    {"key": "header", "enabled": True, "order": 2, "tag": "header"},
+                    {"key": "coverage", "enabled": True, "order": 3, "tag": "section"},
+                    {"key": "designer", "enabled": True, "order": 4, "tag": "section"},
+                ],
+                "texts": {
+                    "title": "业务配置工作台",
+                    "description": "按正式业务页面维护配置能力、覆盖状态与发布版本。",
+                },
+            },
+            "menu_config": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "root", "enabled": True, "order": 1, "tag": "section"},
+                    {"key": "header", "enabled": True, "order": 2, "tag": "header"},
+                    {"key": "tree", "enabled": True, "order": 3, "tag": "section"},
+                    {"key": "editor", "enabled": True, "order": 4, "tag": "section"},
+                ],
+                "texts": {
+                    "title": "菜单配置",
+                    "description": "维护正式业务菜单的显示、排序、移动和角色可见范围。",
+                },
+            },
+            "scene_contract_block_grid": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "root", "enabled": True, "order": 1, "tag": "section"},
+                    {"key": "main", "enabled": True, "order": 2, "tag": "section"},
+                ],
+                "texts": {
+                    "title": "场景契约块网格",
+                    "description": "按场景契约渲染正式页面块和动作。",
+                },
+            },
+            "release_operator": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "root", "enabled": True, "order": 1, "tag": "section"},
+                    {"key": "hero", "enabled": True, "order": 2, "tag": "header"},
+                    {"key": "release_state", "enabled": True, "order": 3, "tag": "section"},
+                    {"key": "candidate_snapshots", "enabled": True, "order": 4, "tag": "section"},
+                    {"key": "pending_approvals", "enabled": True, "order": 5, "tag": "section"},
+                    {"key": "rollback", "enabled": True, "order": 6, "tag": "section"},
+                ],
+                "texts": {
+                    "title": "发布控制台",
+                    "description": "查看当前发布状态、候选快照、待审批动作与回滚目标。",
+                    "error_title": "加载失败",
+                    "action_retry": "重试",
+                    "section_release_state": "当前发布状态",
+                    "section_candidate": "可 Promote 候选",
+                    "section_pending": "待审批动作",
+                    "section_rollback": "回滚",
+                    "hint_candidate": "仅展示当前 edition 下 candidate / approved snapshot。",
+                    "hint_pending_count_prefix": "当前数量：",
+                    "hint_rollback": "仅当当前 active released snapshot 存在 rollback target 时可执行。",
+                    "empty_candidate": "当前没有可 Promote 的候选快照。",
+                    "empty_pending": "当前没有待审批动作。",
+                },
+            },
+            "workbench": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "header", "enabled": True, "order": 1, "tag": "header"},
+                    {"key": "status_panel", "enabled": True, "order": 2, "tag": "section"},
+                    {"key": "tiles", "enabled": True, "order": 3, "tag": "section"},
+                    {"key": "hud_details", "enabled": True, "order": 4, "tag": "div"},
+                ],
+                "texts": {
+                    "header_title": "页面暂时无法打开",
+                    "header_subtitle": "我们已为你保留可继续操作的入口。",
+                    "diagnostic_hint": "诊断页仅用于排查，不作为正式产品界面。",
+                    "context_prefix": "推荐上下文：",
+                    "action_clear_context": "清除",
+                    "action_go_workbench": "返回角色首页",
+                    "action_open_menu": "打开菜单",
+                    "action_refresh": "刷新",
+                    "hud_label_reason": "原因",
+                    "hud_label_menu": "菜单",
+                    "hud_label_action": "动作",
+                    "hud_label_route": "路由",
+                    "hud_label_diag": "诊断",
+                    "hud_label_action_type": "动作类型",
+                    "hud_label_contract_type": "契约类型",
+                    "hud_label_contract_url": "契约链接",
+                    "hud_label_meta_url": "元信息链接",
+                    "hud_label_last_intent": "最近意图",
+                    "hud_label_trace_id": "追踪 ID",
+                    "hud_label_data_source": "数据源协议",
+                    "hud_value_ready": "就绪",
+                    "hud_value_missing": "缺失",
+                    "hud_value_na": "N/A",
+                    "action_copy": "复制",
+                    "panel_title": "页面暂时无法打开",
+                    "reason_nav_menu_no_action": "菜单分组（无可执行动作）",
+                    "reason_act_no_model": "动作未绑定模型",
+                    "reason_act_unsupported_type": "动作类型暂不支持",
+                    "reason_contract_context_missing": "页面上下文缺失",
+                    "reason_capability_missing": "缺少能力权限",
+                    "reason_unknown": "页面入口未返回可识别原因",
+                    "message_nav_menu_no_action": "当前入口是目录菜单，本身不承载可打开页面。请改为进入下一级菜单。",
+                    "message_act_no_model": "当前入口未绑定可直接承接的数据模型，请改走专用页面或已注册场景。",
+                    "message_act_unsupported_type": "当前入口类型暂未接入门户前端承接，请改走原生页面或已注册场景。",
+                    "message_contract_context_missing": "当前入口缺少页面所需上下文，请补齐 action_id、menu_id 或 scene 参数后重试。",
+                    "message_capability_missing": "当前账号尚未开通该入口所需能力，请联系管理员确认授权范围。",
+                    "message_default": "请返回角色首页、重新选择菜单，或刷新后重试。",
+                },
+            },
+            "my_work": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "hero", "enabled": True, "order": 1, "tag": "header"},
+                    {"key": "todo_focus", "enabled": True, "order": 2, "tag": "section"},
+                    {"key": "retry_panel", "enabled": True, "order": 3, "tag": "details", "open": False},
+                    {"key": "list_main", "enabled": True, "order": 4, "tag": "section"},
+                ],
+                "texts": {
+                    "title": "我的工作",
+                    "loading_title": "加载我的工作中...",
+                    "hero_subtitle": "聚合待办、提醒与辅助入口，默认先从“待我处理”开始。",
+                    "action_refresh": "刷新",
+                    "action_view_item": "查看",
+                    "action_view_project": "查看记录",
+                    "action_process_item": "处理",
+                    "context_preset_prefix": "推荐视图：",
+                    "action_clear_preset": "清除推荐",
+                    "context_updated_at_prefix": "更新于 ",
+                    "retry_failed_prefix": "失败待办 ",
+                    "retry_failed_suffix": " 条",
+                    "retry_mode_prefix": "模式: ",
+                    "retry_replay": "重放结果",
+                    "retry_expand_hint": "展开处理",
+                    "retry_title": "失败明细",
+                    "retry_action_select_failed": "选中失败项",
+                    "retry_action_select_all_failed": "选中全部失败项",
+                    "retry_action_select_retryable_only": "仅选可重试项",
+                    "retry_action_select_non_retryable_only": "仅选不可重试项",
+                    "retry_action_retry_failed": "重试失败项",
+                    "retry_action_copy_summary": "复制失败摘要",
+                    "retry_action_copy_current_view": "复制当前视图",
+                    "retry_action_export_failed_csv": "导出失败 CSV",
+                    "retry_action_copy_retry_request": "复制重试请求",
+                    "retry_action_export_retry_json": "导出重试 JSON",
+                    "retry_action_focus_in_main_list": "主列表定位失败",
+                    "retry_action_copy_trace": "复制 Trace",
+                    "retry_action_ignore": "忽略",
+                    "retry_request_preview_title": "重试请求预览",
+                    "retry_note_preset_network": "网络抖动",
+                    "retry_note_preset_conflict": "并发冲突",
+                    "retry_note_preset_dependency": "依赖满足",
+                    "retry_note_template_network": "系统重试：网络抖动后重放",
+                    "retry_note_template_conflict": "系统重试：并发冲突后重放",
+                    "retry_note_template_dependency": "系统重试：依赖状态已满足",
+                    "retry_note_label": "重试备注",
+                    "retry_note_placeholder": "可选：补充本次重试说明",
+                    "retry_capability_prefix": "重试能力：可重试 ",
+                    "retry_capability_middle": " / 不可重试 ",
+                    "retry_visible_prefix": "当前展示 ",
+                    "retry_visible_middle": " / ",
+                    "retry_visible_suffix": " 条",
+                    "retry_action_expand_all": "展开全部",
+                    "retry_action_collapse_all": "收起",
+                    "retry_search_placeholder": "筛选失败明细：ID / 原因码 / 消息",
+                    "retry_filter_all": "全部",
+                    "retry_filter_retryable_only": "仅可重试",
+                    "retry_filter_non_retryable_only": "仅不可重试",
+                    "retry_group_mode_flat": "平铺显示",
+                    "retry_group_mode_grouped": "按原因分组",
+                    "retry_action_reset_panel": "重置面板",
+                    "retry_reason_distribution_prefix": "失败原因分布：",
+                    "retry_action_clear_failed_filter": "清除失败筛选",
+                    "retry_group_summary_prefix": "分组摘要：",
+                    "retry_group_retryable_prefix": "可重试 ",
+                    "retry_action_select_group": "选中此组",
+                    "retry_action_retry_group": "重试此组",
+                    "retry_unknown_reason_code": "UNKNOWN",
+                    "retry_action_copy_single": "复制单条",
+                    "retry_action_open_record": "打开记录",
+                    "filter_search_placeholder": "搜索事项 / 来源 / 动作",
+                    "action_expand_filters": "展开筛选",
+                    "action_collapse_filters": "收起筛选",
+                    "action_apply_filters": "应用",
+                    "action_reset_filters": "重置",
+                    "filter_source_all": "全部来源",
+                    "filter_reason_all": "全部原因码",
+                    "sort_priority": "排序：优先级",
+                    "sort_deadline": "排序：截止日",
+                    "sort_title": "排序：事项标题",
+                    "sort_reason_code": "排序：原因码",
+                    "sort_source": "排序：来源",
+                    "sort_id": "排序：ID",
+                    "sort_desc": "降序",
+                    "sort_asc": "升序",
+                    "page_size_10": "每页 10",
+                    "page_size_20": "每页 20",
+                    "page_size_40": "每页 40",
+                    "action_save_preset": "保存常用筛选",
+                    "action_apply_preset": "应用常用筛选",
+                    "action_clear_saved_preset": "清除预设",
+                    "filter_empty_title": "当前筛选条件没有匹配结果",
+                    "filter_empty_desc": "当前筛选未命中任何待办，建议恢复推荐视图，或清空筛选后重试。",
+                    "action_restore_recommended_view": "恢复推荐视图",
+                    "action_clear_filters": "清空筛选",
+                    "batch_selected_prefix": "已选 ",
+                    "batch_selected_suffix": " 条待办",
+                    "action_batch_complete": "批量完成",
+                    "action_clear_selection": "清空",
+                    "empty_title_default": "当前无待处理事项",
+                    "action_go_workbench": "去角色首页",
+                    "action_go_risk_cockpit": "去风险概览",
+                    "table_col_item": "事项",
+                    "table_col_action": "动作",
+                    "table_col_deadline": "截止日",
+                    "table_col_priority": "优先级",
+                    "table_col_reason_code": "原因码",
+                    "pager_prev": "上一页",
+                    "pager_middle_prefix": "第 ",
+                    "pager_middle_sep": " / ",
+                    "pager_middle_suffix": " 页",
+                    "pager_next": "下一页",
+                    "empty_desc": "当前没有待处理事项。你可以返回角色首页查看其他入口，或进入风险概览继续巡检。",
+                    "error_request_failed": "请求失败",
+                    "feedback_save_preset_failed": "保存常用筛选失败",
+                    "feedback_apply_preset_failed": "应用常用筛选失败",
+                    "feedback_clear_preset_failed": "清除常用筛选失败",
+                    "visibility_notice_suffix": "，当前视图仅展示你有权访问的事项。",
+                    "partial_data_hidden": "部分数据未显示",
+                    "model_label_sc_workflow_workitem": "流程待办",
+                    "model_label_tier_review": "审批复核",
+                    "model_label_mail_activity": "待办活动",
+                    "model_label_mail_message": "消息提醒",
+                    "model_label_mail_followers": "关注记录",
+                    "model_label_project_task": "项目任务",
+                    "model_label_project_project": "项目主数据",
+                    "priority_high": "高",
+                    "priority_medium": "中",
+                    "priority_low": "低",
+                    "feedback_restore_recommended": "已恢复推荐视图",
+                    "feedback_save_preset_ok": "常用筛选已保存",
+                    "feedback_apply_preset_ok": "已应用常用筛选",
+                    "feedback_clear_preset_ok": "已清除常用筛选",
+                    "feedback_filters_reset": "筛选条件已重置",
+                    "feedback_suggest_action_ok_prefix": "已执行系统建议动作：",
+                    "feedback_suggest_action_failed_prefix": "系统建议动作执行失败：",
+                    "feedback_none_retryable": "当前没有可重试失败项",
+                    "feedback_none_non_retryable": "当前没有不可重试失败项",
+                    "feedback_none_failed_selectable": "当前没有失败项可选择",
+                    "feedback_selected_failed_prefix": "已选中 ",
+                    "feedback_selected_failed_suffix": " 条失败项",
+                    "feedback_selected_retryable_suffix": " 条可重试失败项",
+                    "feedback_selected_non_retryable_suffix": " 条不可重试失败项",
+                    "feedback_filtered_by_reason_prefix": "已按失败原因筛选：",
+                    "feedback_cleared_reason_filter": "已清除失败原因筛选",
+                    "feedback_copy_summary_ok": "失败摘要已复制",
+                    "feedback_copy_failed": "复制失败，请检查浏览器剪贴板权限",
+                    "feedback_copy_item_ok_prefix": "失败项 #",
+                    "feedback_copy_item_ok_suffix": " 已复制",
+                    "feedback_copy_item_failed_prefix": "复制失败项 #",
+                    "feedback_copy_item_failed_suffix": " 失败",
+                    "feedback_copy_view_summary_ok": "当前视图摘要已复制",
+                    "feedback_copy_view_summary_failed": "复制当前视图摘要失败，请检查浏览器剪贴板权限",
+                    "feedback_focus_main_failed_view": "已定位到主列表失败待办视图",
+                    "feedback_copy_retry_request_ok": "重试请求已复制",
+                    "feedback_copy_retry_request_failed": "复制重试请求失败，请检查浏览器剪贴板权限",
+                    "feedback_export_retry_json_ok": "重试请求 JSON 已导出",
+                    "feedback_export_retry_json_failed": "导出重试请求 JSON 失败",
+                    "feedback_copy_trace_ok": "trace_id 已复制",
+                    "feedback_copy_trace_failed": "复制 trace_id 失败，请检查浏览器剪贴板权限",
+                    "feedback_export_failed_csv_ok_prefix": "失败明细 CSV 已导出（",
+                    "feedback_export_failed_csv_ok_suffix": " 条）",
+                    "feedback_export_failed_csv_failed": "导出失败明细 CSV 失败",
+                    "feedback_todo_done_ok": "待办已完成",
+                    "feedback_todo_done_failed": "完成待办失败",
+                    "confirm_batch_complete_prefix": "确认批量完成 ",
+                    "confirm_batch_complete_suffix": " 条待办？",
+                    "error_complete_todo_failed": "完成待办失败",
+                    "error_batch_complete_failed": "批量完成待办失败",
+                    "enter_error_message_fallback": "当前入口暂时无法继续处理，请稍后重试。",
+                    "feedback_reason_group_no_retry_prefix": "原因组 ",
+                    "feedback_reason_group_no_retry_suffix": " 没有可重试项",
+                    "feedback_selected_reason_retryable_prefix": "已选中 ",
+                    "feedback_selected_reason_retryable_middle": " 条 ",
+                    "feedback_selected_reason_retryable_suffix": " 可重试项",
+                    "error_retry_failed_items_failed": "重试失败项失败",
+                    "preset_label_prefix": "预设视图：",
+                    "retry_tag_retryable": "可重试",
+                    "retry_tag_non_retryable": "不可重试",
+                    "retry_summary_group_count_sep": " x ",
+                    "retry_summary_group_retryable_left": " (",
+                    "retry_summary_group_retryable_right": ")",
+                    "retry_summary_header_prefix": "失败待办 ",
+                    "retry_summary_header_suffix": " 条",
+                    "retry_summary_reason_dist_prefix": "原因分布: ",
+                    "retry_summary_remaining_prefix": "剩余待办: ",
+                    "retry_visible_mode_prefix": "筛选模式: ",
+                    "retry_visible_display_prefix": "显示模式: ",
+                    "retry_visible_display_grouped": "grouped",
+                    "retry_visible_display_flat": "flat",
+                    "retry_visible_items_prefix": "当前视图条目: ",
+                    "batch_action_complete": "批量完成",
+                    "batch_action_retry": "重试",
+                    "batch_action_retry_group_left": "重试(",
+                    "batch_action_retry_group_right": ")",
+                    "batch_feedback_partial_suffix": "部分失败：",
+                    "batch_feedback_success_count_suffix": " 成功，",
+                    "batch_feedback_failed_count_suffix": " 失败",
+                    "batch_feedback_preview_left": "（",
+                    "batch_feedback_preview_right": "）",
+                    "batch_feedback_remaining_prefix": "，剩余待办 ",
+                    "batch_feedback_remaining_suffix": " 条",
+                    "batch_feedback_replay_prefix": "，命中重放#",
+                    "batch_feedback_success_suffix": "成功：",
+                    "batch_feedback_done_suffix": " 条",
+                },
+            },
+            "scene": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "status_loading", "enabled": True, "order": 1, "tag": "section"},
+                    {"key": "status_error", "enabled": True, "order": 2, "tag": "section"},
+                    {"key": "status_forbidden", "enabled": True, "order": 3, "tag": "section"},
+                ],
+                "texts": {
+                    "scene_view_switch_label": "视图切换",
+                    "loading_title": "正在加载场景...",
+                    "status_idle_diag_title": "场景已加载，但没有可渲染目标",
+                    "status_idle_diag_scene_prefix": "场景",
+                    "status_idle_diag_hint": "当前场景尚未解析出可渲染目标，请检查 scene target、action/menu 映射以及 scene-ready 渲染供给。",
+                    "validation_surface_title": "场景校验",
+                    "error_fallback": "场景加载失败",
+                    "forbidden_title": "能力未开通",
+                    "forbidden_message": "当前角色无法进入该场景。",
+                    "forbidden_title_permission": "权限不足",
+                    "forbidden_message_scope_missing": "当前角色能力范围不包含该场景所需能力。",
+                    "forbidden_message_missing_prefix": "缺少能力：",
+                    "forbidden_message_missing_sep": "、",
+                    "forbidden_detail_reason_left": "（",
+                    "forbidden_detail_reason_right": "）",
+                    "forbidden_hint_license_prefix": "当前 License：",
+                    "forbidden_hint_license_suffix": "，可联系管理员评估升级或开通。",
+                    "forbidden_hint_default": "可联系管理员开通对应能力。",
+                    "error_scene_render_target_missing": "场景缺少可渲染目标，请检查 scene target 与页面承接关系。",
+                    "error_scene_target_unsupported": "当前场景目标暂不支持前端承接，请改走已注册页面或原生入口。",
+                    "error_scene_resolve_failed": "场景解析失败，请稍后重试。",
+                    "runtime_diag_title_readonly": "当前场景处于只读运行态",
+                    "runtime_diag_title_empty": "当前场景处于空态",
+                    "runtime_diag_title_restricted": "当前场景访问受限",
+                    "runtime_diag_title_default": "场景运行态提示",
+                    "runtime_diag_status_prefix": "运行态状态",
+                    "runtime_diag_state_prefix": "当前记录状态",
+                    "runtime_diag_missing_required_prefix": "缺失必填项数量",
+                    "runtime_diag_transition_prefix": "可用流转数量",
+                    "runtime_diag_alignment_mismatch": "场景 contract diagnostics 与前端消费状态未完全对齐，请优先检查后端 diagnostics 供给。",
+                },
+            },
+            "action": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "route_preset", "enabled": True, "order": 1, "tag": "section"},
+                    {"key": "focus_strip", "enabled": True, "order": 2, "tag": "section"},
+                    {"key": "quick_filters", "enabled": True, "order": 3, "tag": "section"},
+                    {"key": "saved_filters", "enabled": True, "order": 4, "tag": "section"},
+                    {"key": "group_view", "enabled": True, "order": 5, "tag": "section"},
+                    {"key": "group_summary", "enabled": True, "order": 6, "tag": "section"},
+                    {"key": "quick_actions", "enabled": True, "order": 7, "tag": "section"},
+                    {"key": "advanced_view", "enabled": True, "order": 8, "tag": "section"},
+                    {"key": "empty_next", "enabled": True, "order": 9, "tag": "section"},
+                    {"key": "dev_context", "enabled": True, "order": 10, "tag": "div"},
+                ],
+                "texts": {
+                    "error_fallback": "当前操作暂时不可用，请刷新后重试。",
+                    "status_loading": "加载中",
+                    "status_error": "加载失败",
+                    "status_empty": "暂无数据",
+                    "status_ready": "已就绪",
+                    "label.view_switch": "视图切换",
+                    "label.quick_filters": "快速筛选",
+                    "label.saved_filters": "已保存筛选",
+                    "label.group_view": "分组查看",
+                    "label.quick_actions": "快捷操作",
+                    "label.contract_summary": "配置摘要",
+                    "strict_contract_missing_title": "配置缺口提示",
+                    "intent_title_risk": "风险概览：先处理严重与逾期风险",
+                    "intent_summary_risk": "优先完成分派、关闭或发起审批，避免风险停留在“仅可见”状态。",
+                    "intent_action_risk_todo": "待我处理风险",
+                    "intent_action_risk_scene": "打开风险场景",
+                    "empty_title_risk": "当前暂无风险记录",
+                    "empty_hint_risk": "建议转到“我的工作”处理风险待办，或进入风险概览继续巡检。",
+                    "primary_action_risk": "处理风险待办",
+                    "secondary_action_risk": "进入风险概览",
+                    "intent_title_contract": "业务执行：优先识别履约与变更风险",
+                    "intent_summary_contract": "先看执行状态与风险信号，再进入异常事项处理。",
+                    "intent_action_contract_todo": "处理业务待办",
+                    "intent_action_contract_dashboard": "查看风险概览",
+                    "empty_title_contract": "当前暂无业务记录",
+                    "empty_hint_contract": "可前往“我的工作”查看待办，或进入风险概览追踪执行风险。",
+                    "primary_action_contract": "处理业务待办",
+                    "secondary_action_contract": "查看风险概览",
+                    "intent_title_cost": "执行分析：先回答是否偏离",
+                    "intent_summary_cost": "优先关注偏差金额与偏差项，再下钻到具体来源。",
+                    "intent_action_cost_todo": "处理偏差待办",
+                    "intent_action_cost_dashboard": "查看风险概览",
+                    "empty_title_cost": "当前暂无执行记录",
+                    "empty_hint_cost": "可前往“我的工作”处理偏差待办，或进入风险概览继续巡检。",
+                    "primary_action_cost": "处理偏差待办",
+                    "secondary_action_cost": "查看风险概览",
+                    "intent_title_project": "业务视角：先判断是否可控",
+                    "intent_summary_project": "优先查看风险、审批与经营指标，再决定下一步动作。",
+                    "intent_action_project_todo": "查看业务待办",
+                    "intent_action_project_dashboard": "进入风险概览",
+                    "empty_title_project": "当前暂无业务记录",
+                    "empty_hint_project": "建议进入“我的工作”处理业务待办，或去风险概览查看全局状态。",
+                    "primary_action_project": "查看业务待办",
+                    "secondary_action_project": "进入风险概览",
+                    "intent_title_default": "业务列表：先看状态，再执行动作",
+                    "intent_summary_default": "通过快速筛选与快捷操作，优先处理最关键事项。",
+                    "intent_action_default_home": "角色首页",
+                    "intent_action_default_my_work": "我的工作",
+                    "empty_title_default": "当前视图暂无数据",
+                    "empty_hint_default": "建议切换到我的工作或风险概览继续处理。",
+                    "primary_action_default": "去我的工作",
+                    "secondary_action_default": "去风险概览",
+                    "empty_reason_default": "可能因为暂无业务数据、当前角色权限受限，或数据尚未生成。",
+                    "empty_reason_filter": "可能由当前筛选条件导致无数据，建议先清除筛选后重试。",
+                    "empty_reason_wbs": "当前尚未生成执行结构数据，可先完成前置结构配置后再查看。",
+                    "route_preset_applied_prefix": "已应用推荐筛选：",
+                    "route_preset_source_prefix": "来源：",
+                    "route_preset_clear": "清除推荐",
+                    "chip_action_clear": "清除",
+                    "chip_more_filters_collapse": "收起更多筛选",
+                    "chip_more_filters_expand": "更多筛选",
+                    "chip_more_group_collapse": "收起更多分组",
+                    "chip_more_group_expand": "更多分组",
+                    "chip_more_actions_collapse": "收起更多操作",
+                    "chip_more_actions_expand": "更多操作",
+                    "sort_option_priority_deadline": "优先级↓ / 截止日↑",
+                    "sort_option_deadline_updated": "截止日↑ / 更新时间↓",
+                    "sort_option_updated_id": "更新时间↓ / ID↓",
+                    "sort_option_updated_name_asc": "更新时间↓ / 名称↑",
+                    "sort_option_updated_asc_name_asc": "更新时间↑ / 名称↑",
+                    "sort_option_name_updated": "名称↑ / 更新时间↓",
+                    "sort_option_name_desc_updated": "名称↓ / 更新时间↓",
+                    "subtitle_records_suffix": " 条记录",
+                    "subtitle_sort_prefix": "排序：",
+                    "advanced_title_pivot": "数据透视视图",
+                    "advanced_title_graph": "图表视图",
+                    "advanced_title_calendar": "日历视图",
+                    "advanced_title_gantt": "甘特视图",
+                    "advanced_title_activity": "活动视图",
+                    "advanced_title_dashboard": "仪表板视图",
+                    "advanced_title_default": "高级视图",
+                    "advanced_hint_pivot": "当前为可读降级视图，可查看核心统计记录并继续下钻到列表/表单。",
+                    "advanced_hint_graph": "当前为可读降级视图，可查看核心指标记录并继续下钻到列表/表单。",
+                    "advanced_hint_calendar": "当前为可读降级视图，可查看时间相关记录并继续下钻到列表/表单。",
+                    "advanced_hint_gantt": "当前为可读降级视图，可查看进度相关记录并继续下钻到列表/表单。",
+                    "advanced_hint_activity": "当前为可读降级视图，可查看活动记录并继续下钻到列表/表单。",
+                    "advanced_hint_dashboard": "当前为可读降级视图，可查看关键记录并继续下钻到列表/表单。",
+                    "advanced_hint_default": "当前视图使用可读降级渲染。",
+                    "page_title_fallback": "角色首页",
+                    "hint_select_single_record": "请选择 1 条记录",
+                    "hint_select_record_first": "请先选择记录",
+                    "hint_permission_denied": "权限不足",
+                    "group_label_basic": "基础操作",
+                    "group_label_workflow": "流程推进",
+                    "group_label_drilldown": "业务查看",
+                    "group_label_other": "更多操作",
+                    "group_label_unset": "未设置",
+                    "preset_label_contract_filter_prefix": "配置筛选: ",
+                    "preset_label_saved_filter_prefix": "保存筛选: ",
+                    "retry_tag_retryable": "可重试",
+                    "retry_tag_non_retryable": "不可重试",
+                    "advanced_row_title_fallback": "记录",
+                    "advanced_row_meta_empty": "无附加字段",
+                    "batch_msg_contract_action_missing_action_id": "页面动作缺少 action_id，无法打开目标页面",
+                    "batch_msg_select_single_before_run": "请选择 1 条记录后再执行",
+                    "batch_msg_select_records_before_run": "请先选择记录后再执行",
+                    "batch_msg_contract_action_missing_model": "页面动作缺少 model，无法执行",
+                    "batch_msg_action_requires_record_context": "当前动作需要记录上下文，暂不支持无记录执行",
+                    "batch_msg_contract_action_done_prefix": "页面动作执行完成：成功 ",
+                    "batch_msg_contract_action_done_middle": "，失败 ",
+                    "batch_msg_assignee_options_limited_prefix": "负责人候选加载受限（",
+                    "batch_msg_assignee_options_limited_suffix": "）",
+                    "batch_error_reason_prefix": "原因=",
+                    "batch_error_scope_prefix": "范围=",
+                    "batch_msg_model_no_active_field": "当前模型不支持 active 字段，无法批量归档/激活",
+                    "batch_msg_idempotent_replay": "批量操作已幂等处理（重复请求被忽略）",
+                    "batch_msg_activate_done_prefix": "批量激活完成：成功 ",
+                    "batch_msg_archive_done_prefix": "批量归档完成：成功 ",
+                    "batch_msg_done_middle": "，失败 ",
+                    "batch_msg_activate_failed": "批量激活失败",
+                    "batch_msg_archive_failed": "批量归档失败",
+                    "batch_label_activate": "批量激活",
+                    "batch_label_archive": "批量归档",
+                    "batch_msg_model_no_assignee_field": "当前模型不支持负责人字段，无法批量指派",
+                    "batch_msg_select_assignee_first": "请先选择负责人",
+                    "batch_msg_assign_idempotent_prefix": "批量指派给 ",
+                    "batch_msg_assign_idempotent_suffix": " 已幂等处理（重复请求被忽略）",
+                    "batch_msg_assign_done_prefix": "批量指派给 ",
+                    "batch_msg_assign_done_middle": "：成功 ",
+                    "batch_msg_assign_failed": "批量指派失败",
+                    "batch_label_assign": "批量指派",
+                    "batch_msg_no_selected_records_export": "没有可导出的选中记录",
+                    "batch_msg_no_records_export": "没有可导出的记录",
+                    "batch_msg_export_done_prefix": "已导出 ",
+                    "batch_msg_export_done_suffix": " 条记录",
+                    "batch_msg_export_failed": "批量导出失败",
+                    "batch_label_export": "批量导出",
+                    "batch_label_load_more_failed": "加载更多失败",
+                    "surface_kind_keywords_risk": "risk,风险",
+                    "surface_kind_keywords_contract": "contract",
+                    "surface_kind_keywords_cost": "cost",
+                    "surface_kind_keywords_project": "project",
+                    "group_keywords_basic": "创建,保存,submit,create,save",
+                    "group_keywords_workflow": "阶段,审批,workflow,transition",
+                    "group_keywords_drilldown": "查看,列表,看板,open,view",
+                    "columns_risk_bucket_identity": "title,name,风险,事项",
+                    "columns_risk_bucket_priority": "priority,severity,优先级,严重",
+                    "columns_risk_bucket_deadline": "deadline,date_deadline,截止,逾期",
+                    "columns_risk_bucket_owner": "user_id,owner,assignee,负责人,分派",
+                    "columns_risk_bucket_state": "state,stage,status,状态",
+                    "columns_risk_bucket_reason": "reason,原因",
+                    "columns_contract_bucket_amount": "amount_total,contract_amount,金额",
+                    "columns_contract_bucket_execution": "execute,execution,progress,执行率",
+                    "columns_contract_bucket_payment": "paid,payment",
+                    "columns_contract_bucket_risk": "risk,风险,alert",
+                    "columns_contract_bucket_change": "change,变更,write_date,最近",
+                    "columns_contract_bucket_identity": "title,name",
+                    "columns_cost_bucket_execution": "cost,执行率,rate",
+                    "columns_cost_bucket_overrun": "over,overrun,偏差",
+                    "columns_cost_bucket_count": "count,项数",
+                    "columns_cost_bucket_deadline": "deadline,截止",
+                    "columns_cost_bucket_priority": "priority,优先级",
+                    "columns_cost_bucket_identity": "title,name",
+                    "columns_project_bucket_identity": "title,name",
+                    "columns_project_bucket_state": "state,stage,status,状态,阶段",
+                    "columns_project_bucket_risk": "risk,风险",
+                    "columns_project_bucket_payment": "payment",
+                    "columns_project_bucket_output": "output,metric,指标",
+                    "columns_project_bucket_cost": "cost",
+                },
+            },
+            "record": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "save_banner", "enabled": True, "order": 1, "tag": "div"},
+                    {"key": "project_summary", "enabled": True, "order": 2, "tag": "section"},
+                    {"key": "next_actions", "enabled": True, "order": 3, "tag": "section"},
+                    {"key": "stat_buttons", "enabled": True, "order": 4, "tag": "div"},
+                    {"key": "details_fallback", "enabled": True, "order": 5, "tag": "section"},
+                    {"key": "chatter", "enabled": True, "order": 6, "tag": "section"},
+                    {"key": "dev_context", "enabled": True, "order": 7, "tag": "div"},
+                ],
+                "texts": {
+                    "loading_title": "Loading record...",
+                    "saving_title": "Saving record...",
+                    "error_fallback": "Record load failed",
+                    "status_loading": "Loading",
+                    "status_error": "Error",
+                    "status_empty": "Empty",
+                    "status_ready": "Ready",
+                    "status_editing": "Editing",
+                    "status_saving": "Saving",
+                    "action_back": "Back",
+                    "action_edit": "Edit",
+                    "action_save": "Save",
+                    "action_cancel": "Cancel",
+                    "action_reload": "Reload",
+                    "action_download": "Download",
+                    "action_view_attachment": "查看",
+                    "subtitle_editing": "Editing contract fields",
+                    "subtitle_ready": "Record details",
+                    "ribbon_fallback": "Ribbon",
+                    "dev_context_title": "Record Context",
+                    "error_load_record": "failed to load record",
+                    "error_execute_button": "failed to execute button",
+                    "error_save_record": "failed to save record",
+                    "chatter_load_failed": "Failed to load chatter",
+                    "chatter_post_failed": "Failed to post chatter message",
+                    "chatter_upload_failed": "Failed to upload file",
+                    "chatter_download_failed": "Failed to download file",
+                    "view_node_unsupported_title": "View node unsupported",
+                    "view_node_unsupported_message": "Layout nodes are present but renderer support is incomplete.",
+                    "banner_saved": "Saved. Changes have been applied.",
+                    "summary_status_stage": "执行阶段",
+                    "summary_document_status": "单据状态",
+                    "summary_risk": "关键风险摘要",
+                    "summary_finance": "关键指标摘要",
+                    "next_actions_title": "下一步动作",
+                    "next_action_todo": "查看待办",
+                    "next_action_risk": "查看风险",
+                    "next_action_contract": "查看业务记录",
+                    "next_action_cost": "查看执行分析",
+                    "fallback_details_title": "记录详情",
+                    "chatter_title": "协作时间线",
+                    "chatter_input_placeholder": "输入评论，支持 @同事 ...",
+                    "chatter_posting": "发布中...",
+                    "chatter_post_action": "发布评论",
+                    "chatter_uploading": "上传中…",
+                    "chatter_empty": "暂无协作记录。",
+                    "project_phase_unset": "未配置阶段",
+                    "project_risk_ok": "正常，暂无高风险告警",
+                    "project_risk_critical_prefix": "严重，当前高风险 ",
+                    "project_risk_critical_suffix": " 项，需优先闭环",
+                    "project_risk_attention_prefix": "关注，当前风险 ",
+                    "project_risk_attention_suffix": " 项",
+                    "project_output_prefix": "指标 ",
+                    "project_output_unset": "指标未配置",
+                    "project_pay_prefix": "完成比 ",
+                    "project_pay_suffix": "%",
+                    "project_pay_unset": "完成比未配置",
+                    "readonly_hint_license_prefix": "当前为只读模式（License: ",
+                    "readonly_hint_license_bundle_sep": ", Bundle: ",
+                    "readonly_hint_license_suffix": "）。如需编辑权限请联系管理员。",
+                    "readonly_hint_default": "当前记录处于只读模式，请联系管理员开通写权限。",
+                    "missing_capability_prefix": "缺少能力：",
+                    "missing_capability_sep": "、",
+                    "missing_capability_license_prefix": "；当前 License: ",
+                    "action_feedback_failed": "操作失败",
+                },
+            },
+            "scene_health": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "header", "enabled": True, "order": 1, "tag": "header"},
+                    {"key": "status_loading", "enabled": True, "order": 2, "tag": "section"},
+                    {"key": "status_error", "enabled": True, "order": 3, "tag": "section"},
+                    {"key": "content", "enabled": True, "order": 4, "tag": "div"},
+                    {"key": "cards", "enabled": True, "order": 5, "tag": "section"},
+                    {"key": "meta", "enabled": True, "order": 6, "tag": "section"},
+                    {"key": "governance", "enabled": True, "order": 7, "tag": "section"},
+                    {"key": "details_resolve_errors", "enabled": True, "order": 8, "tag": "details", "open": True},
+                    {"key": "details_drift", "enabled": True, "order": 9, "tag": "details", "open": False},
+                    {"key": "details_debt", "enabled": True, "order": 10, "tag": "details", "open": False},
+                ],
+                "texts": {
+                    "title": "Scene Health Dashboard",
+                    "subtitle": "可视化查看场景健康状态与自动降级结果。",
+                    "loading_title": "Loading scene health...",
+                    "error_fallback": "health request failed",
+                    "error_reason_required": "reason is required for governance action",
+                    "error_governance_failed": "governance action failed",
+                },
+            },
+            "scene_packages": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "header", "enabled": True, "order": 1, "tag": "header"},
+                    {"key": "status_loading", "enabled": True, "order": 2, "tag": "section"},
+                    {"key": "status_error", "enabled": True, "order": 3, "tag": "section"},
+                    {"key": "content", "enabled": True, "order": 4, "tag": "section"},
+                    {"key": "installed_packages", "enabled": True, "order": 5, "tag": "section"},
+                    {"key": "import_package", "enabled": True, "order": 6, "tag": "section"},
+                    {"key": "export_package", "enabled": True, "order": 7, "tag": "section"},
+                ],
+                "texts": {
+                    "title": "Scene Packages",
+                    "subtitle": "导入、导出与审阅已安装的 Scene 能力包。",
+                    "loading_title": "Loading packages...",
+                    "error_title": "Package operation failed",
+                    "error_load_failed": "load packages failed",
+                    "error_dry_run_failed": "dry-run failed",
+                    "error_import_failed": "import failed",
+                    "error_export_failed": "export failed",
+                    "error_reason_required": "reason is required for import",
+                },
+            },
+            "usage_analytics": {
+                "schema_version": "v1",
+                "sections": [
+                    {"key": "header", "enabled": True, "order": 1, "tag": "header"},
+                    {"key": "status_loading", "enabled": True, "order": 2, "tag": "section"},
+                    {"key": "status_error", "enabled": True, "order": 3, "tag": "section"},
+                    {"key": "slice_bar", "enabled": True, "order": 4, "tag": "section"},
+                    {"key": "summary_usage", "enabled": True, "order": 5, "tag": "section"},
+                    {"key": "summary_visibility", "enabled": True, "order": 6, "tag": "section"},
+                    {"key": "tables_top", "enabled": True, "order": 7, "tag": "section"},
+                    {"key": "tables_daily", "enabled": True, "order": 8, "tag": "section"},
+                    {"key": "tables_visibility", "enabled": True, "order": 9, "tag": "section"},
+                    {"key": "tables_role_user", "enabled": True, "order": 10, "tag": "section"},
+                ],
+                "texts": {
+                    "title": "Usage Analytics",
+                    "subtitle": "Scene / Capability 使用统计（按公司累计）。",
+                    "label_top": "Top",
+                    "label_daily_range": "趋势范围",
+                    "option_recent_3_days": "最近 3 天",
+                    "option_recent_7_days": "最近 7 天",
+                    "label_hidden_reason": "隐藏原因",
+                    "option_all": "全部",
+                    "label_role_slice": "角色切片",
+                    "option_all_roles": "全部角色",
+                    "label_user_slice": "用户切片",
+                    "placeholder_user_slice": "0=全部",
+                    "label_scene_prefix": "Scene 前缀",
+                    "placeholder_scene_prefix": "如 workspace.",
+                    "label_capability_prefix": "Capability 前缀",
+                    "placeholder_capability_prefix": "如 contract.",
+                    "label_export_filtered_only": "仅导出当前筛选",
+                    "action_copy_export_params": "复制导出参数",
+                    "action_reset_filters": "重置筛选",
+                    "action_export_csv": "导出 CSV",
+                    "action_refresh": "刷新",
+                    "slice_window_prefix": "窗口：",
+                    "slice_role_prefix": "角色：",
+                    "slice_user_prefix": "用户：",
+                    "slice_scene_prefix_label": "Scene 前缀：",
+                    "slice_capability_prefix_label": "Capability 前缀：",
+                    "summary_scene_open_total": "Scene Open Total",
+                    "summary_capability_open_total": "Capability Open Total",
+                    "summary_generated_at": "Generated At",
+                    "summary_capability_total": "Capability Total",
+                    "summary_visible_hidden": "Visible / Hidden",
+                    "summary_ready_preview_locked": "Ready / Preview / Locked",
+                    "summary_role_codes": "Role Codes",
+                    "table_top_scenes": "Top Scenes",
+                    "table_scene_key": "Scene Key",
+                    "table_count": "Count",
+                    "table_top_capabilities": "Top Capabilities",
+                    "table_capability_key": "Capability Key",
+                    "table_scene_open_last_7_days": "Scene Open (Last 7 Days)",
+                    "table_date": "Date",
+                    "table_capability_open_last_7_days": "Capability Open (Last 7 Days)",
+                    "table_visibility_reason_counts": "Visibility Reason Counts",
+                    "table_reason_code": "Reason Code",
+                    "table_hidden_capability_samples": "Hidden Capability Samples",
+                    "table_key": "Key",
+                    "table_reason": "Reason",
+                    "table_role_top": "Role Top",
+                    "table_role_code": "Role Code",
+                    "table_scene": "Scene",
+                    "table_capability": "Capability",
+                    "table_total": "Total",
+                    "table_user_top": "User Top",
+                    "table_user_id": "User ID",
+                    "loading_title": "Loading usage report...",
+                    "error_fallback": "Failed to load usage report",
+                    "empty_text": "暂无数据",
+                    "error_export_failed": "导出失败",
+                    "error_copy_export_params_failed": "复制导出参数失败",
+                },
+            },
+        },
+    }
+    _apply_page_text_overrides(payload, profile_overrides)
+    _apply_role_section_policy(payload, role_code)
+    pages = payload.get("pages") if isinstance(payload.get("pages"), dict) else {}
+    for key, page in pages.items():
+        if not isinstance(page, dict):
+            continue
+        if isinstance(page.get("page_orchestration_v1"), dict):
+            continue
+        page_orchestration = _build_page_orchestration_v1(
+            str(key),
+            page,
+            role_code,
+            role_source_code=role_source_code,
+            profile_overrides=profile_overrides,
+        )
+        page_orchestration = apply_page_contract_parser_semantic_bridge(page_orchestration, safe_data)
+        page["page_orchestration_v1"] = apply_page_contract_semantic_orchestration_bridge(page_orchestration)
+    return payload
