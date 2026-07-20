@@ -95,7 +95,7 @@ DAILY_DEV_PROJECT ?= sc-backend-odoo-dev
 CANDIDATE_ARTIFACTS ?= artifacts/release/immutable-production-candidate-v1
 
 .PHONY: release.workspace.prepare release.production.readonly_baseline release.candidate.build release.boundary.candidate.build release.candidate.scan
-.PHONY: product.install product.upgrade product.verify tenant.rc.profile.product tenant.rc.profile.sample tenant.rc.profile.customer tenant.rc.profile.digest.verify
+.PHONY: product.install product.upgrade product.verify tenant.rc.payload.export tenant.rc.profile.product tenant.rc.profile.sample tenant.rc.profile.customer tenant.rc.profile.digest.verify
 .PHONY: release.history.source_probe release.history.backup release.history.restore release.history.upgrade
 .PHONY: release.history.source_restore
 .PHONY: release.history.runtime_up release.history.runtime_down release.history.fingerprint.source_pre
@@ -138,6 +138,24 @@ product.verify: guard.prod.forbid
 	@test -n "$(CANDIDATE_IMAGE)" || (echo "CANDIDATE_IMAGE is required"; exit 2)
 	@DB_NAME="$(DB_NAME)" CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" PRODUCT_PROJECT="$(PRODUCT_PROJECT)" \
 		PRODUCT_PROFILE_COMPOSE="$(PRODUCT_PROFILE_COMPOSE)" bash scripts/release/product_lifecycle.sh verify
+
+tenant.rc.payload.export: guard.prod.forbid check-compose-env
+	@test -n "$(CANDIDATE_IMAGE)" || (echo "CANDIDATE_IMAGE is required"; exit 2)
+	@test -n "$(CANDIDATE_IMAGE_DIGEST)" || (echo "CANDIDATE_IMAGE_DIGEST is required"; exit 2)
+	@test -n "$(RC_HISTORY_BACKUP)" || (echo "RC_HISTORY_BACKUP is required"; exit 2)
+	@test -n "$(RC_TENANT_PAYLOAD_EXPORTER)" || (echo "RC_TENANT_PAYLOAD_EXPORTER is required"; exit 2)
+	@test -n "$(RC_TENANT_PAYLOAD_SIGNING_KEY)" || (echo "RC_TENANT_PAYLOAD_SIGNING_KEY is required"; exit 2)
+	@test -n "$(RC_TENANT_PAYLOAD_PUBLIC_KEY)" || (echo "RC_TENANT_PAYLOAD_PUBLIC_KEY is required"; exit 2)
+	@test -n "$(RC_TENANT_PAYLOAD_OUTPUT)" || (echo "RC_TENANT_PAYLOAD_OUTPUT is required"; exit 2)
+	@CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" CANDIDATE_IMAGE_DIGEST="$(CANDIDATE_IMAGE_DIGEST)" \
+		RC_HISTORY_BACKUP="$(RC_HISTORY_BACKUP)" RC_TENANT_PAYLOAD_EXPORTER="$(RC_TENANT_PAYLOAD_EXPORTER)" \
+		RC_TENANT_PAYLOAD_SIGNING_KEY="$(RC_TENANT_PAYLOAD_SIGNING_KEY)" \
+		RC_TENANT_PAYLOAD_PUBLIC_KEY="$(RC_TENANT_PAYLOAD_PUBLIC_KEY)" \
+		RC_TENANT_PAYLOAD_OUTPUT="$(RC_TENANT_PAYLOAD_OUTPUT)" \
+		RC_PAYLOAD_ID="$(RC_PAYLOAD_ID)" RC_SOURCE_SNAPSHOT_ID="$(RC_SOURCE_SNAPSHOT_ID)" \
+		RC_PAYLOAD_SIGNATURE_KEY_ID="$(RC_PAYLOAD_SIGNATURE_KEY_ID)" \
+		RC_PAYLOAD_ENCRYPTION_KEY_ID="$(RC_PAYLOAD_ENCRYPTION_KEY_ID)" \
+		bash scripts/release/export_authorized_tenant_payload.sh
 
 tenant.rc.profile.product: guard.prod.forbid check-compose-env
 	@CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" CANDIDATE_IMAGE_DIGEST="$(CANDIDATE_IMAGE_DIGEST)" \
