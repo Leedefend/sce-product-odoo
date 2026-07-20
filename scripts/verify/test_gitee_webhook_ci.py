@@ -255,6 +255,19 @@ class GiteeWebhookTests(unittest.TestCase):
             worker_application = MODULE.Application(receiver_enabled=False)
         self.assertEqual("", worker_application.secret)
 
+    def test_stale_workspace_cleanup_is_strictly_scoped(self) -> None:
+        root = Path(self.temp.name) / "workspaces"
+        stale = root / "job-abcdef123456-Ab12Z9"
+        protected = root / "customer-data"
+        malformed = root / "job-not-a-sha-Ab12Z9"
+        for directory in (stale, protected, malformed):
+            directory.mkdir(parents=True)
+            (directory / "marker").write_text("keep scope strict", encoding="utf-8")
+        self.assertEqual(1, MODULE.cleanup_stale_workspaces(root))
+        self.assertFalse(stale.exists())
+        self.assertTrue(protected.exists())
+        self.assertTrue(malformed.exists())
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

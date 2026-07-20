@@ -27,6 +27,7 @@ English: [gitee_webhook_ci_v1.en.md](gitee_webhook_ci_v1.en.md)
 10. Push 只执行公开守卫；同仓库、同所有者 PR 才执行专业门禁，fork 在入队前拒绝。
 11. receiver 保持 `MemoryDenyWriteExecute=true` 且不启动构建进程；worker 不持有 WebHook
     密钥，并单独承担 Node/V8/Wasm 专业构建。两者只通过 SQLite 规范化队列通信。
+12. worker 启动时只清理符合 `job-<12位SHA>-<6位随机串>` 的中断工作区，其他目录不触碰。
 
 ## 服务器状态
 
@@ -79,4 +80,4 @@ make gitee.ci.server.status
 make gitee.ci.https.status
 ```
 
-15 项矩阵包括请求头/查询签名正向用例、原始 Base64 `+`、API 双通道优先级、Push→PR 队列升级、receiver/worker 密钥隔离，以及无效签名、意外或重复查询参数、过期请求、重放、错误仓库、错误发送者、fork PR、分支/命令注入、删除/关闭事件和 secret 环境隔离。
+16 项矩阵包括请求头/查询签名正向用例、原始 Base64 `+`、API 双通道优先级、Push→PR 队列升级、receiver/worker 密钥隔离、严格限定的中断工作区清理，以及无效签名、意外或重复查询参数、过期请求、重放、错误仓库、错误发送者、fork PR、分支/命令注入、删除/关闭事件和 secret 环境隔离。

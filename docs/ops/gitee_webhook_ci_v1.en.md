@@ -22,6 +22,7 @@ Chinese: [gitee_webhook_ci_v1.md](gitee_webhook_ci_v1.md)
 9. Use an isolated temporary directory per run and retain logs/reports outside the repository.
 10. Push events run only the public guard; only same-repository, owner-sent PR events run the professional gate, while forks are rejected before enqueue.
 11. The receiver keeps `MemoryDenyWriteExecute=true` and never launches builds. The worker has no WebHook secret and separately owns Node/V8/Wasm professional builds. They communicate only through the normalized SQLite queue.
+12. On startup, the worker removes only interrupted workspaces matching `job-<12-char SHA>-<6-char random>` and does not touch other directories.
 
 ## Server state
 
@@ -70,4 +71,4 @@ make gitee.ci.server.status
 make gitee.ci.https.status
 ```
 
-The 15-case matrix covers positive header/query signature transport, raw base64 `+`, API dual-transport precedence, Push-to-PR queue upgrades, receiver/worker secret isolation, invalid signatures, unexpected or repeated query parameters, expiry, replay, wrong repository, wrong sender, fork PRs, branch/command injection, deleted/closed events, and secret isolation.
+The 16-case matrix covers positive header/query signature transport, raw base64 `+`, API dual-transport precedence, Push-to-PR queue upgrades, receiver/worker secret isolation, strictly scoped interrupted-workspace cleanup, invalid signatures, unexpected or repeated query parameters, expiry, replay, wrong repository, wrong sender, fork PRs, branch/command injection, deleted/closed events, and secret isolation.

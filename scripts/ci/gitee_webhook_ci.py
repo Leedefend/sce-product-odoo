@@ -16,6 +16,7 @@ import hmac
 import json
 import os
 import re
+import shutil
 import sqlite3
 import subprocess
 import threading
@@ -30,6 +31,7 @@ from typing import Any
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 MAX_BODY_BYTES = 1_048_576
 SUPPORTED_HOOKS = {"push_hooks", "merge_request_hooks"}
+WORKSPACE_NAME_RE = re.compile(r"^job-[0-9a-f]{12}-[A-Za-z0-9]{6}$")
 
 
 class Rejected(ValueError):
@@ -367,6 +369,17 @@ def required_env(name: str) -> str:
     return value
 
 
+def cleanup_stale_workspaces(root: Path) -> int:
+    """Remove only runner-created directories left behind by interrupted jobs."""
+    root.mkdir(parents=True, exist_ok=True)
+    removed = 0
+    for candidate in root.iterdir():
+        if candidate.is_dir() and WORKSPACE_NAME_RE.fullmatch(candidate.name):
+            shutil.rmtree(candidate)
+            removed += 1
+    return removed
+
+
 def handler_factory(application: Application) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         server_version = "gitee-ci/1"
@@ -461,6 +474,12 @@ def main() -> int:
     if args.once:
         application.execute_once()
         return 0
+    workspace_root = Path(
+        os.environ.get("GITEE_CI_WORKSPACE_ROOT", "/var/lib/gitee-ci/workspaces")
+    )
+    removed = cleanup_stale_workspaces(workspace_root)
+    if removed:
+        print(f"[gitee_worker] stale_workspaces_removed={removed}", flush=True)
     stop = threading.Event()
     try:
         worker(application, stop)
