@@ -95,7 +95,7 @@ DAILY_DEV_PROJECT ?= sc-backend-odoo-dev
 CANDIDATE_ARTIFACTS ?= artifacts/release/immutable-production-candidate-v1
 
 .PHONY: release.workspace.prepare release.production.readonly_baseline release.candidate.build release.boundary.candidate.build release.candidate.scan
-.PHONY: product.install product.upgrade product.verify
+.PHONY: product.install product.upgrade product.verify tenant.rc.profile.product tenant.rc.profile.sample tenant.rc.profile.customer tenant.rc.profile.digest.verify
 .PHONY: release.history.source_probe release.history.backup release.history.restore release.history.upgrade
 .PHONY: release.history.source_restore
 .PHONY: release.history.runtime_up release.history.runtime_down release.history.fingerprint.source_pre
@@ -138,6 +138,28 @@ product.verify: guard.prod.forbid
 	@test -n "$(CANDIDATE_IMAGE)" || (echo "CANDIDATE_IMAGE is required"; exit 2)
 	@DB_NAME="$(DB_NAME)" CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" PRODUCT_PROJECT="$(PRODUCT_PROJECT)" \
 		PRODUCT_PROFILE_COMPOSE="$(PRODUCT_PROFILE_COMPOSE)" bash scripts/release/product_lifecycle.sh verify
+
+tenant.rc.profile.product: guard.prod.forbid check-compose-env
+	@CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" CANDIDATE_IMAGE_DIGEST="$(CANDIDATE_IMAGE_DIGEST)" \
+		CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" bash scripts/release/tenant_rc_profile_rehearsal.sh product
+
+tenant.rc.profile.sample: guard.prod.forbid check-compose-env
+	@CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" CANDIDATE_IMAGE_DIGEST="$(CANDIDATE_IMAGE_DIGEST)" \
+		CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" RC_CUSTOMER_ADDONS_ROOT="$(RC_CUSTOMER_ADDONS_ROOT)" \
+		RC_SYNTHETIC_CUSTOMER_MODULE="$(RC_SYNTHETIC_CUSTOMER_MODULE)" \
+		RC_SYNTHETIC_TENANT_KEY="$(RC_SYNTHETIC_TENANT_KEY)" \
+		RC_SYNTHETIC_MODULE_VERSION="$(RC_SYNTHETIC_MODULE_VERSION)" \
+		bash scripts/release/tenant_rc_profile_rehearsal.sh sample
+
+tenant.rc.profile.customer: guard.prod.forbid check-compose-env
+	@CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" CANDIDATE_IMAGE_DIGEST="$(CANDIDATE_IMAGE_DIGEST)" \
+		CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" RC_HISTORY_BACKUP="$(RC_HISTORY_BACKUP)" \
+		RC_CUSTOMER_IDENTITY_MIGRATION="$(RC_CUSTOMER_IDENTITY_MIGRATION)" \
+		RC_LEGACY_CUSTOMER_MODULE="$(RC_LEGACY_CUSTOMER_MODULE)" \
+		bash scripts/release/tenant_rc_profile_rehearsal.sh customer
+
+tenant.rc.profile.digest.verify: guard.prod.forbid
+	@python3 scripts/release/verify_tenant_rc_profile_digests.py --profiles "$(CANDIDATE_ARTIFACTS)/profiles"
 
 release.history.source_probe: guard.prod.forbid check-compose-project check-compose-env
 	@HISTORY_SOURCE_DB="$(HISTORY_SOURCE_DB)" HISTORY_SOURCE_BACKUP="$(HISTORY_SOURCE_BACKUP)" CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" bash scripts/release/production_candidate_history.sh source-probe

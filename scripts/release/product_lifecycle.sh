@@ -22,6 +22,8 @@ if [[ -n "${PRODUCT_PROFILE_COMPOSE:-}" ]]; then
   compose+=( -f "$PRODUCT_PROFILE_COMPOSE" )
 fi
 export CANDIDATE_IMAGE="$image" CANDIDATE_DB="$database" CANDIDATE_PROJECT="$project"
+mkdir -p artifacts/release/rc-empty/customer artifacts/release/rc-empty/payload \
+  artifacts/release/rc-empty/attachments
 
 run_modules() {
   local flags=("$@")

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -105,6 +106,31 @@ class CustomerPackagePreflightTests(unittest.TestCase):
                 self.assertNotEqual(0, result.returncode)
                 self.assertIn(marker, result.stderr)
                 self.assertFalse((self.root / "report.json").exists())
+
+    def test_missing_archive_fails_before_database_work(self) -> None:
+        self.archive.unlink()
+        result = self.run_preflight()
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("SC_CUSTOMER_ADDONS_ROOT must contain exactly one", result.stderr)
+        self.assertFalse((self.root / "report.json").exists())
+
+    def test_module_version_mismatch_fails_before_database_work(self) -> None:
+        module = self.root / "version-mismatch" / "sce_customer_sample"
+        shutil.copytree(SAMPLE, module)
+        manifest = module / "__manifest__.py"
+        manifest.write_text(
+            manifest.read_text(encoding="utf-8").replace("17.0.1.3.0", "17.0.9.9.9"),
+            encoding="utf-8",
+        )
+        self.archive.unlink()
+        with tarfile.open(self.archive, "w:gz") as handle:
+            handle.add(module, arcname="package/addons/sce_customer_sample")
+        digest = hashlib.sha256(self.archive.read_bytes()).hexdigest()
+        result = self.run_preflight(SC_CUSTOMER_ARCHIVE_SHA256=digest)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("CUSTOMER_MODULE_VERSION_MISMATCH", result.stderr)
+        self.assertFalse((self.root / "report.json").exists())
+        self.assertNotIn(self.hmac_key, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":
