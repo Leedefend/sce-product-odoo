@@ -52,6 +52,13 @@ Publicly trusted HTTPS, the read-only Deploy Key, signed WebHook, `main` protect
 
 The command probes all required permissions before its first write. If permissions are insufficient, it lists all missing scopes and leaves the repository unchanged.
 
+## Initial end-to-end evidence
+
+A real same-repository event for governance PR `#1` completed at exact SHA
+`736a310ab4f5a0844797d8178a34e3b92cc3320a`: read-only Deploy Key checkout succeeded,
+history/secret/personal-data/customer-boundary and the 12/12 release scan passed, the job exited 0,
+the temporary workspace was removed, and CI logs contained no credential markers.
+
 ## Verification
 
 ```bash
