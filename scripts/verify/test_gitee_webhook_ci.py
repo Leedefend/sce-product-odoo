@@ -114,6 +114,23 @@ class GiteeWebhookTests(unittest.TestCase):
         self.accept(push_payload(), headers)
         self.assert_rejected(push_payload(after="b" * 40), headers)
 
+    def test_pull_request_upgrades_running_push_for_same_sha(self) -> None:
+        now = int(time.time() * 1000)
+        self.accept(push_payload(), self.headers(str(now)))
+        claimed = self.application.queue.claim()
+        self.assertIsNotNone(claimed)
+        assert claimed is not None
+        self.assertEqual("push_hooks", claimed["hook_name"])
+
+        inserted, _sha = self.accept(pr_payload(), self.headers(str(now + 1)))
+        self.assertTrue(inserted)
+        self.application.queue.complete(SHA, "push_hooks", 0)
+        upgraded = self.application.queue.claim()
+        self.assertIsNotNone(upgraded)
+        assert upgraded is not None
+        self.assertEqual("merge_request_hooks", upgraded["hook_name"])
+        self.assertEqual(7, upgraded["pr_number"])
+
     def test_stale_timestamp_is_rejected(self) -> None:
         stale = str(int(time.time() * 1000) - 301_000)
         self.assert_rejected(push_payload(), self.headers(stale))

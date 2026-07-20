@@ -204,6 +204,26 @@ class Queue:
             )
             if delivery.rowcount != 1:
                 raise Rejected("replayed request")
+            existing = connection.execute(
+                "SELECT hook_name, status FROM jobs WHERE sha = ?",
+                (job["sha"],),
+            ).fetchone()
+            if (
+                existing is not None
+                and existing["hook_name"] == "push_hooks"
+                and job["hook_name"] == "merge_request_hooks"
+            ):
+                connection.execute(
+                    """
+                    UPDATE jobs
+                    SET hook_name = 'merge_request_hooks', pr_number = ?,
+                        status = 'pending', started_at = NULL,
+                        completed_at = NULL, exit_code = NULL
+                    WHERE sha = ?
+                    """,
+                    (job["pr_number"], job["sha"]),
+                )
+                return True
             cursor = connection.execute(
                 """
                 INSERT OR IGNORE INTO jobs
@@ -237,11 +257,20 @@ class Queue:
             connection.commit()
             return dict(row)
 
-    def complete(self, sha: str, exit_code: int) -> None:
+    def complete(self, sha: str, hook_name: str, exit_code: int) -> None:
         with self.connect() as connection:
             connection.execute(
-                "UPDATE jobs SET status = ?, completed_at = ?, exit_code = ? WHERE sha = ?",
-                ("passed" if exit_code == 0 else "failed", int(time.time()), exit_code, sha),
+                """
+                UPDATE jobs SET status = ?, completed_at = ?, exit_code = ?
+                WHERE sha = ? AND hook_name = ? AND status = 'running'
+                """,
+                (
+                    "passed" if exit_code == 0 else "failed",
+                    int(time.time()),
+                    exit_code,
+                    sha,
+                    hook_name,
+                ),
             )
 
 
@@ -301,7 +330,7 @@ class Application:
                 env=safe_env,
                 check=False,
             )
-        self.queue.complete(sha, completed.returncode)
+        self.queue.complete(sha, job["hook_name"], completed.returncode)
         return True
 
 

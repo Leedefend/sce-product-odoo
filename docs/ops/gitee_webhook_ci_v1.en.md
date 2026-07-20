@@ -16,7 +16,7 @@ Chinese: [gitee_webhook_ci_v1.md](gitee_webhook_ci_v1.md)
 3. Reject reuse of a consumed signature timestamp.
 4. Validate repository, sender, and event; deny fork PRs, deleted refs, and closed/merged PR events.
 5. Persist only normalized SHA, event, and PR number in SQLite; never persist raw requests or plaintext secrets.
-6. Execute each SHA once and recover incomplete queue entries after service restart.
+6. Execute duplicate events for a SHA once. If a PR event arrives after Push, upgrade the job from public to professional; even a running public job is followed by the professional gate. Recover incomplete queue entries after service restart.
 7. Do not export the WebHook secret or reporting token to the worker.
 8. Use only the fixed Gitee URL and verify the detached HEAD SHA before running gates.
 9. Use an isolated temporary directory per run and retain logs/reports outside the repository.
@@ -68,4 +68,4 @@ make gitee.ci.server.status
 make gitee.ci.https.status
 ```
 
-The 12-case matrix covers positive header/query signature transport, API dual-transport precedence, invalid signatures, unexpected or repeated query parameters, expiry, replay, wrong repository, wrong sender, fork PRs, branch/command injection, deleted/closed events, and secret isolation.
+The 13-case matrix covers positive header/query signature transport, API dual-transport precedence, Push-to-PR queue upgrades, invalid signatures, unexpected or repeated query parameters, expiry, replay, wrong repository, wrong sender, fork PRs, branch/command injection, deleted/closed events, and secret isolation.

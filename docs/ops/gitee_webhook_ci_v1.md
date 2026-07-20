@@ -19,7 +19,8 @@ English: [gitee_webhook_ci_v1.en.md](gitee_webhook_ci_v1.en.md)
 3. 已使用过的签名时间戳不可重放。
 4. 校验仓库、发送者、事件；fork PR、删除分支、关闭/合并后的 PR 直接拒绝。
 5. 只把规范化的 SHA、事件和 PR 编号写入 SQLite；不保存原始请求或明文密钥。
-6. 相同 SHA 只执行一次；服务重启后恢复未完成队列。
+6. 相同 SHA 的重复事件只执行一次；若 PR 事件晚于 Push 到达，任务从公开守卫升级为专业门禁，
+   即使公开守卫正在运行也会在其结束后继续专业门禁。服务重启后恢复未完成队列。
 7. Worker 不继承 WebHook secret 或回写 token。
 8. 构建器只使用固定 Gitee URL，并在 detached HEAD 上复核实际 SHA。
 9. 每次构建使用独立临时目录；日志和扫描报告保存在服务器独立目录。
@@ -74,4 +75,4 @@ make gitee.ci.server.status
 make gitee.ci.https.status
 ```
 
-12 项矩阵包括请求头/查询签名正向用例、API 双通道优先级，以及无效签名、意外或重复查询参数、过期请求、重放、错误仓库、错误发送者、fork PR、分支/命令注入、删除/关闭事件和 secret 环境隔离。
+13 项矩阵包括请求头/查询签名正向用例、API 双通道优先级、Push→PR 队列升级，以及无效签名、意外或重复查询参数、过期请求、重放、错误仓库、错误发送者、fork PR、分支/命令注入、删除/关闭事件和 secret 环境隔离。
