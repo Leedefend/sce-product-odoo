@@ -47,6 +47,25 @@ class TestPaymentRequestPermission(TransactionCase):
         self.assertFalse(result.get("ok"))
         self.assertEqual(int(result.get("code") or 0), 400)
 
+    def test_model_approval_access_matches_handler_roles(self):
+        executive = self._create_user(
+            login="u_payment_executive",
+            group_xmlids=["base.group_user", "smart_construction_core.group_sc_role_executive"],
+        )
+        finance_approver = self._create_user(
+            login="u_payment_finance_approver",
+            group_xmlids=["base.group_user", "smart_core.group_smart_core_finance_approver"],
+        )
+        ordinary_user = self._create_user(
+            login="u_payment_ordinary",
+            group_xmlids=["base.group_user"],
+        )
+        requests = self.env["payment.request"]
+
+        self.assertTrue(requests.with_user(executive)._has_finance_approve_access())
+        self.assertTrue(requests.with_user(finance_approver)._has_finance_approve_access())
+        self.assertFalse(requests.with_user(ordinary_user)._has_finance_approve_access())
+
     def test_business_initiator_can_submit_without_funding_baseline_acl(self):
         user = self._create_user(
             login="u_payment_initiator",
