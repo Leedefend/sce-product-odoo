@@ -107,10 +107,11 @@ PY
     < "$history_backup/filestore.tar.gz"
 fi
 
-# The normal image entrypoint renders /var/lib/odoo/odoo.conf.  All subsequent
-# one-shot Odoo commands consume that generated production configuration.
-"${compose[@]}" up -d --wait odoo
-"${compose[@]}" stop odoo >/dev/null
+# Render the production configuration without starting the registry.  This is
+# essential for a historical copy whose old customer module identity is
+# intentionally migrated by the next audited step.
+"${compose[@]}" run --rm --no-deps --entrypoint python3 odoo \
+  /usr/local/bin/render_odoo_conf.py /etc/odoo/odoo.conf.template /var/lib/odoo/odoo.conf
 
 if [[ "$profile" == RC-C03 ]]; then
   "${compose[@]}" run --rm --no-deps -T --user odoo -e SC_CONFIRM_CUSTOMER_MODULE_RENAME=1 \
