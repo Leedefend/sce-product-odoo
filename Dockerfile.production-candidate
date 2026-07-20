@@ -14,7 +14,8 @@ RUN apt-get update \
     && ! command -v lessc \
     && ! command -v rtlcss \
     && ! find /usr/share/java -type f -name '*.jar' -print -quit | grep -q . \
-    && ! dpkg-query -W 'node-*' 'libnode*' 2>/dev/null \
+    && ! dpkg-query -W -f='${binary:Package}\t${db:Status-Status}\n' 'node-*' 'libnode*' 2>/dev/null \
+        | awk '$2 == "installed" { found=1 } END { exit(found ? 0 : 1) }' \
     && pip3 install --no-cache-dir -r /tmp/requirements-odoo.txt \
     && rm -rf /var/lib/apt/lists/* /tmp/requirements-odoo.txt
 

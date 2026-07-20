@@ -91,7 +91,10 @@ docker build \
 image_id="$(docker image inspect "$image" --format '{{.Id}}')"
 odoo_version="$(docker run --rm --entrypoint odoo "$image" --version | head -1)"
 image_python="$(docker run --rm --entrypoint python3 "$image" --version | awk '{print $2}')"
-if docker run --rm --entrypoint sh "$image" -c "command -v node || command -v lessc || command -v rtlcss || dpkg-query -W 'node-*' 'libnode*' 2>/dev/null"; then
+if docker run --rm --entrypoint sh "$image" -c \
+  "command -v node || command -v lessc || command -v rtlcss || \
+   dpkg-query -W -f='\${binary:Package}\t\${db:Status-Status}\n' 'node-*' 'libnode*' 2>/dev/null \
+     | awk '\$2 == \"installed\" { found=1 } END { exit(found ? 0 : 1) }'"; then
   echo "[candidate.build] Node runtime package or executable remains" >&2
   exit 1
 fi

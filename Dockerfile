@@ -80,15 +80,16 @@ RUN if [ "${APT_MIRROR}" = "huaweicloud" ]; then \
     && ! command -v lessc \
     && ! command -v rtlcss \
     && ! find /usr/share/java -type f -name '*.jar' -print -quit | grep -q . \
-    && ! dpkg-query -W 'node-*' 'libnode*' 2>/dev/null \
+    && ! dpkg-query -W -f='${binary:Package}\t${db:Status-Status}\n' 'node-*' 'libnode*' 2>/dev/null \
+        | awk '$2 == "installed" { found=1 } END { exit(found ? 0 : 1) }' \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装 Python 依赖（工程化：集中在 requirements-odoo.txt）
 COPY requirements-odoo.txt /tmp/requirements-odoo.txt
 RUN pip3 install --no-cache-dir -r /tmp/requirements-odoo.txt
 
-# Product addons are copied explicitly. Customer, demo, seed and migration
-# modules must be mounted as separate delivery artifacts at runtime.
+# Product addons are copied explicitly. Customer, demo, acceptance-fixture and
+# migration payload modules must be mounted as separate delivery artifacts.
 RUN mkdir -p /mnt/product-addons /mnt/customer-addons /mnt/test-addons /mnt/source-addons \
     && ln -s /mnt/product-addons /mnt/extra-addons
 COPY --chown=odoo:odoo addons/sc_norm_engine/ /mnt/product-addons/sc_norm_engine/
