@@ -94,12 +94,16 @@ HISTORY_SOURCE_BACKUP ?= artifacts/production-blocker/source/daily-dev-history-s
 DAILY_DEV_PROJECT ?= sc-backend-odoo-dev
 CANDIDATE_ARTIFACTS ?= artifacts/release/immutable-production-candidate-v1
 
-.PHONY: release.production.readonly_baseline release.candidate.build release.boundary.candidate.build release.candidate.scan
+.PHONY: release.workspace.prepare release.production.readonly_baseline release.candidate.build release.boundary.candidate.build release.candidate.scan
 .PHONY: product.install product.upgrade product.verify
 .PHONY: release.history.source_probe release.history.backup release.history.restore release.history.upgrade
 .PHONY: release.history.source_restore
 .PHONY: release.history.runtime_up release.history.runtime_down release.history.fingerprint.source_pre
 .PHONY: release.history.fingerprint.candidate_pre release.history.fingerprint.candidate_post
+
+release.workspace.prepare: guard.prod.forbid
+	@test -n "$(RELEASE_WORKSPACE)" || (echo "RELEASE_WORKSPACE is required"; exit 2)
+	@RELEASE_WORKSPACE="$(RELEASE_WORKSPACE)" bash scripts/release/prepare_rc_workspace.sh
 
 release.production.readonly_baseline: guard.prod.readonly check-compose-project check-compose-env
 	@CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" bash scripts/release/production_readonly_baseline.sh
