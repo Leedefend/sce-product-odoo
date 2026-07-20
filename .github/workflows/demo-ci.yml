@@ -12,12 +12,19 @@ on:
         required: false
         default: "all"
 
+permissions:
+  contents: read
+
 concurrency:
   group: demo-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   demo_ci:
+    if: >-
+      github.repository == 'Leedefend/sce-product-odoo' &&
+      github.actor == 'Leedefend' &&
+      github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, huawei, ubuntu22]
     timeout-minutes: 45
 

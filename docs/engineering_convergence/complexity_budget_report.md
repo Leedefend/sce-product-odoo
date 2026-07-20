@@ -4,9 +4,9 @@ Generated from repository source files. This report is informational during the 
 
 ## Summary
 
-- Scanned files: `3190`
+- Scanned files: `3198`
 - Files requiring split plan: `33`
-- Files above warning threshold: `49`
+- Files above warning threshold: `50`
 
 ## Split Plan Required
 
@@ -21,7 +21,7 @@ Generated from repository source files. This report is informational during the 
 | 3016 | Python source | `addons/smart_core/app_config_engine/services/assemblers/page_assembler.py` |
 | 2912 | Python source | `addons/smart_core/tests/test_menu_configuration_audit.py` |
 | 2830 | Python source | `addons/smart_construction_core/models/core/material_acceptance.py` |
-| 2585 | Python source | `addons/smart_construction_core/tests/test_user_feedback_business_views.py` |
+| 2484 | Python source | `addons/smart_construction_core/tests/test_user_feedback_business_views.py` |
 | 2443 | Python source | `addons/smart_core/core/unified_page_contract_v2_assembler.py` |
 | 2331 | Python source | `addons/smart_core/handlers/system_init.py` |
 | 2289 | Python source | `addons/smart_construction_core/models/core/project_core.py` |
@@ -97,8 +97,9 @@ Generated from repository source files. This report is informational during the 
 | 807 | Python source | `addons/smart_core/app_config_engine/services/dispatchers/nav_dispatcher.py` |
 | 467 | Shell script | `scripts/audit/smoke_business_full.sh` |
 | 426 | Shell script | `scripts/demo/verify.sh` |
-| 345 | YAML workflow | `.github/workflows/infra-stage-gate.yml` |
+| 352 | YAML workflow | `.github/workflows/infra-stage-gate.yml` |
 | 302 | Shell script | `scripts/deploy/prod_sim_fresh_replay.sh` |
+| 251 | Shell script | `scripts/ops/git_safe_push.sh` |
 
 ## Largest Files
 
@@ -113,7 +114,7 @@ Generated from repository source files. This report is informational during the 
 | 3016 | split_plan_required | Python source | `addons/smart_core/app_config_engine/services/assemblers/page_assembler.py` |
 | 2912 | split_plan_required | Python source | `addons/smart_core/tests/test_menu_configuration_audit.py` |
 | 2830 | split_plan_required | Python source | `addons/smart_construction_core/models/core/material_acceptance.py` |
-| 2585 | split_plan_required | Python source | `addons/smart_construction_core/tests/test_user_feedback_business_views.py` |
+| 2484 | split_plan_required | Python source | `addons/smart_construction_core/tests/test_user_feedback_business_views.py` |
 | 2443 | split_plan_required | Python source | `addons/smart_core/core/unified_page_contract_v2_assembler.py` |
 | 2331 | split_plan_required | Python source | `addons/smart_core/handlers/system_init.py` |
 | 2289 | split_plan_required | Python source | `addons/smart_construction_core/models/core/project_core.py` |
