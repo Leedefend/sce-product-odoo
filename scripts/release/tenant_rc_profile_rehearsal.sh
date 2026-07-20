@@ -117,6 +117,12 @@ if [[ "$profile" == RC-C03 ]]; then
   "${compose[@]}" run --rm --no-deps -T --user odoo -e SC_CONFIRM_CUSTOMER_MODULE_RENAME=1 \
     --entrypoint odoo odoo shell -d "$database" -c /var/lib/odoo/odoo.conf --log-level=error \
     < "$identity_migration" > "$artifacts/profiles/RC-C03-module-identity.json"
+  export FINGERPRINT_PROJECT="$project" FINGERPRINT_DB="$database"
+  export FINGERPRINT_COMPOSE_FILES="docker-compose.production-candidate.yml:docker-compose.tenant-rc-profile.yml"
+  export FINGERPRINT_FILESTORE_MODE=run
+  export FINGERPRINT_CARRIER_INVENTORY="$customer_root/$legacy_customer_module/legacy_owned_models_v2.json"
+  export FINGERPRINT_OUTPUT="$artifacts/profiles/RC-C03-history-before.json"
+  python3 scripts/release/production_candidate_sql_fingerprint.py
 fi
 
 run_modules() {
@@ -131,6 +137,16 @@ run_modules() {
 run_modules -i "$modules"
 run_modules -i "$modules" -u "$modules"
 run_modules -i "$modules" -u "$modules"
+
+if [[ "$profile" == RC-C03 ]]; then
+  export FINGERPRINT_OUTPUT="$artifacts/profiles/RC-C03-history-after.json"
+  python3 scripts/release/production_candidate_sql_fingerprint.py
+  python3 scripts/release/compare_tenant_rc_history_fingerprints.py \
+    --before "$artifacts/profiles/RC-C03-history-before.json" \
+    --after "$artifacts/profiles/RC-C03-history-after.json" \
+    --identity "$artifacts/profiles/RC-C03-module-identity.json" \
+    --output "$artifacts/profiles/RC-C03-history-compare.json"
+fi
 
 if [[ "$profile" == RC-C04 ]]; then
   operator="svc_rc_sample_payload"
