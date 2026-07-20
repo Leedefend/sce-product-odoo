@@ -1,0 +1,8 @@
+{
+  "schema_version": "sce.product_release.v1",
+  "product_name": "SCE Construction Product",
+  "product_version": "17.0.0",
+  "product_interface_version": "1",
+  "formal_module_set": "product_modules",
+  "default_entry_module": "smart_construction_bundle"
+}

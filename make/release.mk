@@ -13,8 +13,10 @@ verify.release.guard: verify.repository.release_hygiene
 	@SC_ENVIRONMENT=release_rehearsal SC_ALLOW_DEMO_DATA=0 DB_NAME=$(RELEASE_DB) python3 scripts/release/rehearsal_guard.py
 
 verify.release.tooling:
-	@python3 -m py_compile scripts/release/rehearsal_guard.py scripts/release/release_data_compatibility.py scripts/release/release_readiness_report.py scripts/release/release_acceptance_report.py scripts/release/release_monitoring_check.py scripts/release/release_fingerprint_compare.py scripts/release/test_rehearsal_guard.py scripts/verify/frontend_pilot_readiness_guard.py
+	@python3 -m py_compile scripts/release/rehearsal_guard.py scripts/release/release_data_compatibility.py scripts/release/release_readiness_report.py scripts/release/release_acceptance_report.py scripts/release/release_monitoring_check.py scripts/release/release_fingerprint_compare.py scripts/release/test_rehearsal_guard.py scripts/release/customer_package_preflight.py scripts/release/product_module_matrix.py scripts/release/test_customer_package_preflight.py scripts/verify/frontend_pilot_readiness_guard.py
 	@python3 scripts/release/test_rehearsal_guard.py
+	@python3 scripts/release/test_customer_package_preflight.py
+	@bash -n scripts/release/product_lifecycle.sh
 	@node --check scripts/release/release_static_server.mjs
 	@python3 scripts/verify/frontend_pilot_readiness_guard.py
 
@@ -93,6 +95,7 @@ DAILY_DEV_PROJECT ?= sc-backend-odoo-dev
 CANDIDATE_ARTIFACTS ?= artifacts/release/immutable-production-candidate-v1
 
 .PHONY: release.production.readonly_baseline release.candidate.build release.boundary.candidate.build release.candidate.scan
+.PHONY: product.install product.upgrade product.verify
 .PHONY: release.history.source_probe release.history.backup release.history.restore release.history.upgrade
 .PHONY: release.history.source_restore
 .PHONY: release.history.runtime_up release.history.runtime_down release.history.fingerprint.source_pre
@@ -111,6 +114,26 @@ release.boundary.candidate.build: guard.prod.forbid verify.repository.release_hy
 
 release.candidate.scan: guard.prod.forbid
 	@CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" bash scripts/release/immutable_candidate_scan.sh
+
+PRODUCT_PROJECT ?= sc-tenant-rc-product
+
+product.install: guard.prod.forbid
+	@test -n "$(DB_NAME)" || (echo "DB_NAME is required"; exit 2)
+	@test -n "$(CANDIDATE_IMAGE)" || (echo "CANDIDATE_IMAGE is required"; exit 2)
+	@DB_NAME="$(DB_NAME)" CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" PRODUCT_PROJECT="$(PRODUCT_PROJECT)" \
+		PRODUCT_PROFILE_COMPOSE="$(PRODUCT_PROFILE_COMPOSE)" bash scripts/release/product_lifecycle.sh install
+
+product.upgrade: guard.prod.forbid
+	@test -n "$(DB_NAME)" || (echo "DB_NAME is required"; exit 2)
+	@test -n "$(CANDIDATE_IMAGE)" || (echo "CANDIDATE_IMAGE is required"; exit 2)
+	@DB_NAME="$(DB_NAME)" CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" PRODUCT_PROJECT="$(PRODUCT_PROJECT)" \
+		PRODUCT_PROFILE_COMPOSE="$(PRODUCT_PROFILE_COMPOSE)" bash scripts/release/product_lifecycle.sh upgrade
+
+product.verify: guard.prod.forbid
+	@test -n "$(DB_NAME)" || (echo "DB_NAME is required"; exit 2)
+	@test -n "$(CANDIDATE_IMAGE)" || (echo "CANDIDATE_IMAGE is required"; exit 2)
+	@DB_NAME="$(DB_NAME)" CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" PRODUCT_PROJECT="$(PRODUCT_PROJECT)" \
+		PRODUCT_PROFILE_COMPOSE="$(PRODUCT_PROFILE_COMPOSE)" bash scripts/release/product_lifecycle.sh verify
 
 release.history.source_probe: guard.prod.forbid check-compose-project check-compose-env
 	@HISTORY_SOURCE_DB="$(HISTORY_SOURCE_DB)" HISTORY_SOURCE_BACKUP="$(HISTORY_SOURCE_BACKUP)" CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" bash scripts/release/production_candidate_history.sh source-probe

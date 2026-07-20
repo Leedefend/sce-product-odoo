@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import hashlib
+import os
+import subprocess
+import sys
+import tarfile
+import tempfile
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+PREFLIGHT = ROOT / "scripts" / "release" / "customer_package_preflight.py"
+PAYLOAD_BUILDER = ROOT / "scripts" / "tenant_payload" / "build_synthetic_payload.py"
+SAMPLE = ROOT / "customer_addons" / "sce_customer_sample"
+
+
+class CustomerPackagePreflightTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.archive_root = self.root / "archive"
+        self.archive_root.mkdir()
+        self.archive = self.archive_root / "sample.tar.gz"
+        with tarfile.open(self.archive, "w:gz") as handle:
+            handle.add(SAMPLE, arcname="package/addons/sce_customer_sample")
+        self.archive_sha = hashlib.sha256(self.archive.read_bytes()).hexdigest()
+        self.payload = self.root / "payload"
+        self.hmac_key = "test-only-customer-package-key"
+        subprocess.run(
+            [
+                sys.executable,
+                str(PAYLOAD_BUILDER),
+                "--output",
+                str(self.payload),
+                "--tenant-key",
+                "sample",
+                "--module-version",
+                "17.0.1.3.0",
+            ],
+            cwd=ROOT,
+            env={
+                **os.environ,
+                "SC_TENANT_PAYLOAD_TEST_MODE": "1",
+                "SC_TENANT_PAYLOAD_HMAC_KEY": self.hmac_key,
+            },
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+
+    def tearDown(self) -> None:
+        self.temp.cleanup()
+
+    def run_preflight(self, **overrides: str) -> subprocess.CompletedProcess[str]:
+        environment = {
+            **os.environ,
+            "SC_CUSTOMER_ADDONS_ROOT": str(self.archive_root),
+            "SC_CUSTOMER_MODULE": "sce_customer_sample",
+            "SC_CUSTOMER_ARCHIVE_SHA256": self.archive_sha,
+            "SC_TENANT_ID": "sample",
+            "SC_PAYLOAD_MANIFEST": str(self.payload / "manifest.json"),
+            "SC_TENANT_PAYLOAD_TEST_MODE": "1",
+            "SC_TENANT_PAYLOAD_HMAC_KEY": self.hmac_key,
+            **overrides,
+        }
+        return subprocess.run(
+            [
+                sys.executable,
+                str(PREFLIGHT),
+                "--prepare-dir",
+                str(self.root / "prepared"),
+                "--report",
+                str(self.root / "report.json"),
+            ],
+            cwd=ROOT,
+            env=environment,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    def test_valid_archive_and_payload_are_admitted_without_database_writes(self) -> None:
+        result = self.run_preflight()
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn('"database_write_count":0', result.stdout)
+        self.assertTrue((self.root / "prepared" / "package" / "addons" / "sce_customer_sample").is_dir())
+
+    def test_checksum_and_tenant_fail_before_preparation(self) -> None:
+        for key, value, marker in (
+            ("SC_CUSTOMER_ARCHIVE_SHA256", "0" * 64, "CUSTOMER_ARCHIVE_CHECKSUM_MISMATCH"),
+            ("SC_TENANT_ID", "other", "CUSTOMER_MODULE_TENANT_MISMATCH"),
+        ):
+            with self.subTest(key=key):
+                prepared = self.root / "prepared"
+                if prepared.exists():
+                    for child in sorted(prepared.rglob("*"), reverse=True):
+                        if child.is_file():
+                            child.unlink()
+                        elif child.is_dir():
+                            child.rmdir()
+                    prepared.rmdir()
+                result = self.run_preflight(**{key: value})
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn(marker, result.stderr)
+                self.assertFalse((self.root / "report.json").exists())
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

@@ -1,0 +1,12 @@
+services:
+  odoo:
+    environment:
+      SC_ENVIRONMENT: production_candidate_rehearsal
+      SC_ALLOW_DEMO_DATA: "0"
+      SC_TENANT_ID: ${SC_TENANT_ID:-}
+      SC_CUSTOMER_MODULE: ${SC_CUSTOMER_MODULE:-}
+      SC_PAYLOAD_MANIFEST: ${RC_PAYLOAD_MANIFEST_CONTAINER:-}
+    volumes:
+      - ${RC_CUSTOMER_ADDONS_MOUNT:-./artifacts/release/rc-empty/customer}:/mnt/customer-addons:ro
+      - ${RC_PAYLOAD_ROOT_MOUNT:-./artifacts/release/rc-empty/payload}:/mnt/tenant-payload:ro
+      - ${RC_ATTACHMENT_PROVIDER_ROOT:-./artifacts/release/rc-empty/attachments}:/mnt/attachment-provider:ro

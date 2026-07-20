@@ -75,9 +75,11 @@ RUN if [ "${APT_MIRROR}" = "huaweicloud" ]; then \
     && apt-get purge -y nodejs npm node-less libnode-dev libnode72 \
     && apt-get autoremove -y --purge \
     && rm -rf /usr/local/bin/rtlcss /usr/local/lib/node_modules/rtlcss \
+    && rm -f /usr/share/java/libintl-*.jar \
     && ! command -v node \
     && ! command -v lessc \
     && ! command -v rtlcss \
+    && ! find /usr/share/java -type f -name '*.jar' -print -quit | grep -q . \
     && ! dpkg-query -W 'node-*' 'libnode*' 2>/dev/null \
     && rm -rf /var/lib/apt/lists/*
 
@@ -93,10 +95,12 @@ COPY --chown=odoo:odoo addons/sc_norm_engine/ /mnt/product-addons/sc_norm_engine
 COPY --chown=odoo:odoo addons/smart_core/ /mnt/product-addons/smart_core/
 COPY --chown=odoo:odoo addons/smart_scene/ /mnt/product-addons/smart_scene/
 COPY --chown=odoo:odoo addons/smart_license_core/ /mnt/product-addons/smart_license_core/
+COPY --chown=odoo:odoo addons/smart_construction_bootstrap/ /mnt/product-addons/smart_construction_bootstrap/
 COPY --chown=odoo:odoo addons/smart_construction_core/ /mnt/product-addons/smart_construction_core/
 COPY --chown=odoo:odoo addons/smart_construction_portal/ /mnt/product-addons/smart_construction_portal/
 COPY --chown=odoo:odoo addons/smart_construction_scene/ /mnt/product-addons/smart_construction_scene/
 COPY --chown=odoo:odoo addons/smart_construction_bundle/ /mnt/product-addons/smart_construction_bundle/
+COPY --chown=odoo:odoo addons/smart_construction_seed/ /mnt/product-addons/smart_construction_seed/
 COPY --chown=odoo:odoo addons_external/oca_server_ux/ /mnt/addons_external/oca_server_ux/
 COPY --chown=odoo:odoo --from=frontend-verified /build/frontend/apps/web/dist/ /opt/sce/frontend/
 

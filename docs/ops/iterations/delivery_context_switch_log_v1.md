@@ -138,3 +138,15 @@ customer delivery evidence belongs in private customer or payload repositories.
 - Why Not Elsewhere: the receiver must not hold repository credentials, build code must not read the GitHub key, and GitHub must not become an independent write path
 - Blast Radius: one repository Ruleset, one write Deploy Key, one unprivileged mirror account, one oneshot/timer, the Gitee-only PR push guard, and fixed fresh-clone validation
 - System-bound verification: exact repository allowlist, exact SHA push, ancestor check, force-free negative tests, active Ruleset readback, unique write Deploy Key, worker-key denial, mirror-key access, idempotent timer execution, dual fresh clones, identical SHA/tree/branches/tags, and 12/12 release scans
+
+## 2026-07-20 — TENANT-RC-01 Pure Product Candidate
+
+- Branch: `release/tenant-rc-01-product-image`
+- Starting product commit: `db31271c286e3a898d8882242cac5c3940484a66`
+- Formal Product Layer: P4 release delivery tooling assembling the P0/P1 product set
+- Layer Target: immutable product image, formal lifecycle entry points, external customer package admission, isolated profile acceptance, and recovery evidence
+- Module: `make/release.mk`, `scripts/release`, `scripts/verify`, candidate Dockerfiles, and the frozen product module-set configuration
+- Reason: produce one customer-neutral image that can be installed and upgraded without hand-built module lists, while admitting customer modules and payloads only through a fail-closed external protocol
+- Standard vs User-Specific: the repository owns only the generic product and delivery protocol; synthetic payloads are test-only and Baosheng code/data remain in authorized private storage
+- Why Here / Why Not Elsewhere: image assembly and admission checks are P4 responsibilities; P0/P1 modules remain the product facts, and no customer semantics enter platform, industry, frontend, or low-code layers
+- Blast Radius: product module closure, production static assets, candidate container contents, isolated databases, external read-only mounts, release reports, and no production or 175GB attachment writes

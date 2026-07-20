@@ -13,8 +13,7 @@ DOCKERFILES = [ROOT / "Dockerfile", ROOT / "Dockerfile.production-candidate"]
 FORBIDDEN_MODULES = {
     "smart_construction_custom",
     "smart_construction_demo",
-    "smart_construction_seed",
-    "smart_construction_bootstrap",
+    "smart_construction_acceptance_fixture",
 }
 CUSTOMER_EXTERNAL_ID = re.compile(r"\blegacy_\d{8,}\b")
 NON_EXAMPLE_LEGAL_COMPANY = re.compile(r"[\u4e00-\u9fff]{4,}(?:建设|建筑)?集团有限公司")

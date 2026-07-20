@@ -11,8 +11,8 @@ if [[ "$source_ref" == "HEAD" ]]; then
     echo "[candidate.build] branch build requires explicit boundary authorization" >&2
     exit 2
   }
-  [[ "$(git branch --show-current)" == "refactor/product-customer-legacy-boundary" ]] || {
-    echo "[candidate.build] branch build is restricted to the boundary branch" >&2
+  [[ "$(git branch --show-current)" =~ ^release/tenant-rc-[a-z0-9._-]+$ ]] || {
+    echo "[candidate.build] branch build is restricted to a tenant RC release branch" >&2
     exit 2
   }
   [[ -z "$(git status --short)" ]] || {
@@ -36,6 +36,9 @@ locked_product_paths=(
   config/odoo.conf.template
   scripts/odoo-entrypoint.sh
   scripts/render_odoo_conf.py
+  Dockerfile.production-candidate
+  Dockerfile.production-frontend-builder
+  config/product_addons_allowlist.txt
 )
 if git diff --quiet "$source_sha" -- "${locked_product_paths[@]}"; then
   :
@@ -53,7 +56,9 @@ frontend_builder="sce-production-frontend-builder:${short_sha}"
 build_time="${CANDIDATE_BUILD_TIME:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 node_version="v22.17.0-build-only"
 pnpm_version="9.12.3-build-only"
-python_version="$(docker run --rm --entrypoint python3 odoo:17.0 --version | awk '{print $2}')"
+runtime_base="odoo:17.0@sha256:f88f646a0f5fc0b225995ee28953d9ce7367cc731b1756765114691fb97d18e5"
+python_version="$(docker run --rm --entrypoint python3 "$runtime_base" --version | awk '{print $2}')"
+module_matrix="$(python3 scripts/release/product_module_matrix.py --json)"
 
 mkdir -p "$artifacts"
 rm -rf "$dist"
@@ -97,6 +102,7 @@ archive_sha="$(sha256sum "$archive" | awk '{print $1}')"
 IMAGE="$image" IMAGE_ID="$image_id" SOURCE_SHA="$source_sha" FRONTEND_HASH="$frontend_hash" \
 BUILD_TIME="$build_time" ODOO_VERSION="$odoo_version" PYTHON_VERSION="$image_python" \
 NODE_VERSION="$node_version" PNPM_VERSION="$pnpm_version" ARCHIVE_SHA="$archive_sha" \
+MODULE_MATRIX_JSON="$module_matrix" \
 python3 - <<'PY'
 import json, os
 from pathlib import Path
@@ -116,6 +122,7 @@ payload = {
         "node": os.environ["NODE_VERSION"],
         "pnpm": os.environ["PNPM_VERSION"],
     },
+    "module_version_matrix": json.loads(os.environ["MODULE_MATRIX_JSON"]),
     "archive": "candidate-image.tar",
     "archive_sha256": os.environ["ARCHIVE_SHA"],
     "contains": ["odoo_backend", "production_frontend_static", "formal_addons", "python_dependencies", "startup_configuration", "nginx"],
