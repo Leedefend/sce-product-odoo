@@ -149,12 +149,19 @@ class GiteeWebhookTests(unittest.TestCase):
             with self.subTest(query=set(query)):
                 with self.assertRaises(MODULE.Rejected):
                     self.application.accept(body, Headers(), query)
-        with self.assertRaises(MODULE.Rejected):
-            self.application.accept(
-                body,
-                self.headers(timestamp),
-                {"timestamp": [str(int(timestamp) + 1)], "sign": [signature]},
-            )
+
+    def test_valid_query_signature_precedes_auxiliary_headers(self) -> None:
+        import json
+
+        timestamp = str(int(time.time() * 1000))
+        signature = MODULE.expected_signature(timestamp, SECRET)
+        inserted, sha = self.application.accept(
+            json.dumps(push_payload(), separators=(",", ":")).encode(),
+            self.headers(str(int(timestamp) - 1), secret="independent-header-secret"),
+            {"timestamp": [timestamp], "sign": [signature]},
+        )
+        self.assertTrue(inserted)
+        self.assertEqual(SHA, sha)
 
     def test_wrong_repository_and_sender_are_rejected(self) -> None:
         self.assert_rejected(push_payload(repository={"full_name": "other/repo"}))

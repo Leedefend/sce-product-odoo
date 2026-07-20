@@ -65,11 +65,11 @@ def authentication_values(headers: Any, query: dict[str, list[str]]) -> tuple[st
         raise Rejected("incomplete header authentication")
     if bool(query_timestamp) != bool(query_token):
         raise Rejected("incomplete query authentication")
-    if header_timestamp and query_timestamp:
-        if header_timestamp != query_timestamp or header_token != query_token:
-            raise Rejected("conflicting authentication")
-    timestamp = header_timestamp or query_timestamp
-    token = header_token or query_token
+    # Hooks created through Gitee's API currently send an authoritative query
+    # signature plus auxiliary headers calculated independently. Prefer the
+    # complete query pair; documented header-only hooks remain supported.
+    timestamp = query_timestamp or header_timestamp
+    token = query_token or header_token
     if not timestamp or not token:
         raise Rejected("missing authentication")
     return timestamp, token
