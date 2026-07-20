@@ -17,7 +17,7 @@ gitee.ci.server.install: guard.prod.forbid
 	@GITEE_CI_SERVER_CONFIRM="$(GITEE_CI_SERVER_CONFIRM)" bash scripts/ops/install_gitee_webhook_ci.sh
 
 gitee.ci.server.status: guard.prod.forbid
-	@ssh -o BatchMode=yes root@1.95.2.123 'systemctl --no-pager --full status gitee-webhook-ci.service; curl --fail --silent http://127.0.0.1:9080/healthz'
+	@ssh -o BatchMode=yes root@1.95.2.123 'systemctl --no-pager --full status gitee-webhook-ci.service gitee-ci-worker.service; curl --fail --silent http://127.0.0.1:9080/healthz'
 
 gitee.ci.https.install: guard.prod.forbid
 	@GITEE_CI_HTTPS_CONFIRM="$(GITEE_CI_HTTPS_CONFIRM)" bash scripts/ops/install_gitee_ci_https.sh

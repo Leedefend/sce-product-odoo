@@ -21,11 +21,11 @@ Chinese: [gitee_webhook_ci_v1.md](gitee_webhook_ci_v1.md)
 8. Use only the fixed Gitee URL and verify the detached HEAD SHA before running gates.
 9. Use an isolated temporary directory per run and retain logs/reports outside the repository.
 10. Push events run only the public guard; only same-repository, owner-sent PR events run the professional gate, while forks are rejected before enqueue.
-11. Keep systemd `MemoryDenyWriteExecute=true`; professional-gate Node/V8 processes use `--jitless` instead of weakening the service's executable-memory boundary.
+11. The receiver keeps `MemoryDenyWriteExecute=true` and never launches builds. The worker has no WebHook secret and separately owns Node/V8/Wasm professional builds. They communicate only through the normalized SQLite queue.
 
 ## Server state
 
-Service: `gitee-webhook-ci.service`
+Services: `gitee-webhook-ci.service` (signature receiver) and `gitee-ci-worker.service` (builder).
 
 ```text
 USER=gitee-ci
@@ -35,12 +35,13 @@ DB=/var/lib/gitee-ci/jobs.sqlite3
 LOG=/var/log/gitee-ci
 ARTIFACT=/var/lib/gitee-ci/artifacts
 DEPLOY_KEY=/etc/gitee-ci/id_ed25519
-SECRET=/etc/gitee-ci/sce-product-odoo.env
+RECEIVER_ENV=/etc/gitee-ci/sce-product-odoo-receiver.env
+WORKER_ENV=/etc/gitee-ci/sce-product-odoo-worker.env
 PUBLIC_HEALTH=https://1.95.2.123/healthz
 WEBHOOK=https://1.95.2.123/hooks/gitee
 ```
 
-The secret and private key remain server-local `0400/0440` files. They are not committed or printed in logs.
+Only the receiver environment contains the WebHook secret, and only the worker environment references the Deploy Key; the services do not share credential files. Secrets and private keys remain server-local `0400/0440` files. They are not committed or printed in logs.
 Nginx proxies only the exact WebHook path to the loopback service. Certbot obtains a
 Let's Encrypt short-lived IP certificate and a systemd timer renews it automatically.
 
@@ -69,4 +70,4 @@ make gitee.ci.server.status
 make gitee.ci.https.status
 ```
 
-The 14-case matrix covers positive header/query signature transport, raw base64 `+`, API dual-transport precedence, Push-to-PR queue upgrades, invalid signatures, unexpected or repeated query parameters, expiry, replay, wrong repository, wrong sender, fork PRs, branch/command injection, deleted/closed events, and secret isolation.
+The 15-case matrix covers positive header/query signature transport, raw base64 `+`, API dual-transport precedence, Push-to-PR queue upgrades, receiver/worker secret isolation, invalid signatures, unexpected or repeated query parameters, expiry, replay, wrong repository, wrong sender, fork PRs, branch/command injection, deleted/closed events, and secret isolation.

@@ -9,6 +9,7 @@ fi
 test -f "${source_root}/scripts/ci/gitee_webhook_ci.py"
 test -f "${source_root}/scripts/ci/gitee_ci_run.sh"
 test -f "${source_root}/deploy/gitee-ci/gitee-webhook-ci.service"
+test -f "${source_root}/deploy/gitee-ci/gitee-ci-worker.service"
 
 if ! command -v corepack >/dev/null 2>&1; then
   echo "[gitee_ci_install] corepack is required" >&2
@@ -34,6 +35,9 @@ install -o root -g root -m 0755 \
 install -o root -g root -m 0644 \
   "${source_root}/deploy/gitee-ci/gitee-webhook-ci.service" \
   /etc/systemd/system/gitee-webhook-ci.service
+install -o root -g root -m 0644 \
+  "${source_root}/deploy/gitee-ci/gitee-ci-worker.service" \
+  /etc/systemd/system/gitee-ci-worker.service
 
 if [ ! -f /etc/gitee-ci/id_ed25519 ]; then
   ssh-keygen -q -t ed25519 -N '' -C 'gitee-ci@sce-product-odoo' \
@@ -49,14 +53,18 @@ printf '%s\n' \
 chown root:gitee-ci /etc/gitee-ci/known_hosts
 chmod 0440 /etc/gitee-ci/known_hosts
 
-if [ -f /etc/gitee-ci/sce-product-odoo.env ]; then
+if [ -f /etc/gitee-ci/sce-product-odoo-receiver.env ]; then
+  secret="$(sed -n 's/^GITEE_WEBHOOK_SECRET=//p' /etc/gitee-ci/sce-product-odoo-receiver.env)"
+elif [ -f /etc/gitee-ci/sce-product-odoo.env ]; then
   secret="$(sed -n 's/^GITEE_WEBHOOK_SECRET=//p' /etc/gitee-ci/sce-product-odoo.env)"
+else
+  secret="$(openssl rand -hex 32)"
+fi
+if [ -f /etc/gitee-ci/sce-product-odoo-receiver.env ] || [ -f /etc/gitee-ci/sce-product-odoo.env ]; then
   if [ -z "${secret}" ]; then
     echo "[gitee_ci_install] existing secret is invalid" >&2
     exit 2
   fi
-else
-  secret="$(openssl rand -hex 32)"
 fi
 umask 0077
 {
@@ -68,19 +76,29 @@ umask 0077
     'GITEE_WEBHOOK_MAX_SKEW_SECONDS=300' \
     'GITEE_CI_BIND=127.0.0.1' \
     'GITEE_CI_PORT=9080' \
+    'GITEE_CI_DB=/var/lib/gitee-ci/jobs.sqlite3'
+} > /etc/gitee-ci/sce-product-odoo-receiver.env
+{
+  printf '%s\n' \
     'GITEE_CI_DB=/var/lib/gitee-ci/jobs.sqlite3' \
     'GITEE_CI_LOG_DIR=/var/log/gitee-ci' \
     'GITEE_CI_RUNNER=/opt/gitee-ci/sce-product-odoo/gitee_ci_run.sh' \
     'GITEE_CI_WORKSPACE_ROOT=/var/lib/gitee-ci/workspaces' \
     'GITEE_CI_ARTIFACT_ROOT=/var/lib/gitee-ci/artifacts' \
     'GIT_SSH_COMMAND="/usr/bin/ssh -i /etc/gitee-ci/id_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=/etc/gitee-ci/known_hosts -o StrictHostKeyChecking=yes"'
-} > /etc/gitee-ci/sce-product-odoo.env
-chown root:gitee-ci /etc/gitee-ci/sce-product-odoo.env
-chmod 0440 /etc/gitee-ci/sce-product-odoo.env
+} > /etc/gitee-ci/sce-product-odoo-worker.env
+chown root:gitee-ci \
+  /etc/gitee-ci/sce-product-odoo-receiver.env \
+  /etc/gitee-ci/sce-product-odoo-worker.env
+chmod 0440 \
+  /etc/gitee-ci/sce-product-odoo-receiver.env \
+  /etc/gitee-ci/sce-product-odoo-worker.env
+rm -f /etc/gitee-ci/sce-product-odoo.env
 
 systemctl daemon-reload
-systemctl enable gitee-webhook-ci.service
+systemctl enable gitee-webhook-ci.service gitee-ci-worker.service
 systemctl restart gitee-webhook-ci.service
+systemctl restart gitee-ci-worker.service
 echo "[gitee_ci_install] PASS bind=127.0.0.1:9080 secret=stored-not-printed"
 echo "[gitee_ci_install] deploy-key follows (public key only):"
 cat /etc/gitee-ci/id_ed25519.pub

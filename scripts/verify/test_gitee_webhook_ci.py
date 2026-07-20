@@ -235,6 +235,26 @@ class GiteeWebhookTests(unittest.TestCase):
         log = (Path(self.environment["GITEE_CI_LOG_DIR"]) / f"{SHA}.log").read_text()
         self.assertNotIn(SECRET, log)
 
+    def test_receiver_and_worker_have_separate_required_secrets(self) -> None:
+        root = Path(self.temp.name)
+        receiver_env = {
+            "GITEE_WEBHOOK_SECRET": SECRET,
+            "GITEE_ALLOWED_REPOSITORY": "leegege/sce-product-odoo",
+            "GITEE_ALLOWED_SENDER": "leegege",
+            "GITEE_CI_DB": str(root / "receiver.sqlite3"),
+        }
+        with mock.patch.dict(os.environ, receiver_env, clear=True):
+            MODULE.Application(worker_enabled=False)
+
+        worker_env = {
+            "GITEE_CI_RUNNER": self.environment["GITEE_CI_RUNNER"],
+            "GITEE_CI_DB": str(root / "worker.sqlite3"),
+            "GITEE_CI_LOG_DIR": str(root / "worker-logs"),
+        }
+        with mock.patch.dict(os.environ, worker_env, clear=True):
+            worker_application = MODULE.Application(receiver_enabled=False)
+        self.assertEqual("", worker_application.secret)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

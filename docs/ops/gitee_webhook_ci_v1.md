@@ -25,12 +25,12 @@ English: [gitee_webhook_ci_v1.en.md](gitee_webhook_ci_v1.en.md)
 8. 构建器只使用固定 Gitee URL，并在 detached HEAD 上复核实际 SHA。
 9. 每次构建使用独立临时目录；日志和扫描报告保存在服务器独立目录。
 10. Push 只执行公开守卫；同仓库、同所有者 PR 才执行专业门禁，fork 在入队前拒绝。
-11. systemd 保持 `MemoryDenyWriteExecute=true`；专业门禁的 Node/V8 使用 `--jitless`，
-    不为前端构建放宽服务的可执行内存限制。
+11. receiver 保持 `MemoryDenyWriteExecute=true` 且不启动构建进程；worker 不持有 WebHook
+    密钥，并单独承担 Node/V8/Wasm 专业构建。两者只通过 SQLite 规范化队列通信。
 
 ## 服务器状态
 
-服务：`gitee-webhook-ci.service`
+服务：`gitee-webhook-ci.service`（签名接收器）和 `gitee-ci-worker.service`（构建器）。
 
 ```text
 USER=gitee-ci
@@ -40,11 +40,13 @@ DB=/var/lib/gitee-ci/jobs.sqlite3
 LOG=/var/log/gitee-ci
 ARTIFACT=/var/lib/gitee-ci/artifacts
 DEPLOY_KEY=/etc/gitee-ci/id_ed25519
-SECRET=/etc/gitee-ci/sce-product-odoo.env
+RECEIVER_ENV=/etc/gitee-ci/sce-product-odoo-receiver.env
+WORKER_ENV=/etc/gitee-ci/sce-product-odoo-worker.env
 PUBLIC_HEALTH=https://1.95.2.123/healthz
 WEBHOOK=https://1.95.2.123/hooks/gitee
 ```
 
+WebHook 密钥只进入 receiver 环境，Deploy Key 只进入 worker 环境；两个服务不共享密钥文件。
 密钥和私钥均为服务器本地 `0400/0440` 文件，不进入 Git、不打印到日志。
 Nginx 只把精确的 WebHook 路径反向代理到 loopback 服务；公网证书由 Certbot
 使用 Let's Encrypt 短期 IP 证书签发并由 systemd timer 自动续期。
@@ -77,4 +79,4 @@ make gitee.ci.server.status
 make gitee.ci.https.status
 ```
 
-14 项矩阵包括请求头/查询签名正向用例、原始 Base64 `+`、API 双通道优先级、Push→PR 队列升级，以及无效签名、意外或重复查询参数、过期请求、重放、错误仓库、错误发送者、fork PR、分支/命令注入、删除/关闭事件和 secret 环境隔离。
+15 项矩阵包括请求头/查询签名正向用例、原始 Base64 `+`、API 双通道优先级、Push→PR 队列升级、receiver/worker 密钥隔离，以及无效签名、意外或重复查询参数、过期请求、重放、错误仓库、错误发送者、fork PR、分支/命令注入、删除/关闭事件和 secret 环境隔离。

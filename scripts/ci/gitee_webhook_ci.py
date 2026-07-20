@@ -172,17 +172,17 @@ def normalized_job(
 
 
 class Queue:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, *, recover_running: bool = True):
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._initialize()
+        self._initialize(recover_running)
 
     def connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=30)
         connection.row_factory = sqlite3.Row
         return connection
 
-    def _initialize(self) -> None:
+    def _initialize(self, recover_running: bool) -> None:
         with self.connect() as connection:
             connection.execute(
                 """
@@ -208,10 +208,11 @@ class Queue:
                 )
                 """
             )
-            connection.execute(
-                "UPDATE jobs SET status = 'pending', started_at = NULL "
-                "WHERE status = 'running'"
-            )
+            if recover_running:
+                connection.execute(
+                    "UPDATE jobs SET status = 'pending', started_at = NULL "
+                    "WHERE status = 'running'"
+                )
 
     def enqueue(self, job: dict[str, Any], signature_timestamp: str) -> bool:
         with self.connect() as connection:
@@ -292,16 +293,22 @@ class Queue:
 
 
 class Application:
-    def __init__(self) -> None:
-        self.secret = required_env("GITEE_WEBHOOK_SECRET")
-        self.allowed_repository = required_env("GITEE_ALLOWED_REPOSITORY")
-        self.allowed_sender = required_env("GITEE_ALLOWED_SENDER")
+    def __init__(self, *, receiver_enabled: bool = True, worker_enabled: bool = True) -> None:
+        self.secret = required_env("GITEE_WEBHOOK_SECRET") if receiver_enabled else ""
+        self.allowed_repository = (
+            required_env("GITEE_ALLOWED_REPOSITORY") if receiver_enabled else ""
+        )
+        self.allowed_sender = required_env("GITEE_ALLOWED_SENDER") if receiver_enabled else ""
         self.endpoint = os.environ.get("GITEE_WEBHOOK_PATH", "/hooks/gitee")
         self.max_skew_seconds = int(os.environ.get("GITEE_WEBHOOK_MAX_SKEW_SECONDS", "300"))
-        self.runner = Path(required_env("GITEE_CI_RUNNER"))
+        self.runner = Path(required_env("GITEE_CI_RUNNER")) if worker_enabled else None
         self.log_dir = Path(os.environ.get("GITEE_CI_LOG_DIR", "/var/log/gitee-ci"))
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.queue = Queue(Path(os.environ.get("GITEE_CI_DB", "/var/lib/gitee-ci/jobs.sqlite3")))
+        if worker_enabled:
+            self.log_dir.mkdir(parents=True, exist_ok=True)
+        self.queue = Queue(
+            Path(os.environ.get("GITEE_CI_DB", "/var/lib/gitee-ci/jobs.sqlite3")),
+            recover_running=worker_enabled,
+        )
 
     def accept(
         self,
@@ -328,6 +335,8 @@ class Application:
         return inserted, job["sha"]
 
     def execute_once(self) -> bool:
+        if self.runner is None:
+            raise RuntimeError("worker is disabled")
         job = self.queue.claim()
         if job is None:
             return False
@@ -428,16 +437,11 @@ def worker(application: Application, stop: threading.Event) -> None:
 
 
 def serve(application: Application, bind: str, port: int) -> None:
-    stop = threading.Event()
-    thread = threading.Thread(target=worker, args=(application, stop), daemon=True)
-    thread.start()
     server = ThreadingHTTPServer((bind, port), handler_factory(application))
     try:
         server.serve_forever(poll_interval=0.5)
     finally:
-        stop.set()
         server.server_close()
-        thread.join(timeout=5)
 
 
 def main() -> int:
@@ -445,12 +449,23 @@ def main() -> int:
     parser.add_argument("--bind", default=os.environ.get("GITEE_CI_BIND", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("GITEE_CI_PORT", "9080")))
     parser.add_argument("--once", action="store_true")
+    parser.add_argument("--receiver-only", action="store_true")
+    parser.add_argument("--worker-only", action="store_true")
     args = parser.parse_args()
-    application = Application()
+    if args.receiver_only and (args.worker_only or args.once):
+        parser.error("--receiver-only cannot be combined with worker modes")
+    if args.receiver_only:
+        serve(Application(worker_enabled=False), args.bind, args.port)
+        return 0
+    application = Application(receiver_enabled=False)
     if args.once:
         application.execute_once()
         return 0
-    serve(application, args.bind, args.port)
+    stop = threading.Event()
+    try:
+        worker(application, stop)
+    finally:
+        stop.set()
     return 0
 
 

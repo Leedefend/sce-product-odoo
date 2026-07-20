@@ -26,6 +26,7 @@ tar -cf - \
   scripts/ci/gitee_webhook_ci.py \
   scripts/ci/gitee_ci_run.sh \
   deploy/gitee-ci/gitee-webhook-ci.service \
+  deploy/gitee-ci/gitee-ci-worker.service \
   deploy/gitee-ci/install.sh \
   | ssh -o BatchMode=yes "${target}" "tar -xf - -C '${stage}'"
 ssh -o BatchMode=yes "${target}" "bash '${stage}/deploy/gitee-ci/install.sh' '${stage}'"
