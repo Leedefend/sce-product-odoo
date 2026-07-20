@@ -180,6 +180,21 @@ class GiteeWebhookTests(unittest.TestCase):
         self.assertTrue(inserted)
         self.assertEqual(SHA, sha)
 
+    def test_valid_header_falls_back_from_invalid_query_signature(self) -> None:
+        import json
+
+        timestamp = str(int(time.time() * 1000))
+        inserted, sha = self.application.accept(
+            json.dumps(push_payload(), separators=(",", ":")).encode(),
+            self.headers(timestamp),
+            {
+                "timestamp": [str(int(timestamp) - 1)],
+                "sign": [MODULE.expected_signature(timestamp, "wrong-query-secret")],
+            },
+        )
+        self.assertTrue(inserted)
+        self.assertEqual(SHA, sha)
+
     def test_raw_base64_plus_in_query_is_preserved(self) -> None:
         import json
 

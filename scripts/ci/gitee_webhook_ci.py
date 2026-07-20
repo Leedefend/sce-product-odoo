@@ -50,7 +50,7 @@ def verify_signature(timestamp: str, token: str, secret: str) -> bool:
     return hmac.compare_digest(decoded, expected_signature(timestamp, secret))
 
 
-def authentication_values(headers: Any, query: dict[str, list[str]]) -> tuple[str, str]:
+def authentication_candidates(headers: Any, query: dict[str, list[str]]) -> list[tuple[str, str]]:
     """Accept Gitee's documented headers and its API-created query transport."""
     unknown = set(query) - {"timestamp", "sign"}
     if unknown:
@@ -67,14 +67,14 @@ def authentication_values(headers: Any, query: dict[str, list[str]]) -> tuple[st
         raise Rejected("incomplete header authentication")
     if bool(query_timestamp) != bool(query_token):
         raise Rejected("incomplete query authentication")
-    # Hooks created through Gitee's API currently send an authoritative query
-    # signature plus auxiliary headers calculated independently. Prefer the
-    # complete query pair; documented header-only hooks remain supported.
-    timestamp = query_timestamp or header_timestamp
-    token = query_token or header_token
-    if not timestamp or not token:
+    candidates: list[tuple[str, str]] = []
+    if query_timestamp:
+        candidates.append((query_timestamp, query_token))
+    if header_timestamp:
+        candidates.append((header_timestamp, header_token))
+    if not candidates:
         raise Rejected("missing authentication")
-    return timestamp, token
+    return candidates
 
 
 def parse_signature_query(raw_query: str) -> dict[str, list[str]]:
@@ -318,9 +318,21 @@ class Application:
         headers: Any,
         query: dict[str, list[str]] | None = None,
     ) -> tuple[bool, str]:
-        timestamp, token = authentication_values(headers, query or {})
-        require_fresh_timestamp(timestamp, int(time.time() * 1000), self.max_skew_seconds)
-        if not verify_signature(timestamp, token, self.secret):
+        timestamp = ""
+        now_ms = int(time.time() * 1000)
+        for candidate_timestamp, candidate_token in authentication_candidates(
+            headers, query or {}
+        ):
+            try:
+                require_fresh_timestamp(
+                    candidate_timestamp, now_ms, self.max_skew_seconds
+                )
+            except Rejected:
+                continue
+            if verify_signature(candidate_timestamp, candidate_token, self.secret):
+                timestamp = candidate_timestamp
+                break
+        if not timestamp:
             raise Rejected("invalid signature")
         try:
             payload = json.loads(body)
