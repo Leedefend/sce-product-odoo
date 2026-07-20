@@ -207,7 +207,7 @@ async function main() {
     if (process.env.DELIVERY_HARDENING_A11Y_PROBE === '1') {
       await open(page, recordRoute(TARGETS.work_settlement));
       await page.getByRole('button', { name: '新建付款申请' }).click();
-      await page.locator('[data-field-name="amount"] input').waitFor({ timeout: 45000 });
+      await page.locator('[data-field-name="amount"] input').first().waitFor({ timeout: 45000 });
       accessibility.scans.push(await axe(page, 'payment-form'));
       const removeProbe = await interceptNextBusiness(page, (route) => route.abort('failed'), TARGETS.payment_request);
       await page.goto(`${BASE_URL}${recordRoute(TARGETS.payment_request)}`, { waitUntil: 'domcontentloaded' });
@@ -353,7 +353,7 @@ async function main() {
           if (surface.mode === 'form') {
             await page.locator('.financial-workspace[data-workspace-kind="settlement"]').waitFor({ timeout: 45000 });
             await page.getByRole('button', { name: '新建付款申请' }).click();
-            await page.locator('[data-field-name="amount"] input').waitFor({ timeout: 45000 });
+            await page.locator('[data-field-name="amount"] input').first().waitFor({ timeout: 45000 });
           } else if (surface.mode === 'dialog') {
             await page.locator('.financial-workspace[data-workspace-kind="payment_request"]').waitFor({ timeout: 45000 });
             await page.locator('.template-page-header-actions button.sc-btn-primary').filter({ hasText: /^提交$/ }).first().click();
@@ -446,7 +446,7 @@ async function main() {
       formSamples.push(await time(async () => {
         await page.locator('.financial-workspace[data-workspace-kind="settlement"]').getByRole('button', { name: '新建付款申请', exact: true }).click();
         await page.waitForURL((url) => /\/payment\.request\/new$/.test(url.pathname), { timeout: 45000 });
-        await page.locator('[data-field-name="amount"] input').waitFor({ timeout: 45000 });
+        await page.locator('[data-field-name="amount"] input').first().waitFor({ timeout: 45000 });
       }));
     }
     performanceReport.scenarios.form_open = stats(formSamples);
