@@ -18,7 +18,7 @@ Generated from addon manifests.
 | `smart_construction_acceptance_fixture` | 17.0.0.1.0 | yes | no | smart_construction_bundle | - | - |
 | `smart_construction_bootstrap` | 17.0.0.1.0 | yes | no | - | base | smart_construction_seed |
 | `smart_construction_bundle` | 0.1.0 | yes | no | smart_construction_core, smart_construction_portal, smart_construction_scene, smart_core, smart_license_core, smart_scene | - | smart_construction_acceptance_fixture, smart_construction_demo |
-| `smart_construction_core` | 17.0.0.70 | yes | yes | smart_core | account, auth_signup, base_tier_validation, base_tier_validation_server_action, hr, mail, product, project, purchase, stock, uom, web | sc_norm_engine, smart_construction_bundle, smart_construction_portal, smart_construction_scene, smart_construction_seed |
+| `smart_construction_core` | 17.0.0.71 | yes | yes | smart_core | account, auth_signup, base_tier_validation, base_tier_validation_server_action, hr, mail, product, project, purchase, stock, uom, web | sc_norm_engine, smart_construction_bundle, smart_construction_portal, smart_construction_scene, smart_construction_seed |
 | `smart_construction_demo` | 0.2.0 | yes | no | smart_construction_bundle, smart_construction_seed | account | - |
 | `smart_construction_portal` | 17.0.1.1 | yes | no | smart_construction_core | web | smart_construction_bundle |
 | `smart_construction_scene` | 17.0.0.3 | yes | no | smart_construction_core, smart_scene | - | smart_construction_bundle |
