@@ -18,6 +18,7 @@ actual_digest="$(docker image inspect "$image" --format '{{.Id}}')"
   exit 2
 }
 product_modules="$(python3 scripts/ops/tenant_module_set.py product)"
+declared_customer_modules=""
 
 case "$action" in
   product)
@@ -38,6 +39,7 @@ case "$action" in
     module_version="${RC_SYNTHETIC_MODULE_VERSION:?RC_SYNTHETIC_MODULE_VERSION is required}"
     customer_root="$(realpath "${RC_CUSTOMER_ADDONS_ROOT:?RC_CUSTOMER_ADDONS_ROOT is required}")"
     modules="$product_modules,$customer_module"
+    declared_customer_modules="$customer_module"
     payload_root="$artifacts/synthetic-payload"
     rm -rf "$payload_root"
     payload_hmac="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
@@ -53,8 +55,9 @@ case "$action" in
     profile=RC-C03
     project="${RC_PROJECT:-sc-tenant-rc-c03}"
     database="${RC_DATABASE:-sc_rc_customer}"
-    customer_module="${SC_CUSTOMER_MODULE:?SC_CUSTOMER_MODULE is required}"
-    tenant_id="${SC_TENANT_ID:?SC_TENANT_ID is required}"
+    profile_path="$(realpath "${RC_PROFILE_PATH:?RC_PROFILE_PATH is required}")"
+    [[ -f "$profile_path" && ! -L "$profile_path" ]] || { echo "external RC profile must be a regular non-symlink file" >&2; exit 2; }
+    export SC_CUSTOMER_PACKAGE_MANIFEST="$profile_path"
     legacy_customer_module="${RC_LEGACY_CUSTOMER_MODULE:?RC_LEGACY_CUSTOMER_MODULE is required}"
     history_backup="$(realpath "${RC_HISTORY_BACKUP:?RC_HISTORY_BACKUP is required}")"
     identity_migration="$(realpath "${RC_CUSTOMER_IDENTITY_MIGRATION:?RC_CUSTOMER_IDENTITY_MIGRATION is required}")"
@@ -66,7 +69,10 @@ case "$action" in
       --report "$artifacts/profiles/RC-C03-package-admission.json" \
       > "$artifacts/profiles/RC-C03-package-admission.stdout.json"
     customer_root="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["prepared_addons_root"])' "$artifacts/profiles/RC-C03-package-admission.json")"
-    modules="$product_modules,$customer_module,$legacy_customer_module"
+    customer_modules="$(python3 -c 'import json,sys; print(",".join(json.load(open(sys.argv[1]))["modules"]))' "$artifacts/profiles/RC-C03-package-admission.json")"
+    tenant_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["tenant_id"])' "$profile_path")"
+    declared_customer_modules="$customer_modules,$legacy_customer_module"
+    modules="$product_modules,$declared_customer_modules"
     ;;
   *) echo "unknown profile action: $action" >&2; exit 2 ;;
 esac
@@ -78,7 +84,7 @@ export CANDIDATE_IMAGE="$image" CANDIDATE_PROJECT="$project" CANDIDATE_DB="$data
 export RC_CUSTOMER_ADDONS_MOUNT="$customer_root" RC_PAYLOAD_ROOT_MOUNT="$payload_root"
 export RC_ATTACHMENT_PROVIDER_ROOT="$(realpath "${RC_CURATED_ASSET_ROOT:-$empty/attachments}")"
 export RC_PAYLOAD_MANIFEST_CONTAINER="/mnt/tenant-payload/manifest.json"
-export SC_TENANT_ID="$tenant_id" SC_CUSTOMER_MODULE="${customer_module:-}"
+export SC_TENANT_ID="$tenant_id"
 
 cleanup() { "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true; }
 trap cleanup EXIT
@@ -194,7 +200,9 @@ metrics="$("${compose[@]}" exec -T db psql -U "$DB_USER" -d "$database" -At -F '
 SELECT
   count(*) FILTER (WHERE state IN ('to install','to upgrade','to remove')),
   count(*) FILTER (WHERE name IN ('smart_construction_demo','smart_construction_acceptance_fixture') AND state='installed'),
-  count(*) FILTER (WHERE name LIKE 'sce_customer_%' AND state='installed'),
+  count(*) FILTER (
+    WHERE name = ANY(string_to_array(NULLIF('$declared_customer_modules',''), ',')) AND state='installed'
+  ),
   (SELECT count(*) FROM project_project) + (SELECT count(*) FROM construction_contract)
     + (SELECT count(*) FROM sc_settlement_order) + (SELECT count(*) FROM payment_request)
 FROM ir_module_module;")"
@@ -202,7 +210,10 @@ IFS='|' read -r pending demo_fixture customer_count business_count <<< "$metrics
 case "$profile" in
   RC-C01) [[ "$pending" == 0 && "$demo_fixture" == 0 && "$customer_count" == 0 && "$business_count" == 0 ]] ;;
   RC-C04) [[ "$pending" == 0 && "$demo_fixture" == 0 && "$customer_count" == 1 && "$business_count" -gt 0 ]] ;;
-  RC-C03) [[ "$pending" == 0 && "$demo_fixture" == 0 && "$customer_count" -ge 2 && "$business_count" -gt 0 ]] ;;
+  RC-C03)
+    expected_customer_count="$(awk -F, '{print NF}' <<<"$declared_customer_modules")"
+    [[ "$pending" == 0 && "$demo_fixture" == 0 && "$customer_count" == "$expected_customer_count" && "$business_count" -gt 0 ]]
+    ;;
 esac
 
 PROFILE="$profile" DATABASE="$database" MODULES="$modules" DIGEST="$actual_digest" \

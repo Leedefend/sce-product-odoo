@@ -6,19 +6,27 @@ cd "$root"
 
 image="${CANDIDATE_IMAGE:?CANDIDATE_IMAGE is required}"
 expected_digest="${CANDIDATE_IMAGE_DIGEST:?CANDIDATE_IMAGE_DIGEST is required}"
-backup="$(realpath "${RC_HISTORY_BACKUP:?RC_HISTORY_BACKUP is required}")"
-exporter="$(realpath "${RC_TENANT_PAYLOAD_EXPORTER:?RC_TENANT_PAYLOAD_EXPORTER is required}")"
-signing_key="$(realpath "${RC_TENANT_PAYLOAD_SIGNING_KEY:?RC_TENANT_PAYLOAD_SIGNING_KEY is required}")"
-public_key="$(realpath "${RC_TENANT_PAYLOAD_PUBLIC_KEY:?RC_TENANT_PAYLOAD_PUBLIC_KEY is required}")"
+backup_input="${RC_HISTORY_BACKUP:?RC_HISTORY_BACKUP is required}"
+exporter_input="${RC_TENANT_PAYLOAD_EXPORTER:?RC_TENANT_PAYLOAD_EXPORTER is required}"
+signing_key_input="${RC_TENANT_PAYLOAD_SIGNING_KEY:?RC_TENANT_PAYLOAD_SIGNING_KEY is required}"
+public_key_input="${RC_TENANT_PAYLOAD_PUBLIC_KEY:?RC_TENANT_PAYLOAD_PUBLIC_KEY is required}"
 output_input="${RC_TENANT_PAYLOAD_OUTPUT:?RC_TENANT_PAYLOAD_OUTPUT is required}"
-output_parent="$(cd "$(dirname "$output_input")" && pwd)"
-output="$output_parent/$(basename "$output_input")"
-project="${RC_PAYLOAD_EXPORT_PROJECT:-sc-tenant-rc-payload-export}"
-database="${RC_PAYLOAD_EXPORT_DB:-sc_rc_payload_export}"
+tenant_key="${RC_TENANT_KEY:?RC_TENANT_KEY is required}"
+package_manifest_input="${RC_TENANT_PACKAGE_MANIFEST:?RC_TENANT_PACKAGE_MANIFEST is required}"
 payload_id="${RC_PAYLOAD_ID:?RC_PAYLOAD_ID is required}"
 snapshot_id="${RC_SOURCE_SNAPSHOT_ID:?RC_SOURCE_SNAPSHOT_ID is required}"
 signature_key_id="${RC_PAYLOAD_SIGNATURE_KEY_ID:?RC_PAYLOAD_SIGNATURE_KEY_ID is required}"
 encryption_key_id="${RC_PAYLOAD_ENCRYPTION_KEY_ID:?RC_PAYLOAD_ENCRYPTION_KEY_ID is required}"
+
+backup="$(realpath "$backup_input")"
+exporter="$(realpath "$exporter_input")"
+signing_key="$(realpath "$signing_key_input")"
+public_key="$(realpath "$public_key_input")"
+package_manifest="$(realpath "$package_manifest_input")"
+output_parent="$(cd "$(dirname "$output_input")" && pwd)"
+output="$output_parent/$(basename "$output_input")"
+project="${RC_PAYLOAD_EXPORT_PROJECT:-sc-tenant-rc-payload-export}"
+database="${RC_PAYLOAD_EXPORT_DB:-sc_rc_payload_export}"
 
 [[ "$project" =~ ^sc-tenant-rc-[a-z0-9-]+$ ]] || { echo "invalid RC payload export project" >&2; exit 2; }
 [[ "$database" =~ ^sc_rc_[a-z0-9_]+$ ]] || { echo "invalid RC payload export database" >&2; exit 2; }
@@ -26,7 +34,29 @@ encryption_key_id="${RC_PAYLOAD_ENCRYPTION_KEY_ID:?RC_PAYLOAD_ENCRYPTION_KEY_ID 
 [[ -f "$exporter" && ! -L "$exporter" ]] || { echo "payload exporter must be a regular non-symlink file" >&2; exit 2; }
 [[ -f "$signing_key" && ! -L "$signing_key" ]] || { echo "signing key must be a regular non-symlink file" >&2; exit 2; }
 [[ -f "$public_key" && ! -L "$public_key" ]] || { echo "public key must be a regular non-symlink file" >&2; exit 2; }
+[[ -f "$package_manifest" && ! -L "$package_manifest" ]] || { echo "customer package manifest must be a regular non-symlink file" >&2; exit 2; }
 [[ ! -e "$output" ]] || { echo "payload output must not already exist" >&2; exit 2; }
+tenant_fingerprint="$(python3 - "$package_manifest" "$tenant_key" <<'PY'
+import hashlib
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+root = Path.cwd()
+path = Path(sys.argv[1])
+tenant_key = sys.argv[2]
+spec = importlib.util.spec_from_file_location("customer_package_preflight", root / "scripts/release/customer_package_preflight.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+manifest = json.loads(path.read_text(encoding="utf-8"))
+release = json.loads((root / "config/product_release.v1.json").read_text(encoding="utf-8"))
+validated = module.load_package_manifest(path, str(manifest.get("archive_sha256") or ""), release["product_version"])
+if validated["tenant_id"] != tenant_key:
+    raise SystemExit("CUSTOMER_PACKAGE_TENANT_MISMATCH")
+print(hashlib.sha256(tenant_key.encode("utf-8")).hexdigest()[:12])
+PY
+)"
 [[ "$(docker image inspect "$image" --format '{{.Id}}')" == "$expected_digest" ]] || {
   echo "candidate image digest mismatch" >&2
   exit 2
@@ -77,7 +107,7 @@ AUTHORIZED_SOURCE_DATABASES="$database" python3 "$exporter" \
   --encryption-key-id "$encryption_key_id" --payload-id "$payload_id" \
   --source-snapshot-id "$snapshot_id" --source-database-fingerprint "$database_fingerprint"
 SC_TENANT_PAYLOAD_PUBLIC_KEY="$public_key" python3 scripts/tenant_payload/cli.py validate \
-  --payload "$output" --tenant-key baosheng
+  --payload "$output" --tenant-key "$tenant_key"
 chmod -R go-rwx "$output"
-printf '[tenant.rc.payload.export] PASS source=%s database_write_scope=isolated output=%s\n' \
-  "$source_database" "$output"
+printf '[tenant.rc.payload.export] PASS tenant_fingerprint=%s database_write_scope=isolated\n' \
+  "$tenant_fingerprint"

@@ -2047,7 +2047,8 @@ verify.user_module.data_baseline.runtime_audit: guard.prod.forbid check-compose-
 
 .PHONY: verify.tenant.product_payload_boundary verify.tenant_delivery.protocol verify.tenant.payload_boundary verify.product_image.tenant_neutral verify.product_to_customer.dependency verify.customer_module.extraction verify.tenant_architecture.boundary
 verify.tenant.product_payload_boundary: guard.prod.forbid
-	@python3 -m py_compile scripts/verify/tenant_product_payload_boundary_guard.py
+	@python3 -m py_compile scripts/verify/tenant_product_payload_boundary_guard.py scripts/verify/test_tenant_product_payload_boundary_guard.py
+	@python3 scripts/verify/test_tenant_product_payload_boundary_guard.py
 	@python3 scripts/verify/test_external_customer_addons_runtime_boundary.py
 	@python3 scripts/verify/tenant_product_payload_boundary_guard.py
 
