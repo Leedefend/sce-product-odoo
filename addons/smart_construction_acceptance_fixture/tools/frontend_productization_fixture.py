@@ -368,6 +368,39 @@ def _payment_journey(env, project, contract, partner, finance):
             "price_unit": 100.0,
         },
     )
+    # J06 mutates its request.  Keep it on a dedicated settlement so the
+    # following J07 My Work journey still sees its own request in draft.
+    j06_settlement = _upsert(
+        env,
+        "sc.settlement.order",
+        "fe_j06_settlement_a",
+        [("name", "=", "FE-J06-SETTLEMENT-001"), ("project_id", "=", project.id)],
+        {
+            "name": "FE-J06-SETTLEMENT-001",
+            "title": "FE J06 Financial Workspace Settlement",
+            "project_id": project.id,
+            "contract_id": contract.id,
+            "partner_id": partner.id,
+            "settlement_unit_id": partner.id,
+            "settlement_type": "out",
+            "company_id": project.company_id.id,
+            "currency_id": project.company_id.currency_id.id,
+            "state": "approve",
+        },
+    )
+    _upsert(
+        env,
+        "sc.settlement.order.line",
+        "fe_j06_settlement_line_a",
+        [("settlement_id", "=", j06_settlement.id), ("name", "=", "FE J06 payable line")],
+        {
+            "settlement_id": j06_settlement.id,
+            "contract_id": contract.id,
+            "name": "FE J06 payable line",
+            "qty": 1.0,
+            "price_unit": 100.0,
+        },
+    )
     # FE-B05 approval probes use an isolated settlement so their reserved
     # amounts cannot change the FE-B04 journey's fixed 100.00 balance.
     work_settlement = _upsert(
@@ -434,6 +467,48 @@ def _payment_journey(env, project, contract, partner, finance):
         transient_requests.invalidate_recordset(["state", "validation_status"])
         transient_requests.sudo().unlink()
     category = _ref(env, "smart_construction_core.business_category_finance_payment_apply_pay")
+    existing_j06_request = env.ref(
+        "%s.fe_j06_payment_request_a" % MODULE,
+        raise_if_not_found=False,
+    )
+    if existing_j06_request:
+        env["payment.ledger"].sudo().search([
+            ("payment_request_id", "=", existing_j06_request.id),
+        ]).with_context(allow_payment_reversal=True).unlink()
+        existing_j06_request.sudo().review_ids.unlink()
+        env["mail.activity"].sudo().search([
+            ("res_model", "=", "payment.request"),
+            ("res_id", "=", existing_j06_request.id),
+        ]).unlink()
+        env.cr.execute(
+            "UPDATE payment_request SET state=%s, validation_status=%s WHERE id=%s",
+            ("draft", "no", existing_j06_request.id),
+        )
+        existing_j06_request.invalidate_recordset(["state", "validation_status"])
+    j06_request = _upsert(
+        env,
+        "payment.request",
+        "fe_j06_payment_request_a",
+        [("name", "=", "FE-J06-PAYMENT-001"), ("project_id", "=", project.id)],
+        {
+            "name": "FE-J06-PAYMENT-001",
+            "type": "pay",
+            "business_category_id": category.id,
+            "project_id": project.id,
+            "contract_id": contract.id,
+            "settlement_id": j06_settlement.id,
+            "partner_id": partner.id,
+            "currency_id": project.company_id.currency_id.id,
+            "amount": 100.0,
+            "state": "draft",
+            "note": "FE-B04 isolated financial workspace mutation",
+        },
+    )
+    env.cr.execute(
+        "UPDATE payment_request SET create_uid=%s WHERE id=%s",
+        (finance.id, j06_request.id),
+    )
+    j06_request.invalidate_recordset(["create_uid"])
     existing_request = env.ref(
         "%s.fe_journey_payment_request_a" % MODULE,
         raise_if_not_found=False,
@@ -542,12 +617,34 @@ def _payment_journey(env, project, contract, partner, finance):
         "FE-JOURNEY-COMPLETED-001",
         "approved",
     )
+    hardening_request = _approval_request(
+        "fe_delivery_hardening_payment_request_a",
+        "FE-DELIVERY-HARDENING-001",
+        "draft",
+    )
+    core_form_request = _approval_request(
+        "fe_core_form_payment_request_a",
+        "FE-CORE-FORM-CONFLICT-001",
+        "draft",
+    )
     env["payment.ledger"].sudo().search([
         ("payment_request_id", "=", request.id),
     ]).with_context(allow_payment_reversal=True).unlink()
     request.invalidate_recordset()
     settlement.invalidate_recordset()
-    return settlement, request, approval_request, reject_request, completed_request
+    j06_request.invalidate_recordset()
+    j06_settlement.invalidate_recordset()
+    return (
+        settlement,
+        request,
+        j06_settlement,
+        j06_request,
+        approval_request,
+        reject_request,
+        completed_request,
+        hardening_request,
+        core_form_request,
+    )
 
 
 def ensure_fixture(env) -> Dict[str, Any]:
@@ -672,7 +769,17 @@ def ensure_fixture(env) -> Dict[str, Any]:
     _execution(env, "A", project_a, contract_a, request_a, partner_a, "paid", 1000.0)
     _execution(env, "B", project_b, contract_b, request_b, partner_b, "draft", 1000.0)
     _execution(env, "C", project_c, contract_c, request_c, partner_c, "confirmed", 1000.0)
-    journey_settlement, journey_request, approval_request, reject_request, completed_request = _payment_journey(
+    (
+        journey_settlement,
+        journey_request,
+        j06_settlement,
+        j06_request,
+        approval_request,
+        reject_request,
+        completed_request,
+        hardening_request,
+        core_form_request,
+    ) = _payment_journey(
         env,
         project_a,
         contract_a,
@@ -705,8 +812,14 @@ def ensure_fixture(env) -> Dict[str, Any]:
             "payment_request": journey_request.name,
             "state": journey_request.state,
             "ledger_count": len(journey_request.ledger_line_ids),
+            "j06_settlement": j06_settlement.name,
+            "j06_payment_request": j06_request.name,
+            "j06_state": j06_request.state,
+            "j06_ledger_count": len(j06_request.ledger_line_ids),
             "approval_request": approval_request.name,
             "reject_request": reject_request.name,
             "completed_request": completed_request.name,
+            "hardening_request": hardening_request.name,
+            "core_form_request": core_form_request.name,
         },
     }

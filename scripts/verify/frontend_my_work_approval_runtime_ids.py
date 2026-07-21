@@ -11,12 +11,13 @@ def ref(xmlid):
 def target(menu_xmlid, record_xmlid):
     menu = ref(menu_xmlid)
     row = ref(record_xmlid)
-    action = ref("smart_construction_core.action_payment_request") if menu_xmlid == "smart_construction_core.menu_sc_user_payment_apply_acceptance" else menu.action
+    action = menu.action
     return {
         "model": row._name,
         "record_id": int(row.id),
         "action_id": int(action.id),
         "menu_id": int(menu.id),
+        "menu_xmlid": menu_xmlid,
         "name": str(row.display_name),
     }
 

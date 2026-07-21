@@ -1116,7 +1116,14 @@ class PaymentRequest(models.Model):
         )
 
     def _has_finance_approve_access(self):
-        return self.env.user.has_group("smart_construction_core.group_sc_cap_finance_manager")
+        return any(
+            self.env.user.has_group(xmlid)
+            for xmlid in (
+                "smart_construction_core.group_sc_cap_finance_manager",
+                "smart_core.group_smart_core_finance_approver",
+                "smart_construction_core.group_sc_role_executive",
+            )
+        )
 
     def _assert_finance_approve_access(self):
         if not self._has_finance_approve_access():

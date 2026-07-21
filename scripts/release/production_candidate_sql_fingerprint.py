@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -41,12 +42,22 @@ RELATIONS = {
 }
 
 project = os.environ["FINGERPRINT_PROJECT"]
-compose_file = os.environ["FINGERPRINT_COMPOSE_FILE"]
+compose_files = [
+    value
+    for value in os.environ.get(
+        "FINGERPRINT_COMPOSE_FILES", os.environ.get("FINGERPRINT_COMPOSE_FILE", "")
+    ).split(os.pathsep)
+    if value
+]
+if not compose_files:
+    raise SystemExit("FINGERPRINT_COMPOSE_FILES_REQUIRED")
 database = os.environ["FINGERPRINT_DB"]
 db_user = os.environ["DB_USER"]
 filestore_mode = os.environ.get("FINGERPRINT_FILESTORE_MODE", "exec")
 out_path = Path(os.environ["FINGERPRINT_OUTPUT"])
-compose = ["docker", "compose", "-p", project, "-f", compose_file]
+compose = ["docker", "compose", "-p", project]
+for compose_file in compose_files:
+    compose.extend(("-f", compose_file))
 
 
 def run(args: list[str]) -> str:
@@ -85,20 +96,37 @@ for table, candidates in AMOUNTS.items():
         continue
     field = next((name for name in candidates if column_exists(table, name)), None)
     value = sql(f"SELECT COALESCE(round(sum({field})::numeric, 2), 0) FROM {table}") if field else "0"
-    amounts[table] = {"field": field, "sum": value}
+    row_digest = (
+        sql(
+            "SELECT md5(COALESCE(string_agg(id::text || ':' || "
+            f"COALESCE(round({field}::numeric, 2)::text, ''), ',' ORDER BY id), '')) FROM {table}"
+        )
+        if field
+        else None
+    )
+    amounts[table] = {"field": field, "sum": value, "row_digest": row_digest}
 
 missing_relations = {}
+relation_bindings = {}
 warnings = []
 for table, fields in RELATIONS.items():
     if not table_exists(table):
         missing_relations[table] = None
         continue
     missing_relations[table] = {}
+    relation_bindings[table] = {}
     for field in fields:
         if not column_exists(table, field):
             continue
         missing = int(sql(f"SELECT count(*) FROM {table} WHERE {field} IS NULL"))
         missing_relations[table][field] = missing
+        relation_bindings[table][field] = {
+            "non_null_count": int(sql(f"SELECT count(*) FROM {table} WHERE {field} IS NOT NULL")),
+            "binding_digest": sql(
+                "SELECT md5(COALESCE(string_agg(id::text || ':' || "
+                f"COALESCE({field}::text, ''), ',' ORDER BY id), '')) FROM {table}"
+            ),
+        }
         if missing:
             warnings.append({"code": "missing_relation", "reference": f"{table}.{field}", "count": missing})
 
@@ -120,6 +148,53 @@ if table_exists("ir_module_module"):
         "FROM ir_module_module WHERE name LIKE 'smart_%' ORDER BY name) x"
     )
     modules = json.loads(raw)
+
+attachment_index = None
+if table_exists("ir_attachment"):
+    index_fields = [
+        field
+        for field in ("res_model", "res_id", "company_id", "store_fname", "checksum", "file_size")
+        if column_exists("ir_attachment", field)
+    ]
+    expressions = ["id::text", *(f"COALESCE({field}::text, '')" for field in index_fields)]
+    attachment_index = {
+        "fields": index_fields,
+        "row_count": int(sql("SELECT count(*) FROM ir_attachment")),
+        "binding_digest": sql(
+            "SELECT md5(COALESCE(string_agg(concat_ws(':', "
+            + ", ".join(expressions)
+            + "), ',' ORDER BY id), '')) FROM ir_attachment"
+        ),
+    }
+
+carrier_inventory = os.environ.get("FINGERPRINT_CARRIER_INVENTORY", "").strip()
+legacy_carriers = None
+if carrier_inventory:
+    inventory_path = Path(carrier_inventory)
+    inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+    models = [item["model"] for item in inventory.get("models", [])]
+    if len(models) != 67 or len(set(models)) != 67:
+        raise SystemExit("FINGERPRINT_CARRIER_INVENTORY_INVALID")
+    legacy_carriers = {}
+    for model in sorted(models):
+        table = model.replace(".", "_")
+        if not re.fullmatch(r"[a-z][a-z0-9_]+", table):
+            raise SystemExit("FINGERPRINT_CARRIER_TABLE_INVALID")
+        if not table_exists(table):
+            raise SystemExit(f"FINGERPRINT_CARRIER_TABLE_ABSENT:{table}")
+        columns_raw = sql(
+            "SELECT COALESCE(json_agg(column_name ORDER BY ordinal_position)::text, '[]') "
+            "FROM information_schema.columns WHERE table_schema='public' "
+            f"AND table_name='{table}'"
+        )
+        legacy_carriers[model] = {
+            "table": table,
+            "record_count": int(sql(f"SELECT count(*) FROM {table}")),
+            "id_digest": sql(
+                f"SELECT md5(COALESCE(string_agg(id::text, ',' ORDER BY id), '')) FROM {table}"
+            ),
+            "columns": json.loads(columns_raw),
+        }
 
 filestore_command = (
     f"root='/var/lib/odoo/filestore/{database}'; "
@@ -145,6 +220,9 @@ payload = {
     "id_digests": id_digests,
     "amounts": amounts,
     "missing_relations": missing_relations,
+    "relation_bindings": relation_bindings,
+    "attachment_index": attachment_index,
+    "legacy_carriers": legacy_carriers,
     "known_historical_warnings": warnings,
     "known_historical_warning_count": len(warnings),
     "filestore": {"file_count": int(file_count), "bytes": int(file_bytes), "sha256": file_digest},

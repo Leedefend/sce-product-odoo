@@ -116,7 +116,7 @@
         <field name="sequence">1</field>
         <field name="source_aliases">收入合同、项目收入合同、施工合同、工程合同收入</field>
         <field name="default_values_json">{"type": "out"}</field>
-        <field name="domain_json">["|", ["legacy_contract_id", "=", false], ["legacy_income_surface_visible", "=", true]]</field>
+        <field name="domain_json">[["business_category_id.code", "=", "contract.income"]]</field>
         <field name="required_fields_json">["project_id", "partner_id", "subject", "tax_id"]</field>
         <field name="visible_groups_json">["contract_header", "amount", "execution", "attachments"]</field>
         <field name="form_policy_json">{

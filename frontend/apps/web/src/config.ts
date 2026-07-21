@@ -1,9 +1,11 @@
 import { isConfiguredDbPinned, isPlatformAdminEntryRuntime, resolveConfiguredDb } from './services/dbContext';
+import { runtimeOdooDb, runtimeOdooDbLocked } from './services/runtimeConfig';
 
 const appEnv = String(import.meta.env.VITE_APP_ENV ?? 'dev').trim();
-const envDb = String(import.meta.env.VITE_ODOO_DB ?? '').trim();
+const envDb = runtimeOdooDb || String(import.meta.env.VITE_ODOO_DB ?? '').trim();
 const platformAdminDb = String(import.meta.env.VITE_PLATFORM_ADMIN_DB ?? '').trim();
-const envDbLocked = envDb && String(import.meta.env.VITE_ODOO_DB_LOCKED ?? '1').trim() !== '0';
+const envDbLocked = runtimeOdooDbLocked
+  || Boolean(envDb && String(import.meta.env.VITE_ODOO_DB_LOCKED ?? '1').trim() !== '0');
 const startupRootXmlid = String(import.meta.env.VITE_STARTUP_ROOT_XMLID ?? 'smart_construction_core.menu_sc_root').trim();
 const appTitle = String(import.meta.env.VITE_APP_TITLE ?? '智能施工企业管理平台').trim();
 const appBrand = {

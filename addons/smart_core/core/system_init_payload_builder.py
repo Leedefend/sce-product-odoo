@@ -4,6 +4,7 @@ from __future__ import annotations
 from urllib.parse import urlparse
 
 from .navigation_entry_target import build_scene_entry_target
+from ..utils.product_release import runtime_product_identity
 from .request_params import parse_bool
 
 
@@ -12,6 +13,7 @@ class SystemInitPayloadBuilder:
     SOURCE_AUTHORITIES = (
         "system_init_runtime_payload",
         "delivery_engine_v1",
+        "route_authority_v1",
         "release_navigation_v1",
         "scene_ready_contract_v1",
         "page_contracts",
@@ -24,6 +26,7 @@ class SystemInitPayloadBuilder:
     BUILD_MODE_DEBUG = "debug"
     MINIMAL_ALLOWED_KEYS = {
         "delivery_engine_v1",
+        "route_authority_v1",
         "edition_runtime_v1",
         "user",
         "nav",
@@ -379,6 +382,8 @@ class SystemInitPayloadBuilder:
             minimal["scene_action_surface_strategy"] = row.get("scene_action_surface_strategy")
         if isinstance(row.get("delivery_engine_v1"), dict):
             minimal["delivery_engine_v1"] = row.get("delivery_engine_v1")
+        if isinstance(row.get("route_authority_v1"), dict):
+            minimal["route_authority_v1"] = row.get("route_authority_v1")
         if isinstance(row.get("edition_runtime_v1"), dict):
             minimal["edition_runtime_v1"] = row.get("edition_runtime_v1")
         if isinstance(row.get("release_navigation_v1"), dict):
@@ -732,6 +737,7 @@ class SystemInitPayloadBuilder:
 
     @staticmethod
     def attach_layered_contract(data: dict) -> None:
+        data.update(runtime_product_identity())
         role_surface = data.get("role_surface") if isinstance(data.get("role_surface"), dict) else {}
         landing_scene_key = str(role_surface.get("landing_scene_key") or "").strip() or "workspace.home"
         contract_version = str(data.get("contract_version") or "1.0.0")

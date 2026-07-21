@@ -13,8 +13,10 @@ verify.release.guard: verify.repository.release_hygiene
 	@SC_ENVIRONMENT=release_rehearsal SC_ALLOW_DEMO_DATA=0 DB_NAME=$(RELEASE_DB) python3 scripts/release/rehearsal_guard.py
 
 verify.release.tooling:
-	@python3 -m py_compile scripts/release/rehearsal_guard.py scripts/release/release_data_compatibility.py scripts/release/release_readiness_report.py scripts/release/release_acceptance_report.py scripts/release/release_monitoring_check.py scripts/release/release_fingerprint_compare.py scripts/release/test_rehearsal_guard.py scripts/verify/frontend_pilot_readiness_guard.py
+	@python3 -m py_compile scripts/release/rehearsal_guard.py scripts/release/release_data_compatibility.py scripts/release/release_readiness_report.py scripts/release/release_acceptance_report.py scripts/release/release_monitoring_check.py scripts/release/release_fingerprint_compare.py scripts/release/test_rehearsal_guard.py scripts/release/customer_package_preflight.py scripts/release/product_module_matrix.py scripts/release/test_customer_package_preflight.py scripts/verify/frontend_pilot_readiness_guard.py
 	@python3 scripts/release/test_rehearsal_guard.py
+	@python3 scripts/release/test_customer_package_preflight.py
+	@bash -n scripts/release/product_lifecycle.sh
 	@node --check scripts/release/release_static_server.mjs
 	@python3 scripts/verify/frontend_pilot_readiness_guard.py
 
@@ -92,11 +94,16 @@ HISTORY_SOURCE_BACKUP ?= artifacts/production-blocker/source/daily-dev-history-s
 DAILY_DEV_PROJECT ?= sc-backend-odoo-dev
 CANDIDATE_ARTIFACTS ?= artifacts/release/immutable-production-candidate-v1
 
-.PHONY: release.production.readonly_baseline release.candidate.build release.boundary.candidate.build release.candidate.scan
+.PHONY: release.workspace.prepare release.production.readonly_baseline release.candidate.build release.boundary.candidate.build release.candidate.scan
+.PHONY: product.install product.upgrade product.verify tenant.rc.payload.export tenant.rc.profile.product tenant.rc.profile.sample tenant.rc.profile.customer tenant.rc.profile.digest.verify tenant.rc.runtime.acceptance
 .PHONY: release.history.source_probe release.history.backup release.history.restore release.history.upgrade
 .PHONY: release.history.source_restore
 .PHONY: release.history.runtime_up release.history.runtime_down release.history.fingerprint.source_pre
 .PHONY: release.history.fingerprint.candidate_pre release.history.fingerprint.candidate_post
+
+release.workspace.prepare: guard.prod.forbid
+	@test -n "$(RELEASE_WORKSPACE)" || (echo "RELEASE_WORKSPACE is required"; exit 2)
+	@RELEASE_WORKSPACE="$(RELEASE_WORKSPACE)" bash scripts/release/prepare_rc_workspace.sh
 
 release.production.readonly_baseline: guard.prod.readonly check-compose-project check-compose-env
 	@CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" bash scripts/release/production_readonly_baseline.sh
@@ -111,6 +118,77 @@ release.boundary.candidate.build: guard.prod.forbid verify.repository.release_hy
 
 release.candidate.scan: guard.prod.forbid
 	@CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" bash scripts/release/immutable_candidate_scan.sh
+
+PRODUCT_PROJECT ?= sc-tenant-rc-product
+
+product.install: guard.prod.forbid
+	@test -n "$(DB_NAME)" || (echo "DB_NAME is required"; exit 2)
+	@test -n "$(CANDIDATE_IMAGE)" || (echo "CANDIDATE_IMAGE is required"; exit 2)
+	@DB_NAME="$(DB_NAME)" CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" PRODUCT_PROJECT="$(PRODUCT_PROJECT)" \
+		PRODUCT_PROFILE_COMPOSE="$(PRODUCT_PROFILE_COMPOSE)" bash scripts/release/product_lifecycle.sh install
+
+product.upgrade: guard.prod.forbid
+	@test -n "$(DB_NAME)" || (echo "DB_NAME is required"; exit 2)
+	@test -n "$(CANDIDATE_IMAGE)" || (echo "CANDIDATE_IMAGE is required"; exit 2)
+	@DB_NAME="$(DB_NAME)" CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" PRODUCT_PROJECT="$(PRODUCT_PROJECT)" \
+		PRODUCT_PROFILE_COMPOSE="$(PRODUCT_PROFILE_COMPOSE)" bash scripts/release/product_lifecycle.sh upgrade
+
+product.verify: guard.prod.forbid
+	@test -n "$(DB_NAME)" || (echo "DB_NAME is required"; exit 2)
+	@test -n "$(CANDIDATE_IMAGE)" || (echo "CANDIDATE_IMAGE is required"; exit 2)
+	@DB_NAME="$(DB_NAME)" CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" PRODUCT_PROJECT="$(PRODUCT_PROJECT)" \
+		PRODUCT_PROFILE_COMPOSE="$(PRODUCT_PROFILE_COMPOSE)" bash scripts/release/product_lifecycle.sh verify
+
+tenant.rc.payload.export: guard.prod.forbid check-compose-env
+	@test -n "$(CANDIDATE_IMAGE)" || (echo "CANDIDATE_IMAGE is required"; exit 2)
+	@test -n "$(CANDIDATE_IMAGE_DIGEST)" || (echo "CANDIDATE_IMAGE_DIGEST is required"; exit 2)
+	@test -n "$(RC_HISTORY_BACKUP)" || (echo "RC_HISTORY_BACKUP is required"; exit 2)
+	@test -n "$(RC_TENANT_PAYLOAD_EXPORTER)" || (echo "RC_TENANT_PAYLOAD_EXPORTER is required"; exit 2)
+	@test -n "$(RC_TENANT_PAYLOAD_SIGNING_KEY)" || (echo "RC_TENANT_PAYLOAD_SIGNING_KEY is required"; exit 2)
+	@test -n "$(RC_TENANT_PAYLOAD_PUBLIC_KEY)" || (echo "RC_TENANT_PAYLOAD_PUBLIC_KEY is required"; exit 2)
+	@test -n "$(RC_TENANT_PAYLOAD_OUTPUT)" || (echo "RC_TENANT_PAYLOAD_OUTPUT is required"; exit 2)
+	@CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" CANDIDATE_IMAGE_DIGEST="$(CANDIDATE_IMAGE_DIGEST)" \
+		RC_HISTORY_BACKUP="$(RC_HISTORY_BACKUP)" RC_TENANT_PAYLOAD_EXPORTER="$(RC_TENANT_PAYLOAD_EXPORTER)" \
+		RC_TENANT_PAYLOAD_SIGNING_KEY="$(RC_TENANT_PAYLOAD_SIGNING_KEY)" \
+		RC_TENANT_PAYLOAD_PUBLIC_KEY="$(RC_TENANT_PAYLOAD_PUBLIC_KEY)" \
+		RC_TENANT_PAYLOAD_OUTPUT="$(RC_TENANT_PAYLOAD_OUTPUT)" \
+		RC_PAYLOAD_ID="$(RC_PAYLOAD_ID)" RC_SOURCE_SNAPSHOT_ID="$(RC_SOURCE_SNAPSHOT_ID)" \
+		RC_PAYLOAD_SIGNATURE_KEY_ID="$(RC_PAYLOAD_SIGNATURE_KEY_ID)" \
+		RC_PAYLOAD_ENCRYPTION_KEY_ID="$(RC_PAYLOAD_ENCRYPTION_KEY_ID)" \
+		bash scripts/release/export_authorized_tenant_payload.sh
+
+tenant.rc.profile.product: guard.prod.forbid check-compose-env
+	@CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" CANDIDATE_IMAGE_DIGEST="$(CANDIDATE_IMAGE_DIGEST)" \
+		CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" bash scripts/release/tenant_rc_profile_rehearsal.sh product
+
+tenant.rc.profile.sample: guard.prod.forbid check-compose-env
+	@CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" CANDIDATE_IMAGE_DIGEST="$(CANDIDATE_IMAGE_DIGEST)" \
+		CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" RC_CUSTOMER_ADDONS_ROOT="$(RC_CUSTOMER_ADDONS_ROOT)" \
+		RC_SYNTHETIC_CUSTOMER_MODULE="$(RC_SYNTHETIC_CUSTOMER_MODULE)" \
+		RC_SYNTHETIC_TENANT_KEY="$(RC_SYNTHETIC_TENANT_KEY)" \
+		RC_SYNTHETIC_MODULE_VERSION="$(RC_SYNTHETIC_MODULE_VERSION)" \
+		bash scripts/release/tenant_rc_profile_rehearsal.sh sample
+
+tenant.rc.profile.customer: guard.prod.forbid check-compose-env
+	@CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" CANDIDATE_IMAGE_DIGEST="$(CANDIDATE_IMAGE_DIGEST)" \
+		CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" RC_HISTORY_BACKUP="$(RC_HISTORY_BACKUP)" \
+		RC_CUSTOMER_IDENTITY_MIGRATION="$(RC_CUSTOMER_IDENTITY_MIGRATION)" \
+		RC_LEGACY_CUSTOMER_MODULE="$(RC_LEGACY_CUSTOMER_MODULE)" \
+		SC_CUSTOMER_ADDONS_ROOT="$(SC_CUSTOMER_ADDONS_ROOT)" \
+		SC_CUSTOMER_MODULE="$(SC_CUSTOMER_MODULE)" \
+		SC_CUSTOMER_ARCHIVE_SHA256="$(SC_CUSTOMER_ARCHIVE_SHA256)" \
+		SC_TENANT_ID="$(SC_TENANT_ID)" SC_PAYLOAD_MANIFEST="$(SC_PAYLOAD_MANIFEST)" \
+		SC_TENANT_PAYLOAD_PUBLIC_KEY="$(SC_TENANT_PAYLOAD_PUBLIC_KEY)" \
+		bash scripts/release/tenant_rc_profile_rehearsal.sh customer
+
+tenant.rc.profile.digest.verify: guard.prod.forbid
+	@python3 scripts/release/verify_tenant_rc_profile_digests.py --profiles "$(CANDIDATE_ARTIFACTS)/profiles"
+
+tenant.rc.runtime.acceptance: guard.prod.forbid check-compose-env
+	@test -n "$(CANDIDATE_IMAGE)" || (echo "CANDIDATE_IMAGE is required"; exit 2)
+	@test -n "$(CANDIDATE_IMAGE_DIGEST)" || (echo "CANDIDATE_IMAGE_DIGEST is required"; exit 2)
+	@CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" CANDIDATE_IMAGE_DIGEST="$(CANDIDATE_IMAGE_DIGEST)" \
+		CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" bash scripts/release/tenant_rc_runtime_acceptance.sh
 
 release.history.source_probe: guard.prod.forbid check-compose-project check-compose-env
 	@HISTORY_SOURCE_DB="$(HISTORY_SOURCE_DB)" HISTORY_SOURCE_BACKUP="$(HISTORY_SOURCE_BACKUP)" CANDIDATE_ARTIFACTS="$(CANDIDATE_ARTIFACTS)" CANDIDATE_IMAGE="$(CANDIDATE_IMAGE)" bash scripts/release/production_candidate_history.sh source-probe

@@ -49,6 +49,7 @@ class MenuFactService:
         menus = menu_model.browse(sorted(visible_ids)).exists()
         raw_action_map = self._read_action_raw_map(visible_ids)
         group_xmlids = self._read_group_xmlids(menus)
+        menu_xmlids = self._read_menu_xmlids(menus)
 
         by_id: dict[int, dict] = {}
         for menu in menus:
@@ -74,6 +75,7 @@ class MenuFactService:
             action_raw = str(raw_action_map.get(menu_id) or "").strip()
             by_id[menu_id] = {
                 "menu_id": menu_id,
+                "menu_xmlid": menu_xmlids.get(menu_id, ""),
                 "name": str(menu.name or ""),
                 "parent_id": parent_id,
                 "complete_name": str(menu.complete_name or ""),
@@ -102,8 +104,20 @@ class MenuFactService:
         try:
             return {int(menu_id) for menu_id in menu_model._visible_menu_ids()}
         except Exception:
-            records = menu_model.search([], order="sequence,id")
-            return {int(record.id) for record in records}
+            return set()
+
+    def _read_menu_xmlids(self, menus) -> dict[int, str]:
+        menu_ids = [int(menu.id) for menu in menus]
+        if not menu_ids:
+            return {}
+        model_data = self.env["ir.model.data"].sudo().search(
+            [("model", "=", "ir.ui.menu"), ("res_id", "in", menu_ids)]
+        )
+        return {
+            int(row.res_id): f"{row.module}.{row.name}"
+            for row in model_data
+            if row.module and row.name
+        }
 
     def _read_action_raw_map(self, visible_ids: set[int]) -> dict[int, str]:
         query = """
@@ -145,6 +159,7 @@ class MenuFactService:
             base = by_id[menu_id]
             return {
                 "menu_id": base["menu_id"],
+                "menu_xmlid": base["menu_xmlid"],
                 "name": base["name"],
                 "parent_id": base["parent_id"],
                 "complete_name": base["complete_name"],

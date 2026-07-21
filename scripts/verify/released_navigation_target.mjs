@@ -26,6 +26,44 @@ export function findReleasedNavigationTarget(nav, actionXmlid) {
   return null;
 }
 
+export function findReleasedNavigationTargetById(nav, actionId, menuId) {
+  const expectedActionId = Number(actionId || 0);
+  const expectedMenuId = Number(menuId || 0);
+  if (expectedActionId <= 0 || expectedMenuId <= 0) return null;
+  const pending = Array.isArray(nav) ? [...nav] : [];
+  while (pending.length) {
+    const node = pending.shift();
+    if (!node || typeof node !== 'object') continue;
+    const meta = node.meta && typeof node.meta === 'object' ? node.meta : {};
+    const candidateActionId = Number(node.action_id || node.actionId || node.action || meta.action_id || meta.actionId || 0);
+    const candidateMenuId = Number(node.menu_id || node.menuId || meta.menu_id || meta.menuId || 0);
+    if (candidateActionId === expectedActionId && candidateMenuId === expectedMenuId) {
+      return { action_id: candidateActionId, menu_id: candidateMenuId };
+    }
+    if (Array.isArray(node.children)) pending.push(...node.children);
+  }
+  return null;
+}
+
+export function findReleasedNavigationTargetByMenuXmlid(nav, menuXmlid) {
+  const expectedMenuXmlid = String(menuXmlid || '');
+  if (!expectedMenuXmlid) return null;
+  const pending = Array.isArray(nav) ? [...nav] : [];
+  while (pending.length) {
+    const node = pending.shift();
+    if (!node || typeof node !== 'object') continue;
+    const meta = node.meta && typeof node.meta === 'object' ? node.meta : {};
+    const candidateMenuXmlid = String(node.menu_xmlid || node.xmlid || meta.menu_xmlid || '');
+    if (candidateMenuXmlid === expectedMenuXmlid) {
+      const actionId = Number(node.action_id || node.actionId || node.action || meta.action_id || meta.actionId || 0);
+      const menuId = Number(node.menu_id || node.menuId || meta.menu_id || meta.menuId || 0);
+      if (actionId > 0 && menuId > 0) return { action_id: actionId, menu_id: menuId };
+    }
+    if (Array.isArray(node.children)) pending.push(...node.children);
+  }
+  return null;
+}
+
 export function captureReleasedNavigation(page) {
   let current = [];
   page.on('response', async (response) => {
@@ -47,6 +85,15 @@ export function captureReleasedNavigation(page) {
         await page.waitForTimeout(50);
       }
       throw new Error(`released navigation target missing: ${actionXmlid}`);
+    },
+    async targetByMenuXmlid(menuXmlid, timeoutMs = 45000) {
+      const started = Date.now();
+      while (Date.now() - started < timeoutMs) {
+        const target = findReleasedNavigationTargetByMenuXmlid(current, menuXmlid);
+        if (target) return target;
+        await page.waitForTimeout(50);
+      }
+      throw new Error(`released navigation menu target missing: ${menuXmlid}`);
     },
   };
 }

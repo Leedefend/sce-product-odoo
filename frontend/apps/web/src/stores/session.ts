@@ -9,6 +9,7 @@ import { normalizeLegacyWorkbenchPath } from '../app/routeQuery';
 import { applySceneValidationRecoveryStrategyRuntime, setSceneValidationRecoveryStrategy } from '../app/sceneValidationRecoveryStrategy';
 import { isConfiguredDbPinned, resolveActiveDb, resolveConfiguredDb, resolveLoginRoutingDb, setActiveDb } from '../services/dbContext';
 import { beginContextTransition, currentContextEpoch, invalidateContextRequests, isCurrentContextEpoch } from '../app/contextEpoch';
+import { nextRouteAuthorityProjectContext, routeAuthorityForPrincipal, type RouteAuthorityContract, type RouteAuthorityProjectContextSnapshot } from '../app/routeAuthority';
 
 let appInitInFlight: Promise<void> | null = null;
 
@@ -276,13 +277,7 @@ export interface WorkspaceCapabilityGroupRow {
   }>;
 }
 
-export interface ActivityProjectContextSnapshot {
-  selected: ProjectContextOption | null;
-  company_id: number | null;
-  company_name: string;
-  operation_strategy: string;
-  operation_strategy_label: string;
-}
+export type ActivityProjectContextSnapshot = RouteAuthorityProjectContextSnapshot;
 
 export type ActivityRuntimeQuery = Record<string, string | string[]>;
 
@@ -367,6 +362,7 @@ export interface SessionState {
   sessionDb: string;
   user: AppInitResponse['user'] | null;
   menuTree: NavNode[];
+  routeAuthority: RouteAuthorityContract | null;
   menuExpandedKeys: string[];
   currentAction: NavMeta | null;
   capabilities: string[];
@@ -793,6 +789,7 @@ export const useSessionStore = defineStore('session', {
     sessionDb: '',
     user: null,
     menuTree: [],
+    routeAuthority: null,
     menuExpandedKeys: [],
     currentAction: null,
     capabilities: [],
@@ -1128,6 +1125,7 @@ export const useSessionStore = defineStore('session', {
       this.sceneVersion = null;
       this.roleSurface = null;
       this.roleSurfaceMap = {};
+      this.routeAuthority = null;
       this.projectContext = null;
       this.activityPages = [];
       this.activeActivityPageKey = '';
@@ -1367,29 +1365,13 @@ export const useSessionStore = defineStore('session', {
     },
     async applyActivityProjectContext(snapshot: ActivityProjectContextSnapshot | null | undefined) {
       if (!snapshot || !this.projectContext) return;
-      const currentSelectedId = Number(this.projectContext.selected?.id || 0) || 0;
-      const nextSelectedId = Number(snapshot.selected?.id || 0) || 0;
-      const currentCompanyId = Number(this.projectContext.company_id || this.projectContext.selected?.company_id || 0) || 0;
-      const nextCompanyId = Number(snapshot.company_id || snapshot.selected?.company_id || 0) || 0;
-      const currentOperation = asText(this.projectContext.operation_strategy || this.projectContext.selected?.operation_strategy);
-      const nextOperation = asText(snapshot.operation_strategy || snapshot.selected?.operation_strategy);
-      if (
-        currentSelectedId === nextSelectedId
-        && currentCompanyId === nextCompanyId
-        && currentOperation === nextOperation
-      ) {
-        return;
-      }
-      this.projectContext = {
-        ...this.projectContext,
-        selected: snapshot.selected ?? null,
-        company_id: nextCompanyId || null,
-        company_name: asText(snapshot.company_name || snapshot.selected?.company_name),
-        operation_strategy: nextOperation,
-        operation_strategy_label: asText(snapshot.operation_strategy_label || snapshot.selected?.operation_strategy_label),
-      };
+      const nextContext = nextRouteAuthorityProjectContext(this.projectContext, snapshot);
+      if (!nextContext) return;
+      const requestEpoch = beginContextTransition();
+      this.routeAuthority = null;
+      this.projectContext = nextContext;
       this.persist();
-      // Record projection must not serialize a full navigation bootstrap into every detail load.
+      await this.loadAppInit({ force: true, contextEpoch: requestEpoch });
     },
     recordIntentTrace(params: { traceId?: string; intent: string; latencyMs?: number | null; writeMode?: string }) {
       if (params.traceId) {
@@ -1454,6 +1436,9 @@ export const useSessionStore = defineStore('session', {
         }
       }
       const run = (async () => {
+      // Every authoritative bootstrap starts fail-closed. This covers login,
+      // company/project/role transitions and policy publish/rollback refreshes.
+      this.routeAuthority = null;
       this.initStatus = 'loading';
       this.initError = null;
       this.initTraceId = null;
@@ -1727,6 +1712,8 @@ export const useSessionStore = defineStore('session', {
       this.initMeta = {
         ...(result.meta ?? {}),
         nav_meta: (result as AppInitResponse & { nav_meta?: unknown }).nav_meta ?? null,
+        product_version: String((result as AppInitResponse & { product_version?: unknown }).product_version || ''),
+        source_revision: String((result as AppInitResponse & { source_revision?: unknown }).source_revision || ''),
       } as AppInitResponse['meta'];
       const defaultRouteRaw = (result as AppInitResponse & { default_route?: unknown }).default_route;
       if (defaultRouteRaw && typeof defaultRouteRaw === 'object') {
@@ -1755,8 +1742,21 @@ export const useSessionStore = defineStore('session', {
       }).release_navigation_v1;
       const deliveryEngine = (result as AppInitResponse & {
         release_navigation_v1?: { nav?: unknown };
-        delivery_engine_v1?: { nav?: unknown };
+        delivery_engine_v1?: { nav?: unknown; contextual_routes?: unknown };
       }).delivery_engine_v1;
+      this.routeAuthority = routeAuthorityForPrincipal(
+        (result as AppInitResponse & { route_authority_v1?: unknown }).route_authority_v1,
+        {
+          userId: Number(this.user?.id || 0),
+          roleCode: String(this.roleSurface?.role_code || '').trim(),
+          companyId: Number(this.projectContext?.company_id || this.projectContext?.selected?.company_id || 0),
+        },
+      );
+      if (!this.routeAuthority) {
+        this.initError = 'system.init missing required route_authority_v1 contract';
+        this.initStatus = 'error';
+        throw new Error(this.initError);
+      }
       const candidates = [releaseNavigation?.nav, deliveryEngine?.nav, result.nav];
       if (debugIntent) {
         console.info('[debug] system.init candidates:', candidates.map(c => ({

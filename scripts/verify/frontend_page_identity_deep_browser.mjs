@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { launchChromium } from './playwright_runtime.mjs';
-import { applyReleasedNavigationTarget, captureReleasedNavigation, findReleasedNavigationTarget } from './released_navigation_target.mjs';
+import { applyReleasedNavigationTarget, captureReleasedNavigation, findReleasedNavigationTargetByMenuXmlid } from './released_navigation_target.mjs';
 
 const BASE_URL = process.env.FRONTEND_URL || 'http://127.0.0.1:5175';
 const DB_NAME = process.env.DB_NAME || 'sc_frontend_acceptance';
@@ -173,7 +173,11 @@ async function main() {
     let capture = attachCapture(page);
     const releasedNavigation = captureReleasedNavigation(page);
     await login(page, 'fixture_role_finance');
-    applyReleasedNavigationTarget(TARGETS, ['payment_request'], await releasedNavigation.target('smart_construction_core.action_payment_request'));
+    applyReleasedNavigationTarget(
+      TARGETS,
+      ['payment_request'],
+      await releasedNavigation.targetByMenuXmlid(TARGETS.payment_request.menu_xmlid),
+    );
 
     for (const [id, targetKey, type] of [
       ['05-settlement-list', 'settlement', 'list'],
@@ -248,7 +252,10 @@ async function main() {
     await logout(page);
     const pmReleasedNavigation = captureReleasedNavigation(page);
     await login(page, 'fixture_role_pm');
-    const releasedContract = findReleasedNavigationTarget(pmReleasedNavigation.nav(), TARGETS.contract.action_xmlid);
+    const releasedContract = findReleasedNavigationTargetByMenuXmlid(
+      pmReleasedNavigation.nav(),
+      TARGETS.contract.menu_xmlid,
+    );
     if (releasedContract) applyReleasedNavigationTarget(TARGETS, ['contract'], releasedContract);
 
     const pmIdentityCases = [

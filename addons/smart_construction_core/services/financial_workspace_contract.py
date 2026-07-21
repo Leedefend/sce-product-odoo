@@ -446,12 +446,16 @@ def build_financial_workspace_contract(env, model_name, record_id):
         PaymentRequest = env["payment.request"]
         can_create = bool(PaymentRequest.check_access_rights("create", raise_exception=False))
         has_finance_capability = bool(env.user.has_group("smart_construction_core.group_sc_cap_finance_user"))
-        action = env.ref("smart_construction_core.action_payment_request", raise_if_not_found=False)
+        payment_menu = env.ref(
+            "smart_construction_core.menu_sc_user_payment_apply_acceptance",
+            raise_if_not_found=False,
+        )
+        action = payment_menu.action if payment_menu else None
         category = env.ref(
             "smart_construction_core.business_category_finance_payment_apply_pay",
             raise_if_not_found=False,
         )
-        if can_create and has_finance_capability and action:
+        if can_create and has_finance_capability and payment_menu and action:
             entry_actions.append({
                 "key": "create_payment_request",
                 "label": "新建付款申请",
@@ -459,6 +463,7 @@ def build_financial_workspace_contract(env, model_name, record_id):
                     "name": "model-form",
                     "params": {"model": "payment.request", "id": "new"},
                     "query": {
+                        "menu_id": int(payment_menu.id),
                         "action_id": int(action.id),
                         "project_scope_policy": "exempt",
                         "default_type": "pay",

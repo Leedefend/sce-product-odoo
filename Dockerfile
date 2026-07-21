@@ -75,28 +75,35 @@ RUN if [ "${APT_MIRROR}" = "huaweicloud" ]; then \
     && apt-get purge -y nodejs npm node-less libnode-dev libnode72 \
     && apt-get autoremove -y --purge \
     && rm -rf /usr/local/bin/rtlcss /usr/local/lib/node_modules/rtlcss \
+    && rm -f /usr/share/java/libintl-*.jar \
     && ! command -v node \
     && ! command -v lessc \
     && ! command -v rtlcss \
-    && ! dpkg-query -W 'node-*' 'libnode*' 2>/dev/null \
+    && ! find /usr/share/java -type f -name '*.jar' -print -quit | grep -q . \
+    && ! dpkg-query -W -f='${binary:Package}\t${db:Status-Status}\n' 'node-*' 'libnode*' 2>/dev/null \
+        | awk '$2 == "installed" { found=1 } END { exit(found ? 0 : 1) }' \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装 Python 依赖（工程化：集中在 requirements-odoo.txt）
 COPY requirements-odoo.txt /tmp/requirements-odoo.txt
 RUN pip3 install --no-cache-dir -r /tmp/requirements-odoo.txt
 
-# Product addons are copied explicitly. Customer, demo, seed and migration
-# modules must be mounted as separate delivery artifacts at runtime.
+# Product addons are copied explicitly. Customer, demo, acceptance-fixture and
+# migration payload modules must be mounted as separate delivery artifacts.
 RUN mkdir -p /mnt/product-addons /mnt/customer-addons /mnt/test-addons /mnt/source-addons \
     && ln -s /mnt/product-addons /mnt/extra-addons
 COPY --chown=odoo:odoo addons/sc_norm_engine/ /mnt/product-addons/sc_norm_engine/
 COPY --chown=odoo:odoo addons/smart_core/ /mnt/product-addons/smart_core/
 COPY --chown=odoo:odoo addons/smart_scene/ /mnt/product-addons/smart_scene/
 COPY --chown=odoo:odoo addons/smart_license_core/ /mnt/product-addons/smart_license_core/
+COPY --chown=odoo:odoo addons/smart_construction_bootstrap/ /mnt/product-addons/smart_construction_bootstrap/
 COPY --chown=odoo:odoo addons/smart_construction_core/ /mnt/product-addons/smart_construction_core/
 COPY --chown=odoo:odoo addons/smart_construction_portal/ /mnt/product-addons/smart_construction_portal/
 COPY --chown=odoo:odoo addons/smart_construction_scene/ /mnt/product-addons/smart_construction_scene/
 COPY --chown=odoo:odoo addons/smart_construction_bundle/ /mnt/product-addons/smart_construction_bundle/
+COPY --chown=odoo:odoo addons/smart_construction_seed/ /mnt/product-addons/smart_construction_seed/
+COPY --chown=odoo:odoo addons/smart_owner_core/ /mnt/product-addons/smart_owner_core/
+COPY --chown=odoo:odoo addons/smart_owner_bundle/ /mnt/product-addons/smart_owner_bundle/
 COPY --chown=odoo:odoo addons_external/oca_server_ux/ /mnt/addons_external/oca_server_ux/
 COPY --chown=odoo:odoo --from=frontend-verified /build/frontend/apps/web/dist/ /opt/sce/frontend/
 

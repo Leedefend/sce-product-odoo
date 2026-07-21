@@ -11,6 +11,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 ADDONS = ROOT / "addons"
 CONFIG = ROOT / "config/tenant/module_sets.v1.json"
+PRODUCT_IMAGE_ALLOWLIST = ROOT / "config/product_addons_allowlist.txt"
+PRODUCT_IMAGE_OPTIONAL_ALLOWLIST = ROOT / "config/product_optional_addons_allowlist.txt"
 
 
 def fail(messages: list[str]) -> None:
@@ -48,6 +50,30 @@ def main() -> int:
     acceptance = set(config["acceptance_modules"])
     customer_token = set(config["customer_extension_modules"])
     errors = []
+
+    image_allowlist = {
+        line.strip()
+        for line in PRODUCT_IMAGE_ALLOWLIST.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    optional_image_allowlist = {
+        line.strip()
+        for line in PRODUCT_IMAGE_OPTIONAL_ALLOWLIST.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    if product != image_allowlist:
+        errors.append(
+            "PRODUCT_MODULE_SET must equal product image allowlist "
+            "missing=%s extra=%s"
+            % (sorted(image_allowlist - product), sorted(product - image_allowlist))
+        )
+    if product & optional_image_allowlist:
+        errors.append("optional product image modules must not be in the default install set")
+    optional_customer_hits = sorted(
+        module for module in optional_image_allowlist if module.startswith("sce_customer_")
+    )
+    if optional_customer_hits:
+        errors.append("optional product image modules contain customer modules: %s" % optional_customer_hits)
 
     if demo != product | {"smart_construction_demo"}:
         errors.append("DEMO_MODULE_SET must equal Product + smart_construction_demo")

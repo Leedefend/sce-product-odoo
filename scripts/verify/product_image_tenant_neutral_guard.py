@@ -9,12 +9,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ALLOWLIST = ROOT / "config/product_addons_allowlist.txt"
+OPTIONAL_ALLOWLIST = ROOT / "config/product_optional_addons_allowlist.txt"
 DOCKERFILES = [ROOT / "Dockerfile", ROOT / "Dockerfile.production-candidate"]
 FORBIDDEN_MODULES = {
     "smart_construction_custom",
     "smart_construction_demo",
-    "smart_construction_seed",
-    "smart_construction_bootstrap",
+    "smart_construction_acceptance_fixture",
 }
 CUSTOMER_EXTERNAL_ID = re.compile(r"\blegacy_\d{8,}\b")
 NON_EXAMPLE_LEGAL_COMPANY = re.compile(r"[\u4e00-\u9fff]{4,}(?:建设|建筑)?集团有限公司")
@@ -23,7 +23,8 @@ NON_EXAMPLE_LEGAL_COMPANY = re.compile(r"[\u4e00-\u9fff]{4,}(?:建设|建筑)?�
 def allowlist() -> list[str]:
     return [
         line.strip()
-        for line in ALLOWLIST.read_text(encoding="utf-8").splitlines()
+        for path in (ALLOWLIST, OPTIONAL_ALLOWLIST)
+        for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     ]
 

@@ -2007,6 +2007,7 @@ class SystemInitHandler(BaseIntentHandler):
         release_snapshot_service = EditionReleaseSnapshotService(env)
         release_audit_service = ReleaseAuditTrailService(env)
         data["delivery_engine_v1"] = delivery_payload
+        data["route_authority_v1"] = delivery_payload.get("route_authority_v1") or {}
         _delivery_authoritative_nav = list(delivery_payload.get("nav") or [])
         delivery_release_navigation = build_release_navigation_contract({"delivery_engine_v1": delivery_payload})
         edition_diagnostics = (
@@ -2270,6 +2271,14 @@ class SystemInitHandler(BaseIntentHandler):
             pass
         data = _normalize_access_suggested_action(data)
         data["project_context"] = build_record_context_contract(env, params)
+        _route_company_id = int((data.get("project_context") or {}).get("company_id") or env.company.id)
+        for _route_contract in (
+            data.get("route_authority_v1"),
+            (data.get("delivery_engine_v1") or {}).get("route_authority_v1"),
+        ):
+            if isinstance(_route_contract, dict):
+                _route_contract["principal_scope"] = dict(_route_contract.get("principal_scope") or {})
+                _route_contract["principal_scope"]["company_id"] = _route_company_id
         data["contract_mode"] = contract_mode
         if contract_mode == "user":
             data.pop("scene_diagnostics", None)

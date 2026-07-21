@@ -177,6 +177,14 @@ class IdentityResolver:
         for field in (
             "landing_scene_candidates",
             "menu_xmlids",
+            "primary_menu_xmlids",
+            "role_home_menu_xmlids",
+            "contextual_menu_xmlids",
+            "admin_menu_xmlids",
+            "denied_menu_xmlids",
+            "contextual_action_authorities",
+            "admin_action_authorities",
+            "denied_action_authorities",
             "menu_blocklist_xmlids",
             "action_blocklist_xmlids",
             "model_blocklist",
@@ -282,6 +290,14 @@ class IdentityResolver:
             scene_keys,
         )
         menu_candidates = list(role_meta.get("menu_xmlids") or [])
+        primary_menu_xmlids = list(role_meta.get("primary_menu_xmlids") or [])
+        role_home_menu_xmlids = list(role_meta.get("role_home_menu_xmlids") or [])
+        contextual_menu_xmlids = list(role_meta.get("contextual_menu_xmlids") or [])
+        admin_menu_xmlids = list(role_meta.get("admin_menu_xmlids") or [])
+        denied_menu_xmlids = list(role_meta.get("denied_menu_xmlids") or [])
+        contextual_action_authorities = list(role_meta.get("contextual_action_authorities") or [])
+        admin_action_authorities = list(role_meta.get("admin_action_authorities") or [])
+        denied_action_authorities = list(role_meta.get("denied_action_authorities") or [])
         menu_blocklist_xmlids = list(role_meta.get("menu_blocklist_xmlids") or [])
         action_blocklist_xmlids = list(role_meta.get("action_blocklist_xmlids") or [])
         model_blocklist = list(role_meta.get("model_blocklist") or [])
@@ -309,6 +325,27 @@ class IdentityResolver:
             "landing_path": landing_path,
             "scene_candidates": scene_candidates,
             "menu_xmlids": menu_candidates,
+            "primary_menu_xmlids": primary_menu_xmlids,
+            "role_home_menu_xmlids": role_home_menu_xmlids,
+            "contextual_menu_xmlids": contextual_menu_xmlids,
+            "admin_menu_xmlids": admin_menu_xmlids,
+            "denied_menu_xmlids": denied_menu_xmlids,
+            "contextual_action_authorities": contextual_action_authorities,
+            "admin_action_authorities": admin_action_authorities,
+            "denied_action_authorities": denied_action_authorities,
+            "exposure_policy_declared": any(
+                field in role_meta
+                for field in (
+                    "primary_menu_xmlids",
+                    "role_home_menu_xmlids",
+                    "contextual_menu_xmlids",
+                    "admin_menu_xmlids",
+                    "denied_menu_xmlids",
+                    "contextual_action_authorities",
+                    "admin_action_authorities",
+                    "denied_action_authorities",
+                )
+            ),
             "menu_blocklist_xmlids": menu_blocklist_xmlids,
             "action_blocklist_xmlids": action_blocklist_xmlids,
             "model_blocklist": model_blocklist,
@@ -333,6 +370,27 @@ class IdentityResolver:
                 "role_label": role_meta.get("label") or role_code,
                 "scene_candidates": list(role_meta.get("landing_scene_candidates") or []),
                 "menu_xmlids": list(role_meta.get("menu_xmlids") or []),
+                "primary_menu_xmlids": list(role_meta.get("primary_menu_xmlids") or []),
+                "role_home_menu_xmlids": list(role_meta.get("role_home_menu_xmlids") or []),
+                "contextual_menu_xmlids": list(role_meta.get("contextual_menu_xmlids") or []),
+                "admin_menu_xmlids": list(role_meta.get("admin_menu_xmlids") or []),
+                "denied_menu_xmlids": list(role_meta.get("denied_menu_xmlids") or []),
+                "contextual_action_authorities": list(role_meta.get("contextual_action_authorities") or []),
+                "admin_action_authorities": list(role_meta.get("admin_action_authorities") or []),
+                "denied_action_authorities": list(role_meta.get("denied_action_authorities") or []),
+                "exposure_policy_declared": any(
+                    field in role_meta
+                    for field in (
+                        "primary_menu_xmlids",
+                        "role_home_menu_xmlids",
+                        "contextual_menu_xmlids",
+                        "admin_menu_xmlids",
+                        "denied_menu_xmlids",
+                        "contextual_action_authorities",
+                        "admin_action_authorities",
+                        "denied_action_authorities",
+                    )
+                ),
                 "menu_blocklist_xmlids": list(role_meta.get("menu_blocklist_xmlids") or []),
                 "action_blocklist_xmlids": list(role_meta.get("action_blocklist_xmlids") or []),
                 "model_blocklist": list(role_meta.get("model_blocklist") or []),

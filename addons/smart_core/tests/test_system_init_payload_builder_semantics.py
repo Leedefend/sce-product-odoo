@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import importlib.util
+import os
 import sys
 import types
 import unittest
@@ -33,6 +34,23 @@ target = _load_module(
 
 
 class TestSystemInitPayloadBuilderSemantics(unittest.TestCase):
+    def test_layered_contract_exposes_runtime_product_identity(self):
+        source_revision = "a" * 40
+        original = os.environ.get("SC_SOURCE_REVISION")
+        os.environ["SC_SOURCE_REVISION"] = source_revision
+        try:
+            payload = {"role_surface": {}}
+            target.SystemInitPayloadBuilder.attach_layered_contract(payload)
+        finally:
+            if original is None:
+                os.environ.pop("SC_SOURCE_REVISION", None)
+            else:
+                os.environ["SC_SOURCE_REVISION"] = original
+
+        expected_version = (Path(__file__).resolve().parents[3] / "VERSION").read_text(encoding="utf-8").strip()
+        self.assertEqual(payload["product_version"], expected_version)
+        self.assertEqual(payload["source_revision"], source_revision)
+
     def test_startup_payload_builder_declares_projection_source(self):
         source = target.SystemInitPayloadBuilder.source_authority_contract()
         payload = target.SystemInitPayloadBuilder.build_startup_surface(

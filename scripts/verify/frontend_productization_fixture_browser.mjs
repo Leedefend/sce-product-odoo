@@ -3,7 +3,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { launchChromium } from './playwright_runtime.mjs';
-import { findReleasedNavigationTarget } from './released_navigation_target.mjs';
+import {
+  findReleasedNavigationTargetById,
+  findReleasedNavigationTargetByMenuXmlid,
+} from './released_navigation_target.mjs';
 
 const BASE_URL = process.env.FRONTEND_URL || process.env.BASE_URL || 'http://127.0.0.1:18081';
 const DB_NAME = process.env.DB_NAME || '';
@@ -89,15 +92,6 @@ async function openAction(page, action) {
   }
 }
 
-async function openScene(page, sceneKey) {
-  await page.goto(`${BASE_URL}/s/${sceneKey}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
-  await page.locator('.layout-shell').waitFor({ timeout: 45000 });
-  await page.waitForFunction(() => {
-    const text = document.body.innerText || '';
-    return !text.includes('正在加载页面') && !text.includes('正在加载场景');
-  }, null, { timeout: 45000 });
-}
-
 async function bodyText(page) {
   return page.locator('body').innerText();
 }
@@ -168,7 +162,7 @@ async function main() {
     requireCheck(/payment\.request|付款|支付/.test(financeNavText), 'finance payment navigation was removed');
     requireCheck(/sc\.settlement\.order|结算/.test(financeNavText), 'finance settlement navigation was removed');
     requireCheck(PAYMENT_ACTION_ID > 0 && PAYMENT_MENU_ID >= 0, 'fixture payment action context was not provided');
-    const releasedPayment = findReleasedNavigationTarget(financeNav, 'smart_construction_core.action_payment_request');
+    const releasedPayment = findReleasedNavigationTargetById(financeNav, PAYMENT_ACTION_ID, PAYMENT_MENU_ID);
     requireCheck(releasedPayment, 'released payment navigation target was not delivered');
     const paymentAction = { actionId: releasedPayment.action_id, menuId: releasedPayment.menu_id };
     await openAction(finance, paymentAction);
@@ -225,7 +219,12 @@ async function main() {
     fs.writeFileSync(path.join(OUTPUT_DIR, 'project-member-authority-nav.json'), `${JSON.stringify(memberNav, null, 2)}\n`);
     const memberSensitiveMatch = memberNavText.match(/财务中心|税务中心|人事行政|薪资福利|付款管理|结算管理|payment\.request|sc\.payment\.execution|sc\.settlement\.order/);
     requireCheck(!memberSensitiveMatch, `project member authority navigation contains sensitive entry: ${memberSensitiveMatch?.[0] || 'unknown'}`);
-    await openScene(member, 'projects.list');
+    const releasedProjectList = findReleasedNavigationTargetByMenuXmlid(
+      memberNav,
+      'smart_construction_core.menu_sc_project_project',
+    );
+    requireCheck(releasedProjectList, 'released project ledger navigation target was not delivered');
+    await openAction(member, { actionId: releasedProjectList.action_id, menuId: releasedProjectList.menu_id });
     await member.waitForFunction(() => (document.body.innerText || '').includes('FE Project A'), null, { timeout: 45000 });
     const memberText = await bodyText(member);
     requireCheck(memberText.includes('FE Project A'), 'project A member cannot see FE Project A');

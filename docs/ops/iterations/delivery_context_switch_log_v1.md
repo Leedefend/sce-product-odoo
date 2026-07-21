@@ -138,3 +138,89 @@ customer delivery evidence belongs in private customer or payload repositories.
 - Why Not Elsewhere: the receiver must not hold repository credentials, build code must not read the GitHub key, and GitHub must not become an independent write path
 - Blast Radius: one repository Ruleset, one write Deploy Key, one unprivileged mirror account, one oneshot/timer, the Gitee-only PR push guard, and fixed fresh-clone validation
 - System-bound verification: exact repository allowlist, exact SHA push, ancestor check, force-free negative tests, active Ruleset readback, unique write Deploy Key, worker-key denial, mirror-key access, idempotent timer execution, dual fresh clones, identical SHA/tree/branches/tags, and 12/12 release scans
+
+## 2026-07-20 — TENANT-RC-01 Pure Product Candidate
+
+- Branch: `release/tenant-rc-01-product-image`
+- Starting product commit: `db31271c286e3a898d8882242cac5c3940484a66`
+- Formal Product Layer: P4 release delivery tooling assembling the P0/P1 product set
+- Layer Target: immutable product image, formal lifecycle entry points, external customer package admission, isolated profile acceptance, and recovery evidence
+- Module: `make/release.mk`, `scripts/release`, `scripts/verify`, candidate Dockerfiles, and the frozen product module-set configuration
+- Reason: produce one customer-neutral image that can be installed and upgraded without hand-built module lists, while admitting customer modules and payloads only through a fail-closed external protocol
+- Standard vs User-Specific: the repository owns only the generic product and delivery protocol; synthetic payloads are test-only and `<PRIVATE_CUSTOMER_MODULE>` code/data remain in authorized private storage
+- Why Here / Why Not Elsewhere: image assembly and admission checks are P4 responsibilities; P0/P1 modules remain the product facts, and no customer semantics enter platform, industry, frontend, or low-code layers
+- Blast Radius: product module closure, production static assets, candidate container contents, isolated databases, external read-only mounts, release reports, and no production or 175GB attachment writes
+
+## 2026-07-20 — NAV-PRO-01 Product Navigation Exposure
+
+- Branch: `release/tenant-rc-01-product-image`
+- Starting product commit: `43a30985a4eb`
+- Formal Product Layer: P1 construction-product exposure policy, P0 generic authorization projection, P4 verification
+- Layer Target: matrix-derived primary navigation, contextual route authority, and fail-closed native-menu intersection
+- Module: `smart_construction_core`, `smart_core` delivery/identity services, shared frontend router/session, and NAV-PRO-01 audit/verification tooling
+- Reason: replace historical 70/80 menu-count assumptions with the 324-row authoritative role/menu matrix and expose only task- or journey-backed primary entries
+- Standard vs User-Specific: standard construction role policy; no customer identity, preference, payload, production data, or low-code override
+- Why Here: P1 owns role/menu product decisions, P0 owns identifier-only projection and contract transport, the frontend consumes the delivered authority without inferring business semantics, and P4 proves the result
+- Why Not Elsewhere: platform code must not encode construction roles or XML-ID sets, the frontend must not infer authorization from labels/models, customer modules must not repair the standard product, and ops scripts must not become runtime policy
+- Blast Radius: four formal roles, 138 authorized role/menu assignments, 31 primary/home assignments, 100 contextual assignments, 7 explicit denials, two stale legacy action domains, shared route admission, and no ACL or record-rule expansion
+- Validation: deterministic matrix regeneration, Python syntax, frontend lint/strict typecheck, Odoo role-surface tests, native visibility, HTTP contract/data probes, browser primary/contextual navigation smoke, and zero HTTP 5xx
+- Browser closure: contextual authorities carry native action metadata and seed `currentAction` before route rendering, preventing an async metadata transition from trapping hidden contextual actions in a blank-page render loop while keeping those menus out of the primary tree.
+- RC gate closure: replace the stale 70/80-leaf page-audit constants with the NAV-PRO-01 primary/home denominator (finance 10, project member 7, PM 10, owner 4; total 31). The audit accepts both demo and fixture login prefixes but fails closed on unknown roles, while the tenant RC verifier requires the exact four fixture-role counts and 31/31 identity/reachability evidence.
+- RC journey closure: J02 proves the released payment entry by exact database-exported action/menu IDs because the wire navigation does not carry action XML-IDs. RC page-identity evidence remains external under `CANDIDATE_ARTIFACTS`; the runner no longer rewrites the repository's versioned demo inventory.
+- J03 scope closure: the project-member journey opens the released project-ledger action resolved from `menu_sc_project_project`, rather than bypassing the primary navigation contract through the legacy `/s/projects.list` scene route.
+- Shared acceptance closure: page identity, financial workspace, My Work, delivery hardening, and core-form journeys resolve released targets by stable menu XML-ID and consume the delivered action/menu IDs. Runtime target exporters use the menu's formal action directly instead of substituting the retired generic payment action.
+### 2026-07-21 — RC runtime mutable-fixture isolation
+
+- Continued the tenant RC runtime gate after navigation-target alignment.
+- Root cause for the J07 failure: J06 submitted the same `FE-JOURNEY-PAYMENT-001` row that J07 subsequently expected to remain in draft.
+- Added a dedicated J06 settlement/payment-request pair and kept J07 on its original deterministic row. This is acceptance-fixture isolation only; no production domain, permission, or workflow semantics changed.
+- J07 then passed and exposed a separate J08 navigation-contract defect: the settlement entry action carried the payment action with the settlement menu context, which the released navigation authority correctly denied.
+- Corrected the projected entry route to use the released payment menu and that menu's own action. This changes P1 navigation context only; it does not change create ACLs, finance capability checks, defaults, or payment workflow semantics.
+- Updated the FE-B05 static guard from the retired native-dialog ref marker to the current shared `ScDialog` open-state marker; the guard continues to assert confirmation behavior without pinning an obsolete implementation detail.
+- On the rebuilt candidate, J08 reached the authorized create form and exposed duplicate native field projections. Scoped the browser assertions to the first rendered project/contract/settlement field instance; no form values or production rendering behavior changed.
+- The next rebuilt-candidate J08 run confirmed that the payment request form consistently projects multiple amount inputs as well. Scoped the post-refresh amount assertion to the first rendered projection so Playwright strict mode does not reject equivalent field instances.
+- The following J08 run completed create/save/refresh/submit, then exposed that the shell's empty-menu guard hid `/my-work` from the executive approval role even though My Work is a shell-native route. Allowed the My Work route and its scene alias to render with an empty menu tree; backend approval capabilities, record rules, and menu authority remain unchanged.
+- With the shell route fixed, J08 reached the executive decision and exposed a split authority check: the intent handler and approval policy admitted executive/finance-approver roles while `payment.request` admitted only the finance-manager capability. Aligned the model guard to the same three explicit approval authorities and added negative coverage for ordinary internal users; record scope and workflow prerequisites remain unchanged.
+- After J07/J08 passed, J10 exposed a fixture sequencing collision: J07 had already submitted the draft record that J10 expected in the todo section. Added a dedicated draft payment request for delivery-hardening journeys and made the browser assertions consume its exported display identity, isolating J09-J11 from prior workflow mutations.
+- The isolated J09-J11 record passed the prior collision point; the responsive matrix then hit the same repeated amount-field projection already observed in J08. Scoped every delivery-hardening amount readiness probe to the first equivalent projection, including the optional accessibility and performance paths.
+- The rebuilt candidate passed J09-J11 with all 72 responsive checks and zero blocking accessibility findings, then exposed that J12 pinned the retired merged contract menu XML-ID. The contract operator's released tree still exposes the same authoritative contract action through its role-projected entry, so J12 now resolves that delivered action/menu pair by action XML-ID; payment journeys retain exact menu XML-ID selection where multiple payment entries share an action.
+- The action-based probe then confirmed that release-navigation wire nodes intentionally omit action XML-IDs. J12 now selects the contract operator's actual primary `menu_sc_contract_center` node by menu XML-ID and consumes its delivered numeric action/menu pair; it no longer depends on either the retired child menu or absent wire action metadata.
+- J12 then passed its dirty guard, save, and authoritative reload checks. J13 exposed one final fixture collision: the existing-record conflict scenario reused the J06 payment request after J06 had submitted it, leaving no editable amount input. Added a dedicated draft core-form request and exported it separately so J13 conflict recovery is isolated from financial-workspace and approval mutations.
+
+## 2026-07-21 — NAV-PRO-01R Explicit Route Authority
+
+- Branch: `release/tenant-rc-01-product-image`
+- Starting product commit: `2d9d187d391cfe2c1c6e085a0a96ba6d27f20793`
+- Formal Product Layer: P0 generic route-authority transport/runtime enforcement, P1 construction role policy, shared frontend consumer, and P4 verification
+- Layer Target: one fail-closed `route_authority.v1` contract separating `PRIMARY_NAV`, `ROLE_HOME_ACTION`, `CONTEXTUAL_ROUTE`, `ADMIN_ROUTE`, and `DENIED`
+- Module: `smart_core` identity/delivery/intent handlers, `smart_construction_core` policy declarations, frontend session/router/shell, and NAV-PRO-01R verification tooling
+- Reason: backend execution permission alone does not authorize a frontend page; administrator-only and context-only pages require explicit, stable route authority without entering the business menu tree
+- Standard vs User-Specific: generic product mechanism plus standard construction role declarations; no customer model, payload, login identity, production record, attachment, or private module enters the contract
+- Why Here: P1 declares role/action XML-IDs and context requirements, P0 intersects declarations with native visibility and model ACLs and validates record scope, and the frontend consumes only the delivered principal-scoped authority
+- Why Not Elsewhere: the frontend must not infer authorization from numeric IDs, labels, models, usernames, roles, menus, or successful data requests; test tooling must not become runtime policy
+- Blast Radius: system/configuration administrator access to the existing user-and-role page, PM access to the existing contract-income-execution relation route, session/context/policy-refresh cache invalidation, and no ACL, record-rule, workflow, amount, status, or primary-navigation expansion
+- Validation: route-authority unit and policy split guards, 13 Odoo post-tests, 31/31 primary browser regression, 100/100 contextual contract checks, administrator and context direct-route browser probes, four-role administrator denial, cross-company/project/contract denial, zero unauthorized page-data requests, zero HTTP 500, production frontend build, and repository diff checks
+- New-image runtime correction: J08 proved that the valid shell-only `executive` role received an empty principal scope when it intentionally declared no action exposure. The contract now binds an empty action/menu set to the authenticated user, company, and role, allowing session bootstrap without granting any implicit route; backend and frontend regressions reject every mismatched principal.
+
+## 2026-07-21 — TENANT-RC-01B1 Product Payload Boundary
+
+- Branch: `release/tenant-rc-01-product-image`
+- Starting product commit: `2d9d187d391cfe2c1c6e085a0a96ba6d27f20793`
+- Formal Product Layer: P4 generic external tenant-package admission and RC profile execution
+- Layer Target: remove fixed tenant identity while retaining fail-closed, signed, manifest-declared external add-on and payload admission
+- Module: product lifecycle, authorized payload exporter, generic RC profile runner, package preflight, repository boundary Guard, and their negative tests
+- Reason: a product repository and candidate image must understand only the external tenant-package protocol, never a named tenant, fixed archive, fixed snapshot, or module inferred from a local prefix scan
+- Standard vs User-Specific: only generic schema, signature, compatibility, checksum, module-set, extraction, and zero-write admission behavior remain; every tenant value and private profile stays outside the product repository
+- Why Here / Why Not Elsewhere: P4 owns package admission and release orchestration; customer identities and execution profiles belong to signed external manifests or private delivery storage, not product code or public history
+- Blast Radius: five existing boundary findings, one narrowly scoped negative-test allowance, lifecycle module counting from the signed declaration, and no product ACL, business data, production database, attachment, or customer payload mutation
+- Validation: fixed module/tenant/archive rejection, signed arbitrary module admission, tampered signature rejection, missing-manifest pre-I/O failure, redacted logs, generic-prefix placeholder allowance, release tooling tests, and product payload boundary Guard
+
+## 2026-07-21 — REL-VERSION-01M Product Release Baseline
+
+- Branch: `release/tenant-rc-01-product-image`
+- Formal Product Layer: P4 release identity, immutable image metadata, external customer-package compatibility admission, and runtime information projection
+- Layer Target: one repository `VERSION` source feeding release configuration, OCI labels/tags, runtime identity, customer compatibility, SBOM-linked release manifest, and lightweight release gates
+- Scope Boundary: no database release ledger, schema field, workflow/state change, customer identity, private package content, production write, attachment mutation, or deployment
+- Runtime Contract: `system.init` exposes only `product_version` and `source_revision`; the frontend system HUD reads both without exposing internal paths or environment variables
+- Build Contract: one versioned source SHA produces the human version tag and short-SHA tag in one Docker build; deployment remains digest-addressed and save/remove/load must preserve both tags and the image ID
+- Customer Compatibility: the signed external manifest declares an inclusive minimum, exclusive maximum, and required generic contracts; incompatibility fails before archive extraction or database access

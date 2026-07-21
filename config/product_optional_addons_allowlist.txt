@@ -1,0 +1,5 @@
+# Product-owned modules packaged for an existing database that already has
+# them installed. They are not part of the default product installation set.
+# Customer, demo, fixture and tenant payload modules remain forbidden.
+smart_owner_core
+smart_owner_bundle

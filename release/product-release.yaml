@@ -1,0 +1,9 @@
+product: sce-product
+version_source: VERSION
+odoo_series: "17.0"
+
+contracts:
+  tenant_payload: tenant_payload_v1
+  route_authority: route_authority.v1
+
+customer_package_api: v1

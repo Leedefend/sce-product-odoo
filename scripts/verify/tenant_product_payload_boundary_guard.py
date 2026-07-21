@@ -42,6 +42,17 @@ CUSTOMER_IDENTITY_TOKENS = ("baosheng", "builderp", "scbsly", "scbs55", "scbs_55
 NEGATIVE_POLICY_FILES = {
     "config/security/repository_clean_history_policy.v1.json",
     "scripts/verify/tenant_product_payload_boundary_guard.py",
+    "scripts/verify/test_tenant_product_payload_boundary_guard.py",
+}
+FIXED_IDENTIFIER_RULES = {
+    "customer_identity_or_brand_reference",
+    "confirmed_customer_external_identifier",
+    "non_example_legal_company_identity",
+}
+PAYLOAD_FILE_RULES = {
+    "tracked_customer_payload_path",
+    "tenant_specific_customer_addon_in_product_tree",
+    "tracked_payload_or_archive",
 }
 
 
@@ -90,6 +101,40 @@ def is_tenant_reference_scope(relative: str) -> bool:
             "config/",
         )
     )
+
+
+def classify_file(relative: str, content: str | None) -> list[tuple[str, str]]:
+    findings: list[tuple[str, str]] = []
+    lowered = relative.lower()
+    if relative.startswith(FORBIDDEN_PREFIXES):
+        findings.append(("tracked_customer_payload_path", relative))
+    if CUSTOMER_ADDON_DIR.search(relative):
+        findings.append(("tenant_specific_customer_addon_in_product_tree", relative))
+    if lowered.endswith(ARCHIVE_SUFFIXES):
+        findings.append(("tracked_payload_or_archive", relative))
+    if content is None:
+        return findings
+    identity_surface = f"{relative}\n{content}".lower()
+    if relative not in NEGATIVE_POLICY_FILES and any(
+        token in identity_surface for token in CUSTOMER_IDENTITY_TOKENS
+    ):
+        findings.append(("customer_identity_or_brand_reference", relative))
+    if LEGACY_EXTERNAL_ID.search(content):
+        findings.append(("confirmed_customer_external_identifier", relative))
+    for match in LEGAL_COMPANY.finditer(content):
+        if not any(marker in match.group(0) for marker in ("示例", "某某")):
+            findings.append(("non_example_legal_company_identity", relative))
+            break
+    if is_runtime_scope(relative) and relative not in NEGATIVE_POLICY_FILES:
+        if any(token in content for token in CUSTOMER_RUNTIME_TOKENS):
+            findings.append(("runtime_customer_module_reference", relative))
+        if (
+            is_tenant_reference_scope(relative)
+            and "sce_customer_" in content
+            and not any(marker in content for marker in PLACEHOLDER_MARKERS)
+        ):
+            findings.append(("runtime_tenant_specific_module_reference", relative))
+    return findings
 
 
 def customer_module_dependencies(errors: list[tuple[str, str]]) -> None:
@@ -144,38 +189,17 @@ def main() -> int:
     files = tracked_files()
     for path in files:
         relative = str(path.relative_to(ROOT))
-        lowered = relative.lower()
-        if relative.startswith(FORBIDDEN_PREFIXES):
-            errors.append(("tracked_customer_payload_path", relative))
-        if CUSTOMER_ADDON_DIR.search(relative):
-            errors.append(("tenant_specific_customer_addon_in_product_tree", relative))
-        if lowered.endswith(ARCHIVE_SUFFIXES):
-            errors.append(("tracked_payload_or_archive", relative))
         content = text(path)
-        if content is None:
-            continue
-        if relative not in NEGATIVE_POLICY_FILES and any(
-            token in content.lower() for token in CUSTOMER_IDENTITY_TOKENS
-        ):
-            errors.append(("customer_identity_or_brand_reference", relative))
-        if LEGACY_EXTERNAL_ID.search(content):
-            errors.append(("confirmed_customer_external_identifier", relative))
-        for match in LEGAL_COMPANY.finditer(content):
-            if not any(marker in match.group(0) for marker in ("示例", "某某")):
-                errors.append(("non_example_legal_company_identity", relative))
-                break
-        if is_runtime_scope(relative) and relative not in NEGATIVE_POLICY_FILES:
-            if any(token in content for token in CUSTOMER_RUNTIME_TOKENS):
-                errors.append(("runtime_customer_module_reference", relative))
-            if (
-                is_tenant_reference_scope(relative)
-                and "sce_customer_" in content
-                and not any(marker in content for marker in PLACEHOLDER_MARKERS)
-            ):
-                errors.append(("runtime_tenant_specific_module_reference", relative))
+        errors.extend(classify_file(relative, content))
     customer_module_dependencies(errors)
     validate_interface(errors)
     validate_mount_boundary(errors)
+    fixed_paths = {path for rule, path in errors if rule in FIXED_IDENTIFIER_RULES}
+    payload_paths = {path for rule, path in errors if rule in PAYLOAD_FILE_RULES}
+    generic_errors = [item for item in errors if item[0] not in FIXED_IDENTIFIER_RULES | PAYLOAD_FILE_RULES]
+    print(f"FIXED_CUSTOMER_IDENTIFIERS={len(fixed_paths)}")
+    print(f"CUSTOMER_PAYLOAD_FILES={len(payload_paths)}")
+    print(f"GENERIC_TENANT_PROTOCOL={'PASS' if not generic_errors else 'FAIL'}")
     if errors:
         print("[tenant_product_payload_boundary_guard] FAIL", file=sys.stderr)
         for rule, path in sorted(set(errors)):

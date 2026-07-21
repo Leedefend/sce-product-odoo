@@ -132,7 +132,7 @@ async function j13(page) {
   await firstError.click();
   check(await amount.evaluate((node) => node === document.activeElement), 'J13 error summary did not focus amount');
 
-  await page.goto(`${BASE_URL}${formRoute(TARGETS.journey_request)}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  await page.goto(`${BASE_URL}${formRoute(TARGETS.core_form_request)}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
   await waitForm(page);
   const existingAmount = page.locator('[data-field-name="amount"] input').first();
   await existingAmount.waitFor({ timeout: 30000 });
@@ -157,7 +157,7 @@ async function j13(page) {
 }
 
 async function main() {
-  check(TARGETS.contract?.record_id > 0 && TARGETS.settlement?.record_id > 0 && TARGETS.journey_request?.record_id > 0, 'missing J12/J13 targets');
+  check(TARGETS.contract?.record_id > 0 && TARGETS.settlement?.record_id > 0 && TARGETS.core_form_request?.record_id > 0, 'missing J12/J13 targets');
   const browser = await launchChromium({ headless: true });
   const report = { schema_version: 'frontend_core_record_form_journeys.v1', database: DB_NAME, j12: {}, j13: {}, runtime: {}, pass: false };
   try {
@@ -174,7 +174,7 @@ async function main() {
       applyReleasedNavigationTarget(
         TARGETS,
         ['contract'],
-        await releasedNavigation.target(TARGETS.contract.action_xmlid),
+        await releasedNavigation.targetByMenuXmlid('smart_construction_core.menu_sc_contract_center'),
       );
       report.j12 = await j12(page);
       await context.close();
@@ -187,8 +187,8 @@ async function main() {
       await login(page, 'fixture_role_finance');
       applyReleasedNavigationTarget(
         TARGETS,
-        ['payment_request', 'journey_request'],
-        await releasedNavigation.target('smart_construction_core.action_payment_request'),
+        ['payment_request', 'core_form_request'],
+        await releasedNavigation.targetByMenuXmlid(TARGETS.payment_request.menu_xmlid),
       );
       report.j13 = await j13(page);
       await page.screenshot({ path: path.join(OUTPUT, 'j13-recovered-390x844.png'), fullPage: true });

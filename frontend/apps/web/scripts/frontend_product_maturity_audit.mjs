@@ -19,10 +19,19 @@ const viewports = [{ width: 1440, height: 900 }, { width: 1280, height: 800 }, {
 const maxSurfacesPerRole = Number(process.env.AUDIT_MAX_SURFACES || 0);
 const actionXmlids = JSON.parse(process.env.FRONTEND_PAGE_IDENTITY_ACTION_XMLIDS_JSON || '{}');
 const writeAction = /新建|创建|保存|提交|审批|删除|撤销|登记|确认|导入|发布|重置|编辑/i;
+const expectedLeafCountsByRole = {
+  finance: 10,
+  project_a_member: 7,
+  pm: 10,
+  owner: 4,
+};
 
 fs.mkdirSync(outputDir, { recursive: true });
 
 function csvCell(value) { return `"${String(value ?? '').replaceAll('"', '""')}"`; }
+function roleCode(login) {
+  return String(login || '').replace(/^(?:demo|fixture)_role_/, '');
+}
 function pageType(url, mode, text) {
   if (url.includes('/login')) return 'login';
   if (mode === 'list' || /列表|搜索结果/.test(text)) return 'list';
@@ -247,11 +256,12 @@ async function main() {
     fs.mkdirSync(path.dirname(inventoryPath), { recursive: true });
     fs.writeFileSync(inventoryPath, inventoryCsv);
   }
-  const expectedLeafCounts = { demo_role_finance: 42, demo_role_project_a_member: 9, demo_role_pm: 14, demo_role_owner: 5 };
-  const pass = roles.every((role) => leafCounts[role] === expectedLeafCounts[role])
-    && normalized.length === 70
-    && summary.reachable === 70
-    && summary.identity_pass === 70
+  const expectedLeafCounts = Object.fromEntries(roles.map((role) => [role, expectedLeafCountsByRole[roleCode(role)]]));
+  const expectedTotal = Object.values(expectedLeafCounts).reduce((sum, count) => sum + Number(count || 0), 0);
+  const pass = roles.every((role) => Number.isInteger(expectedLeafCounts[role]) && leafCounts[role] === expectedLeafCounts[role])
+    && normalized.length === expectedTotal
+    && summary.reachable === expectedTotal
+    && summary.identity_pass === expectedTotal
     && summary.generic_business_action_title === 0
     && summary.technical_model_title === 0
     && summary.raw_id_title === 0

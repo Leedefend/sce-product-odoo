@@ -106,7 +106,11 @@ async function main() {
     runtime = captureRuntime(page);
     const releasedNavigation = captureReleasedNavigation(page);
     await login(page, 'fixture_role_finance');
-    applyReleasedNavigationTarget(TARGETS, ['draft', 'approval', 'reject', 'completed'], await releasedNavigation.target('smart_construction_core.action_payment_request'));
+    applyReleasedNavigationTarget(
+      TARGETS,
+      ['draft', 'approval', 'reject', 'completed'],
+      await releasedNavigation.targetByMenuXmlid(TARGETS.draft.menu_xmlid),
+    );
     resetRuntime(runtime);
 
     // J07: authoritative counts, detail round-trip, submit and company A/B/A invalidation.
@@ -148,9 +152,9 @@ async function main() {
     await page.locator('.financial-workspace[data-workspace-kind="settlement"]').waitFor({ timeout: 45000 });
     await page.getByRole('button', { name: '新建付款申请' }).click();
     await page.waitForURL((url) => /\/(?:r|f)\/payment\.request\/new$/.test(url.pathname), { timeout: 45000 });
-    const projectField = page.locator('[data-field-name="project_id"]');
-    const contractField = page.locator('[data-field-name="contract_id"]');
-    const settlementField = page.locator('[data-field-name="settlement_id"]');
+    const projectField = page.locator('[data-field-name="project_id"]').first();
+    const contractField = page.locator('[data-field-name="contract_id"]').first();
+    const settlementField = page.locator('[data-field-name="settlement_id"]').first();
     await projectField.waitFor({ timeout: 45000 });
     await page.waitForFunction(() => {
       const project = document.querySelector('[data-field-name="project_id"]')?.textContent || '';
@@ -174,7 +178,7 @@ async function main() {
     const createdHeading = (await page.locator('h1.headline').innerText()).trim();
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 });
     await page.locator('.financial-workspace[data-workspace-kind="payment_request"]').waitFor({ timeout: 45000 });
-    check((await page.locator('[data-field-name="amount"] input').inputValue()).includes('10'), 'J08 saved amount did not recover');
+    check((await page.locator('[data-field-name="amount"] input').first().inputValue()).includes('10'), 'J08 saved amount did not recover');
     const fileInput = page.locator('input[type="file"]').first();
     if (await fileInput.count()) await fileInput.setInputFiles({ name: 'fe-b05.txt', mimeType: 'text/plain', buffer: Buffer.from('FE-B05 form journey') });
     const submit = page.locator('.template-page-header-actions button').filter({ hasText: /^提交$/ }).first();

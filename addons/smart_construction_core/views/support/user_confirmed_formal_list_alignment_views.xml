@@ -217,9 +217,9 @@
     </record>
 
     <record id="action_construction_contract_expense_execution" model="ir.actions.act_window">
-        <field name="view_id" ref="smart_construction_core.view_construction_contract_expense_execution_acceptance_aligned_tree"/>
-        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'tree', 'view_id': ref('smart_construction_core.view_construction_contract_expense_execution_acceptance_aligned_tree')}), (0, 0, {'view_mode': 'form', 'view_id': ref('smart_construction_core.view_construction_contract_expense_form')})]"/>
-        <field name="domain">[('legacy_contract_id', 'ilike', 'direct_acceptance:expense_contract:%')]</field>
-        <field name="context">{'default_type': 'in', 'create': False}</field>
+        <field name="view_id" ref="smart_construction_core.view_construction_contract_expense_tree"/>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'tree', 'view_id': ref('smart_construction_core.view_construction_contract_expense_tree')}), (0, 0, {'view_mode': 'form', 'view_id': ref('smart_construction_core.view_construction_contract_expense_form')})]"/>
+        <field name="domain">['&amp;', '&amp;', ('business_category_id.code', '=', 'contract.expense'), ('state', 'in', ['confirmed', 'running']), ('subject', 'not ilike', '结算')]</field>
+        <field name="context">{'default_type': 'in', 'default_business_category_code': 'contract.expense'}</field>
     </record>
 </odoo>

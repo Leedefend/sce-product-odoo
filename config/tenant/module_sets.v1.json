@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "product_modules": [
+    "sc_norm_engine",
     "smart_construction_bootstrap",
     "smart_core",
     "smart_scene",
@@ -8,12 +9,11 @@
     "smart_construction_portal",
     "smart_construction_scene",
     "smart_license_core",
-    "smart_owner_core",
-    "smart_owner_bundle",
     "smart_construction_bundle",
     "smart_construction_seed"
   ],
   "demo_modules": [
+    "sc_norm_engine",
     "smart_construction_bootstrap",
     "smart_core",
     "smart_scene",
@@ -21,13 +21,12 @@
     "smart_construction_portal",
     "smart_construction_scene",
     "smart_license_core",
-    "smart_owner_core",
-    "smart_owner_bundle",
     "smart_construction_bundle",
     "smart_construction_seed",
     "smart_construction_demo"
   ],
   "acceptance_modules": [
+    "sc_norm_engine",
     "smart_construction_bootstrap",
     "smart_core",
     "smart_scene",
@@ -35,8 +34,6 @@
     "smart_construction_portal",
     "smart_construction_scene",
     "smart_license_core",
-    "smart_owner_core",
-    "smart_owner_bundle",
     "smart_construction_bundle",
     "smart_construction_seed",
     "smart_construction_acceptance_fixture"

@@ -164,7 +164,11 @@ async function main() {
     // J05 runs entirely as finance over its existing contract/settlement/payment authority.
     const releasedNavigation = captureReleasedNavigation(page);
     await login(page, 'fixture_role_finance');
-    applyReleasedNavigationTarget(TARGETS, ['payment_request', 'payment_request_company_b', 'journey_request'], await releasedNavigation.target('smart_construction_core.action_payment_request'));
+    applyReleasedNavigationTarget(
+      TARGETS,
+      ['payment_request', 'payment_request_company_b', 'journey_request'],
+      await releasedNavigation.targetByMenuXmlid(TARGETS.payment_request.menu_xmlid),
+    );
     runtime = captureRuntime(page);
     resetRuntime(runtime);
     await openWorkspace(page, TARGETS.settlement, 'settlement');
@@ -208,7 +212,7 @@ async function main() {
     }
     check(await page.locator('.template-page-header-actions button').filter({ hasText: /^提交$/ }).count() === 0, 'J06 submit action remained after authoritative reload');
     check((await page.locator('[role="status"]').allTextContents()).some((text) => /成功|完成|提交/.test(text)), 'J06 success feedback missing');
-    await follow(page, 'settlement', 'FE-JOURNEY-SETTLEMENT-001', 'settlement');
+    await follow(page, 'settlement', 'FE-J06-SETTLEMENT-001', 'settlement');
     check((await page.locator('[data-fact-key="settlement_reserved"]').innerText()).includes('100.00'), 'J06 upstream reserved summary did not refresh');
     check((await page.locator('[data-fact-key="settlement_remaining"]').innerText()).includes('0.00'), 'J06 upstream remaining summary did not refresh');
     assertClean(runtime, 'J06');

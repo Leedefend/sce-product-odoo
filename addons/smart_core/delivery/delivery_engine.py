@@ -211,6 +211,8 @@ class DeliveryEngine:
             native_nav=native_nav if isinstance(native_nav, list) else [],
         )
         nav = self._normalize_delivery_nav_refs(nav)
+        contextual_routes = self.menu_service.build_contextual_routes(role_surface)
+        route_authority = self.menu_service.build_route_authority(role_surface)
         scenes = self.scene_service.build_entries(policy=policy, scenes=runtime.get("scenes") or [])
         capabilities = self.capability_service.build_entries(policy=policy, capabilities=runtime.get("capabilities") or [])
         nav_meta = self.menu_service.describe_nav(nav)
@@ -227,6 +229,8 @@ class DeliveryEngine:
             "edition_key": str(policy.get("edition_key") or "").strip(),
             "role_code": str(role_surface.get("role_code") or "").strip(),
             "nav": nav,
+            "contextual_routes": contextual_routes,
+            "route_authority_v1": route_authority,
             "scenes": scenes,
             "capabilities": capabilities,
             "product_policy": {

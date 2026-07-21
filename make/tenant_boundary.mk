@@ -1,4 +1,9 @@
-.PHONY: verify.tenant.product_legacy_boundary verify.tenant.customer_module_ownership verify.tenant.legacy_xmlid_boundary verify.tenant.product_fresh_install verify.tenant.boundary_q11_profile
+.PHONY: verify.product.release.version verify.tenant.product_legacy_boundary verify.tenant.customer_module_ownership verify.tenant.legacy_xmlid_boundary verify.tenant.product_fresh_install verify.tenant.boundary_q11_profile
+
+verify.product.release.version: guard.prod.forbid
+	python3 scripts/release/test_product_release.py
+	python3 scripts/verify/product_release_version_guard.py
+	python3 scripts/release/test_customer_package_preflight.py
 
 verify.tenant.product_legacy_boundary: guard.prod.forbid
 	python3 scripts/verify/tenant_product_legacy_boundary.py

@@ -490,10 +490,10 @@
         <field name="context">{'default_type': 'in', 'default_business_category_code': 'contract.expense'}</field>
     </record>
     <record id="action_construction_contract_income_construction" model="ir.actions.act_window">
-        <field name="view_id" ref="smart_construction_core.view_construction_contract_income_construction_user_confirmed_tree" />
-        <field name="view_ids" eval="[(5, 0, 0),             (0, 0, {'view_mode': 'tree', 'view_id': ref('smart_construction_core.view_construction_contract_income_construction_user_confirmed_tree')})         ]" />
-        <field name="domain">[('legacy_contract_id', 'ilike', 'direct_acceptance:construction_contract:%')]</field>
-        <field name="context">{'create': False, 'default_type': 'out', 'default_subject': '施工合同'}</field>
+        <field name="view_id" ref="smart_construction_core.view_construction_contract_income_tree" />
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'tree', 'view_id': ref('smart_construction_core.view_construction_contract_income_tree')}), (0, 0, {'view_mode': 'form', 'view_id': ref('smart_construction_core.view_construction_contract_income_form')})]" />
+        <field name="domain">[('business_category_id.code', '=', 'contract.income')]</field>
+        <field name="context">{'default_type': 'out', 'default_subject': '施工合同', 'search_default_visible_income': 1}</field>
     </record>
     <record id="action_sc_material_inbound" model="ir.actions.act_window">
         <field name="name">入库</field>
