@@ -37,11 +37,46 @@
                     <group>
                         <group string="组织归属">
                             <field name="company_id" string="所属公司" />
+                            <field name="company_ids" string="允许公司" widget="many2many_tags" options="{'no_create': True}" />
+                            <field name="employee_id" string="人员档案" readonly="1" />
+                            <field name="sc_personnel_department_id" />
+                            <field name="sc_personnel_job_id" />
+                            <field name="sc_personnel_active" />
+                            <button name="action_sc_ensure_employee_profile" type="object" string="建立人员档案" class="btn-secondary" invisible="employee_id" />
                         </group>
                         <group string="业务角色">
                             <field name="sc_user_role_group_ids" string="业务角色组" widget="many2many_tags" domain="[('sc_assignable_user_permission', '=', True)]" options="{'no_create': True, 'no_open': True}" />
                         </group>
                     </group>
+                    <notebook>
+                        <page string="头像与档案" name="sc_user_profile_documents">
+                            <group>
+                                <field name="image_1920" string="用户头像" widget="image" class="oe_avatar" />
+                            </group>
+                            <field name="sc_profile_document_ids" context="{'default_user_id': id, 'default_company_id': company_id}" nolabel="1">
+                                <tree editable="bottom" delete="0">
+                                    <field name="name" />
+                                    <field name="document_kind" />
+                                    <field name="company_id" />
+                                    <field name="file_name" />
+                                    <field name="file_data" filename="file_name" />
+                                    <field name="active" />
+                                    <field name="note" />
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="项目成员授权" name="sc_project_memberships">
+                            <field name="sc_project_member_assignment_ids" context="{'default_user_id': id}" nolabel="1">
+                                <tree editable="bottom" delete="0">
+                                    <field name="project_id" />
+                                    <field name="company_id" />
+                                    <field name="source" />
+                                    <field name="active" />
+                                    <field name="note" />
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
                 </sheet>
             </form>
         </field>

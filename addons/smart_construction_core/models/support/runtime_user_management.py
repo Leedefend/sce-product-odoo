@@ -149,6 +149,30 @@ class ResUsers(models.Model):
         return ids
 
     @api.model
+    def _sc_relational_ids_after_commands(self, commands, initial_ids=None):
+        ids = set(initial_ids or [])
+        if commands is None:
+            return ids
+        if isinstance(commands, (int, str)):
+            return {int(commands)}
+        for command in commands:
+            if isinstance(command, int):
+                ids.add(command)
+                continue
+            if not isinstance(command, (list, tuple)) or not command:
+                continue
+            op = int(command[0] or 0)
+            if op == 6 and len(command) > 2:
+                ids = {int(record_id) for record_id in command[2] if int(record_id or 0) > 0}
+            elif op == 4 and len(command) > 1 and int(command[1] or 0) > 0:
+                ids.add(int(command[1]))
+            elif op in (2, 3) and len(command) > 1:
+                ids.discard(int(command[1] or 0))
+            elif op == 5:
+                ids.clear()
+        return ids
+
+    @api.model
     def _sc_runtime_user_safe_vals(self, vals, existing_user=False):
         allowed_fields = {
             "login",
@@ -157,11 +181,31 @@ class ResUsers(models.Model):
             "phone",
             "email",
             "company_id",
+            "company_ids",
             "password",
+            "image_1920",
+            "sc_personnel_department_id",
+            "sc_personnel_job_id",
+            "sc_personnel_active",
         }
         safe_vals = {key: vals[key] for key in allowed_fields if key in vals}
         safe_vals["share"] = False
         safe_vals["sc_runtime_user_managed"] = True
+
+        allowed_company_ids = set(self.env.user.company_ids.ids)
+        initial_company_ids = set(existing_user.company_ids.ids) if existing_user else set()
+        target_company_ids = self._sc_relational_ids_after_commands(
+            vals.get("company_ids"), initial_ids=initial_company_ids
+        )
+        if target_company_ids - allowed_company_ids:
+            raise ValidationError(_("不能授予当前管理员公司范围之外的多公司权限。"))
+        company_id = int(vals.get("company_id") or (existing_user.company_id.id if existing_user else self.env.company.id))
+        if company_id not in allowed_company_ids:
+            raise ValidationError(_("所属公司必须位于当前管理员的公司范围内。"))
+        if "company_ids" in vals and company_id not in target_company_ids:
+            raise ValidationError(_("所属公司必须包含在用户的多公司访问范围内。"))
+        if not existing_user and "company_ids" not in vals:
+            safe_vals["company_ids"] = [(6, 0, [company_id])]
 
         role_commands = vals.get("sc_user_role_group_ids")
         if role_commands is None:

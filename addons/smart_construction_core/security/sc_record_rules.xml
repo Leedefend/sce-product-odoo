@@ -2061,5 +2061,30 @@
             <field name="groups" eval="[(4, ref('smart_construction_core.group_sc_cap_business_config_admin'))]"/>
         </record>
 
+        <record id="rule_sc_business_config_admin_project_member_assignment" model="ir.rule">
+            <field name="name">SC Business Config Admin - project member assignment company scope</field>
+            <field name="model_id" ref="model_sc_project_member_assignment"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="groups" eval="[(4, ref('smart_construction_core.group_sc_cap_business_config_admin'))]"/>
+        </record>
+
+        <record id="rule_sc_business_config_admin_user_profile_document" model="ir.rule">
+            <field name="name">SC Business Config Admin - user profile document company scope</field>
+            <field name="model_id" ref="model_sc_user_profile_document"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="groups" eval="[(4, ref('smart_construction_core.group_sc_cap_business_config_admin'))]"/>
+        </record>
+
+        <record id="rule_sc_internal_user_profile_document_own" model="ir.rule">
+            <field name="name">SC Internal User - own profile documents</field>
+            <field name="model_id" ref="model_sc_user_profile_document"/>
+            <field name="domain_force">[('user_id', '=', user.id), ('company_id', 'in', company_ids)]</field>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+            <field name="groups" eval="[(4, ref('smart_construction_core.group_sc_internal_user'))]"/>
+        </record>
+
     </data>
 </odoo>

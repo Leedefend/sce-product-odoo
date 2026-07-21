@@ -224,3 +224,15 @@ customer delivery evidence belongs in private customer or payload repositories.
 - Runtime Contract: `system.init` exposes only `product_version` and `source_revision`; the frontend system HUD reads both without exposing internal paths or environment variables
 - Build Contract: one versioned source SHA produces the human version tag and short-SHA tag in one Docker build; deployment remains digest-addressed and save/remove/load must preserve both tags and the image ID
 - Customer Compatibility: the signed external manifest declares an inclusive minimum, exclusive maximum, and required generic contracts; incompatibility fails before archive extraction or database access
+
+## 2026-07-21 — USER-MODULE-PRODUCT-CLOSURE-01
+
+- Branch: `release/tenant-rc-01-product-image`
+- Starting product commit: `a322a85fa76ada9879c5fc6ee9ff08083d564515`
+- Formal Product Layer: P1 construction-product user, personnel, organization, project-membership, and profile-document capability
+- Layer Target: close the standard product capability gaps without importing legacy profile, scope, staging, customer identity, or cross-database identifiers into runtime models
+- Module: `smart_construction_core`
+- Standard vs User-Specific: generic construction deployment capabilities only; historical identity selection and mappings remain external P4 evidence/data-owner inputs
+- Why Here / Why Not Elsewhere: every construction deployment needs governed personnel and project membership; these are not P0 platform semantics, customer preferences, frontend inference, or low-code configuration
+- Blast Radius: controlled `res.users`/`hr.employee` linkage, company-scoped employee maintenance, auditable project-member assignments backed by existing followers, scoped profile documents, runtime user views, and targeted permission/regression tests
+- Migration boundary: `sc.project.member.staging` and its 23,190 rows, 7,860 references, and 6,803 locators are archive-only; approved formal identity mappings never use old database auto-increment IDs

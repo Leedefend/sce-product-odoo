@@ -44,5 +44,6 @@ from . import organization_department
 from . import company_contractor_responsibility_context_mixin
 from . import partner_business_fact_line
 from . import runtime_user_management
+from . import formal_user_management
 from . import product_policy_sync
 from . import formal_list_contract_sync
