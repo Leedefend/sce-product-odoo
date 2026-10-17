@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "id": "FRONTEND-RH008-CLOSE-20261017",
+  "branch": "fix/clean-repository-ci-governance",
+  "status": "completed",
+  "baseline_sha": "5e5de74045498c6131fb2592f663253202881303",
+  "result_sha": "5f842296d51078400b3c6748f686834e53aa3e43",
+  "scope": [
+    ".agent/README.md",
+    ".agent/runs/FRONTEND-DISPATCH-ENTRY-20261017/run.json",
+    ".agent/active-runs.json",
+    "make/codex.mk",
+    ".runtime/frontend-rh008/"
+  ],
+  "environment": {
+    "kind": "offline",
+    "authority": "local unpublished commit amend and repository-local quick guards"
+  },
+  "checks": {
+    "remote_containment": {
+      "command": "git branch -r --contains 5e5de74045498c6131fb2592f663253202881303",
+      "result": "empty"
+    },
+    "local_quick": {
+      "target": "ci.local.quick",
+      "command": "make ci.local.quick"
+    },
+    "dispatch_entry": {
+      "target": "agent.dispatch.status",
+      "command": "make agent.dispatch.status"
+    }
+  },
+  "evidence": {
+    "preflight": {
+      "status": "passed",
+      "old_head": "5e5de74045498c6131fb2592f663253202881303",
+      "remote_contains_old_head": false
+    },
+    "amend": {
+      "status": "passed",
+      "old_head": "5e5de74045498c6131fb2592f663253202881303",
+      "new_head": "5f842296d51078400b3c6748f686834e53aa3e43",
+      "remote_contains_new_head": false,
+      "old_head_reachable": false
+    },
+    "local_quick_attempt1": {
+      "status": "blocked",
+      "exit_code": 2,
+      "observed_at": "2026-10-17T14:30:00Z",
+      "log": ".runtime/frontend-rh008/ci-local-quick.log",
+      "sha256": "005a5c369e4cf1639c394caa705974ae845ddaa7ec99d4d2989a20376508b07f",
+      "rh008_present": false,
+      "failure": "verify.menu_config_tree_editor.behavior: ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL Command \"esbuild\" not found"
+    },
+    "dependency_install": {
+      "status": "passed",
+      "target": "fe.install",
+      "exit_code": 0,
+      "observed_at": "2026-10-17T14:30:38Z",
+      "log": ".runtime/frontend-rh008/fe-install.log",
+      "sha256": "7f15cff35fef4d7ebdeedbc5f6c946d19b070bb835b1809e6c76ed5dea62cfd2"
+    },
+    "local_quick_attempt2": {
+      "status": "passed",
+      "exit_code": 0,
+      "observed_at": "2026-10-17T14:32:14Z",
+      "log": ".runtime/frontend-rh008/ci-local-quick-attempt2.log",
+      "sha256": "ef0826719d6c2b76287f172ea0de37597ea9d844b4ce917ed67a4724eec2e119",
+      "assertions": [
+        "RH008 absent",
+        "local quick gate passed"
+      ]
+    },
+    "dispatch_entry": {
+      "status": "passed",
+      "exit_code": 0,
+      "observed_at": "2026-10-17T14:32:26Z",
+      "log": ".runtime/frontend-rh008/status.json",
+      "format": "json",
+      "sha256": "c1f62442e4a7fdf3e1d3752016a66864d632cbd3f3a0261b8dfeb4abd3018e4c",
+      "assertions": [
+        "lanes.frontend == /home/lidefend/workspace/sce-product-odoo-clean-root",
+        "automatic_execution == false",
+        "FRONTEND-RH008-CLOSE-20261017 status == acknowledged"
+      ]
+    }
+  },
+  "blockers": [],
+  "next_exact_step": "Submit schema-2 close-out receipts within each prior task thread and keep automatic execution disabled."
+}

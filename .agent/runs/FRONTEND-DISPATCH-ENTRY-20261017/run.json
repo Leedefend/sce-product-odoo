@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "FRONTEND-DISPATCH-ENTRY-20261017",
+  "branch": "fix/clean-repository-ci-governance",
+  "status": "active",
+  "goal": ".agent/goals/FRONTEND-DISPATCH-ENTRY-20261017.yaml",
+  "record": ".agent/README.md",
+  "baseline_sha": "5e5de74045498c6131fb2592f663253202881303",
+  "scope": [
+    ".agent/active-runs.json",
+    ".agent/goals/FRONTEND-DISPATCH-ENTRY-20261017.yaml",
+    ".agent/runs/FRONTEND-DISPATCH-ENTRY-20261017/run.json",
+    "make/codex.mk"
+  ],
+  "environment": {
+    "kind": "offline",
+    "authority": "private dispatcher status readback; no product runtime writes"
+  },
+  "checks": {
+    "dispatch_entry": {
+      "target": "agent.dispatch.status",
+      "kind": "offline",
+      "inputs": [
+        "make/codex.mk"
+      ]
+    }
+  },
+  "evidence": {
+    "dispatch_entry": {
+      "status": "passed",
+      "target": "agent.dispatch.status",
+      "observed_at": "2026-10-17T13:39:42Z",
+      "log": ".runtime/frontend-dispatch-entry/status.json",
+      "format": "json",
+      "sha256": "14de88dbd6214643ad489f9b3a8e79524a64f9af223e94397c57b528481a951c",
+      "assertions": [
+        "lanes.frontend == /home/lidefend/workspace/sce-product-odoo-clean-root",
+        "automatic_execution == false"
+      ],
+      "note": "Re-executed make agent.dispatch.status during FRONTEND-DISPATCH-ENTRY-20261017; output parsed as JSON and both assertions passed."
+    }
+  },
+  "blockers": [],
+  "next_exact_step": "Submit a frontend receipt only when a concrete frontend task has a run and evidence; business executors remain paused."
+}
