@@ -1,6 +1,6 @@
 {
   "branches": {
-    "fix/clean-repository-ci-governance": ".agent/runs/FRONTEND-RH008-CLOSE-20261017/run.json"
+    "fix/clean-repository-ci-governance": ".agent/runs/FRONTEND-PUBLISH-20261017/run.json"
   },
   "schema_version": 1
 }

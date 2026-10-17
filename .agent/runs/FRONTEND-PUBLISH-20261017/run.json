@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "id": "FRONTEND-PUBLISH-20261017",
+  "branch": "fix/clean-repository-ci-governance",
+  "status": "in_progress",
+  "baseline_sha": "5f842296d51078400b3c6748f686834e53aa3e43",
+  "result_sha": null,
+  "scope": [
+    ".agent/",
+    "make/codex.mk",
+    ".runtime/frontend-publish/"
+  ],
+  "environment": {
+    "kind": "online",
+    "authority": "publish existing PR #1 branch after committing dispatch entry files only"
+  },
+  "checks": {
+    "commit_scope": {
+      "allowed_paths": [
+        ".agent/",
+        "make/codex.mk"
+      ],
+      "product_code_allowed": false
+    },
+    "clean_history_guard": {
+      "target": "ci.local.quick",
+      "command": "make ci.local.quick",
+      "requirement": "exit 0 and RH008 absent"
+    },
+    "dispatch_entry": {
+      "target": "agent.dispatch.status",
+      "command": "make agent.dispatch.status"
+    },
+    "publication": {
+      "remote": "git@github.com:Leedefend/sce-product-odoo.git",
+      "ref": "refs/heads/fix/clean-repository-ci-governance",
+      "force_push_allowed": false,
+      "new_pr_allowed": false
+    }
+  },
+  "evidence": {
+    "entry_commit": {
+      "sha": "6dc96f03599665d03f845607cf140107054e31ef",
+      "parent": "5f842296d51078400b3c6748f686834e53aa3e43",
+      "paths": [
+        ".agent/active-runs.json",
+        ".agent/goals/FRONTEND-DISPATCH-ENTRY-20261017.yaml",
+        ".agent/runs/FRONTEND-DISPATCH-ENTRY-20261017/run.json",
+        ".agent/runs/FRONTEND-ENTRY-VERIFY-20261017/run.json",
+        ".agent/runs/FRONTEND-RH008-CLOSE-20261017/run.json",
+        "make/codex.mk"
+      ],
+      "product_code_touched": false
+    },
+    "local_quick": {
+      "status": "passed",
+      "exit_code": 0,
+      "log": ".runtime/frontend-publish/ci-local-quick.log",
+      "sha256": "0b5710deae1d47e0af0b5dfbecf7a0cdf62660f92bc5fd9934086bda0dda7e6f",
+      "rh008_occurrences": 0,
+      "assertions": [
+        "[OK] local quick gate passed",
+        "RH008 absent"
+      ]
+    },
+    "dispatch_entry": {
+      "status": "passed",
+      "exit_code": 0,
+      "log": ".runtime/frontend-publish/status.json",
+      "format": "json",
+      "assertions": [
+        "lanes.frontend == /home/lidefend/workspace/sce-product-odoo-clean-root",
+        "automatic_execution == false"
+      ]
+    }
+  },
+  "blockers": [],
+  "next_exact_step": "Commit .agent/ ledger, push fast-forward to PR #1 branch, read back remote SHA and CI, then submit schema-2 receipt with execution_authorized=false."
+}
