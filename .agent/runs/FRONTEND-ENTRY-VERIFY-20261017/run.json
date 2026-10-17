@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "id": "FRONTEND-ENTRY-VERIFY-20261017",
+  "branch": "fix/clean-repository-ci-governance",
+  "status": "blocked",
+  "baseline_sha": "5e5de74045498c6131fb2592f663253202881303",
+  "scope": [
+    "make/codex.mk",
+    ".agent/",
+    ".runtime/frontend-dispatch-entry/"
+  ],
+  "environment": {
+    "kind": "offline",
+    "authority": "read-only dispatcher status and repository-local quick guards"
+  },
+  "checks": {
+    "dispatch_entry": {
+      "target": "agent.dispatch.status",
+      "kind": "offline",
+      "inputs": [
+        "make/codex.mk"
+      ]
+    },
+    "local_quick": {
+      "target": "ci.local.quick",
+      "kind": "offline",
+      "command": "make ci.local.quick"
+    }
+  },
+  "evidence": {
+    "dispatch_entry": {
+      "status": "passed",
+      "target": "agent.dispatch.status",
+      "exit_code": 0,
+      "observed_at": "2026-10-17T13:57:39Z",
+      "log": ".runtime/frontend-dispatch-entry/status-verify-20261017.json",
+      "format": "json",
+      "sha256": "68fe690ec9ac836e6bd3eb47ca18d469c4d166eee54ca3f83e594396feab4525",
+      "assertions": [
+        "lanes.frontend == /home/lidefend/workspace/sce-product-odoo-clean-root",
+        "automatic_execution == false",
+        "FRONTEND-ENTRY-VERIFY-20261017 status == acknowledged"
+      ],
+      "note": "Re-executed make agent.dispatch.status during this task; stdout parsed as pure JSON and stderr was empty."
+    },
+    "local_quick_attempt1": {
+      "status": "blocked",
+      "target": "ci.local.quick",
+      "exit_code": 2,
+      "observed_at": "2026-10-17T13:59:32Z",
+      "log": ".runtime/frontend-dispatch-entry/ci-local-quick-20261017.log",
+      "sha256": "e8f3fec9a8ed730437a3a70bf00eca58edb2a9cf235ec42ea74c1c76d29888b2",
+      "failure": "verify.tenant.product_payload_boundary: customer_identity_or_brand_reference in .agent/README.md",
+      "resolution": "Removed the concrete customer repository name from .agent/README.md."
+    },
+    "local_quick_attempt2": {
+      "status": "blocked",
+      "target": "ci.local.quick",
+      "exit_code": 2,
+      "observed_at": "2026-10-17T14:01:06Z",
+      "log": ".runtime/frontend-dispatch-entry/ci-local-quick-20261017-attempt2.log",
+      "sha256": "b82bd415c46e39894798fe116c1eb84e9770b123e8143585a537e46fbb2024ce",
+      "failure": "verify.repository.clean_history RH008 .agent/README.md@b5a7d2ce5f10 OLD_REPOSITORY_REFERENCE"
+    },
+    "clean_history_recheck": {
+      "status": "blocked",
+      "target": "verify.repository.clean_history",
+      "exit_code": 2,
+      "observed_at": "2026-10-17T14:03:48Z",
+      "log": ".runtime/frontend-dispatch-entry/verify-repository-clean-history-20261017.log",
+      "sha256": "2e584a5169a7fc270faaac80ff0d0c3ec37cd686d45274eae1ca1ffc0d3d29c5",
+      "failure": "RH008 path=.agent/README.md@b5a7d2ce5f10 classification=OLD_REPOSITORY_REFERENCE"
+    }
+  },
+  "blockers": [
+    "make ci.local.quick exited 2 at verify.repository.clean_history: RH008 .agent/README.md@b5a7d2ce5f10 OLD_REPOSITORY_REFERENCE; the forbidden token exists in a reachable historical blob, and this task forbids commit or history rewrite."
+  ],
+  "next_exact_step": "A repository owner must decide whether to clean the forbidden token from reachable history outside this task, then rerun make ci.local.quick."
+}

@@ -1,0 +1,6 @@
+schema_version: 1
+goal:
+  id: FRONTEND-DISPATCH-ENTRY-20261017
+  status: active
+  formal_product_layer: P4
+  objective: Register the frontend lane execution entry for the unified private dispatcher without product code changes
