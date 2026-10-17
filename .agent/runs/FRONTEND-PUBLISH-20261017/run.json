@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "FRONTEND-PUBLISH-20261017",
+  "branch": "fix/agent-dispatch-entry-20261017",
+  "status": "in_progress",
+  "baseline_sha": "aaad9e0",
+  "result_sha": null,
+  "scope": [
+    ".agent/",
+    "make/codex.mk",
+    ".runtime/frontend-publish/"
+  ],
+  "environment": {
+    "kind": "online",
+    "authority": "re-publish dispatch entrypoints on a fresh branch from origin/main; close superseded PR #1"
+  },
+  "checks": {
+    "commit_scope": {
+      "allowed_paths": [
+        ".agent/",
+        "make/codex.mk"
+      ],
+      "product_code_allowed": false
+    },
+    "clean_history_guard": {
+      "target": "ci.local.quick",
+      "command": "make ci.local.quick",
+      "requirement": "exit 0 and RH008 absent"
+    },
+    "dispatch_entry": {
+      "target": "agent.dispatch.status",
+      "command": "make agent.dispatch.status"
+    },
+    "publication": {
+      "base": "main",
+      "base_sha_at_start": "aaad9e0",
+      "remote": "git@github.com:Leedefend/sce-product-odoo.git",
+      "ref": "refs/heads/fix/agent-dispatch-entry-20261017",
+      "new_pr_required": true,
+      "force_push_allowed": false,
+      "merge_allowed": false,
+      "gitee_ci_files_allowed": false
+    }
+  },
+  "evidence": {
+    "ported_from_branch": "fix/clean-repository-ci-governance",
+    "ported_paths": [
+      ".agent/active-runs.json",
+      ".agent/goals/",
+      ".agent/runs/",
+      "make/codex.mk (agent.dispatch.status/submit/review only)"
+    ],
+    "excluded_paths": [
+      "scripts/ci/gitee_webhook_ci.py",
+      "scripts/ci/repository_clean_history_guard.py",
+      "docs/ops/clean_repository_ci_governance_v1.md",
+      "make/ci.mk (gitee changes)"
+    ],
+    "gitee_ci_files_present_on_main": true,
+    "local_quick": {
+      "status": "passed",
+      "exit_code": 0,
+      "log": ".runtime/frontend-publish/ci-local-quick-newbranch.log",
+      "sha256": "a23e796be21eb5bbfcbdba5aade40c10e3770b9876e0b997979836eccb376ebd",
+      "rh008_occurrences": 0,
+      "assertions": [
+        "[OK] local quick gate passed",
+        "RH008 absent"
+      ]
+    },
+    "dispatch_entry": {
+      "status": "passed",
+      "exit_code": 0,
+      "log": ".runtime/frontend-publish/status-newbranch.json",
+      "format": "json",
+      "sha256": "c1eb1d7960e9ec2b0df3cf582980c31f8b0316d38018de8e251194bd7b648b3c",
+      "assertions": [
+        "lanes.frontend == /home/lidefend/workspace/sce-product-odoo-clean-root",
+        "automatic_execution == false"
+      ]
+    }
+  },
+  "blockers": [
+    "github_actions_billing_lock: 远端 CI 无法运行，失败根因为 \"The job was not started because your account is locked due to a billing issue\""
+  ],
+  "next_exact_step": "Run local gates, push branch, open PR against main, close PR #1, then submit superseding schema-2 receipt."
+}

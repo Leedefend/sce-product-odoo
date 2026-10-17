@@ -1,0 +1,6 @@
+{
+  "branches": {
+    "fix/agent-dispatch-entry-20261017": ".agent/runs/FRONTEND-PUBLISH-20261017/run.json"
+  },
+  "schema_version": 1
+}

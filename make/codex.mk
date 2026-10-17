@@ -5,7 +5,21 @@ CODEX_ALLOWED_WRITE_BRANCH_REGEX := ^(feature|fix|refactor|audit|release|codex)/
 CODEX_ALLOWED_WRITE_BRANCH_PREFIXES := feature/* fix/* refactor/* audit/* release/* codex/*
 
 .PHONY: codex.fast codex.gate codex.print codex.pr codex.cleanup codex.sync-main codex.cli
+.PHONY: agent.dispatch.status agent.dispatch.submit agent.dispatch.review
 .PHONY: verify.gitee.webhook.ci gitee.ci.server.install gitee.ci.server.status
+
+AGENT_DISPATCH_ROOT ?= $(HOME)/workspace/.sce-dispatch
+AGENT_DISPATCH_LIB ?= $(AGENT_DISPATCH_ROOT)/lib/agent_dispatch_inbox.py
+
+agent.dispatch.status: guard.prod.forbid
+	@python3 "$(AGENT_DISPATCH_LIB)" --root "$(AGENT_DISPATCH_ROOT)" status
+
+agent.dispatch.submit: guard.prod.forbid
+	@python3 "$(AGENT_DISPATCH_LIB)" --root "$(AGENT_DISPATCH_ROOT)" submit --lane "$(DISPATCH_LANE)" --report "$(DISPATCH_REPORT)"
+
+agent.dispatch.review: guard.prod.forbid
+	@python3 "$(AGENT_DISPATCH_LIB)" --root "$(AGENT_DISPATCH_ROOT)" review-once
+
 .PHONY: gitee.github.mirror.install gitee.github.mirror.seed gitee.github.mirror.run
 .PHONY: github.mirror.ruleset.configure github.mirror.non_mirror_push.test
 .PHONY: gitee.pr.bot.create gitee.pr.bot.status gitee.pr.bot.merge
